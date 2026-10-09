@@ -1,0 +1,20 @@
+{
+  "name": "booyah-win",
+  "version": "1.0.0",
+  "private": true,
+  "workspaces": [
+    "packages/*",
+    "apps/*"
+  ],
+  "scripts": {
+    "build": "npm run build --workspaces",
+    "test": "npm run test --workspace=apps/api",
+    "seed:admin": "npm run seed:admin --workspace=apps/api",
+    "migrate:dev": "npm run migrate:dev --workspace=apps/api",
+    "migrate:test": "npm run migrate:test --workspace=apps/api",
+    "dev:api": "npm run dev --workspace=apps/api"
+  },
+  "devDependencies": {
+    "typescript": "^5.4.5"
+  }
+}
