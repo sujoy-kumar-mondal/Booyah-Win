@@ -267,3 +267,22 @@ When rotating credentials, follow the procedures below to avoid service interrup
 - **Sensitive Data Redaction**: Pino structured logger automatically redacts authorization headers, tokens, OTPs, passwords, PAN, Aadhaar, UPI IDs, and screenshot paths.
 - **Rate Limiting Architecture**: In-memory rate limiting state (`express-rate-limit`) is held in process memory, resets upon API server restarts, and assumes a single server instance (e.g. Render Web Service free tier). If horizontally scaling to multiple instances in the future, a Redis-backed rate limiter store (`rate-limit-redis`) should be configured.
 
+---
+
+## 10. User PWA Configuration & Content Security Policy (CSP)
+
+The User PWA (`apps/user-pwa`) uses Vite and requires two optional build-time variables:
+
+- `VITE_API_URL`: The backend API endpoint (e.g. `https://api.booyah.win`).
+- `VITE_API_ORIGIN`: The backend API origin used for Content Security Policy (`connect-src` and `img-src`).
+- `VITE_STORAGE_ORIGIN`: The Supabase or cloud storage origin for loading uploaded screenshots and signed payment QR codes (e.g. `https://xyz.supabase.co`).
+
+### Content Security Policy (CSP)
+The PWA enforces strict CSP rules:
+- `default-src 'self'`
+- `img-src 'self' blob: %VITE_API_ORIGIN% %VITE_STORAGE_ORIGIN%` (no wildcards, no `data:` unless needed)
+- `connect-src 'self' http://localhost:* ws://localhost:* https://*.render.com %VITE_API_ORIGIN%`
+- `object-src 'none'`
+- `base-uri 'self'`
+
+

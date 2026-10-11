@@ -7,6 +7,7 @@ import { Login } from './pages/Login.js';
 import { Register } from './pages/Register.js';
 import { Home } from './pages/Home.js';
 import { Profile } from './pages/Profile.js';
+import { Wallet } from './pages/Wallet.js';
 import { SessionReplacedModal } from './components/common/SessionReplacedModal.js';
 import { useSessionWatcher } from './hooks/useSessionWatcher.js';
 
@@ -37,15 +38,7 @@ export const App: React.FC = () => {
                 </div>
               }
             />
-            <Route
-              path="/wallet"
-              element={
-                <div className="py-12 text-center" data-testid="wallet-screen">
-                  <h2 className="text-lg font-bold text-slate-100">Wallet Management</h2>
-                  <p className="mt-1 text-xs text-slate-400">Add Money and Withdrawals will unlock in Milestone 9b.</p>
-                </div>
-              }
-            />
+            <Route path="/wallet" element={<Wallet />} />
           </Route>
         </Route>
 

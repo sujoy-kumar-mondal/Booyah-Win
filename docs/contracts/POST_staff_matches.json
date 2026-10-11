@@ -1,0 +1,26 @@
+{
+  "data": {
+    "match": {
+      "id": "7",
+      "tierId": "1",
+      "gameMode": "battle_royale",
+      "teamMode": "solo",
+      "entryFee": "20.00",
+      "killPrice": "10.00",
+      "minKillsForReward": 1,
+      "positionPrizes": {
+        "1": "300.00",
+        "2": "150.00",
+        "3": "50.00"
+      },
+      "maxPlayers": 48,
+      "minPlayers": 2,
+      "startTime": "2026-12-05T12:00:00.000Z",
+      "status": "upcoming",
+      "cancelReason": null,
+      "createdBy": "2",
+      "createdAt": "2026-10-11T10:32:32.969Z",
+      "joinedCount": 0
+    }
+  }
+}

@@ -1,0 +1,123 @@
+{
+  "data": {
+    "matches": [
+      {
+        "id": "2",
+        "gameMode": "battle_royale",
+        "teamMode": "duo",
+        "entryFee": "20.00",
+        "prizes": {
+          "positions": {
+            "1": "300.00"
+          },
+          "killPrice": "10.00",
+          "minKillsForReward": 1
+        },
+        "joinedPlayers": 1,
+        "seatsTaken": 2,
+        "maxPlayers": 48,
+        "minPlayers": 2,
+        "startTime": "2026-12-01T16:00:00.000Z",
+        "status": "live",
+        "hasJoined": true,
+        "isInTeam": true,
+        "roomId": "887766",
+        "roomPassword": "test-room-password"
+      },
+      {
+        "id": "3",
+        "gameMode": "clash_squad",
+        "teamMode": "squad",
+        "entryFee": "25.00",
+        "prizes": {
+          "positions": {
+            "1": "200.00"
+          },
+          "killPrice": "0.00",
+          "minKillsForReward": 0
+        },
+        "joinedPlayers": 1,
+        "seatsTaken": 4,
+        "maxPlayers": 8,
+        "minPlayers": 8,
+        "startTime": "2026-12-01T17:00:00.000Z",
+        "status": "upcoming",
+        "hasJoined": true,
+        "isInTeam": true
+      },
+      {
+        "id": "4",
+        "gameMode": "battle_royale",
+        "teamMode": "solo",
+        "entryFee": "20.00",
+        "prizes": {
+          "positions": {
+            "1": "300.00",
+            "2": "150.00",
+            "3": "50.00"
+          },
+          "killPrice": "10.00",
+          "minKillsForReward": 1
+        },
+        "joinedPlayers": 2,
+        "seatsTaken": 2,
+        "maxPlayers": 48,
+        "minPlayers": 2,
+        "startTime": "2026-12-01T18:00:00.000Z",
+        "status": "live",
+        "hasJoined": true,
+        "isInTeam": false,
+        "roomId": "998877",
+        "roomPassword": "test-room-password"
+      },
+      {
+        "id": "6",
+        "gameMode": "battle_royale",
+        "teamMode": "solo",
+        "entryFee": "20.00",
+        "prizes": {
+          "positions": {
+            "1": "300.00",
+            "2": "150.00",
+            "3": "50.00"
+          },
+          "killPrice": "10.00",
+          "minKillsForReward": 1
+        },
+        "joinedPlayers": 2,
+        "seatsTaken": 2,
+        "maxPlayers": 48,
+        "minPlayers": 2,
+        "startTime": "2026-12-01T20:00:00.000Z",
+        "status": "live",
+        "hasJoined": true,
+        "isInTeam": false,
+        "roomId": "334455",
+        "roomPassword": "test-room-password"
+      },
+      {
+        "id": "7",
+        "gameMode": "battle_royale",
+        "teamMode": "solo",
+        "entryFee": "20.00",
+        "prizes": {
+          "positions": {
+            "1": "300.00",
+            "2": "150.00",
+            "3": "50.00"
+          },
+          "killPrice": "10.00",
+          "minKillsForReward": 1
+        },
+        "joinedPlayers": 0,
+        "seatsTaken": 0,
+        "maxPlayers": 48,
+        "minPlayers": 2,
+        "startTime": "2026-12-05T12:00:00.000Z",
+        "status": "upcoming",
+        "hasJoined": false,
+        "isInTeam": false
+      }
+    ]
+  }
+}

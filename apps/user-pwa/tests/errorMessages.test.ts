@@ -32,4 +32,22 @@ describe('Error Code Message Table (Section 22 Coverage)', () => {
     expect(getUserFriendlyErrorMessage(null)).toBe(DEFAULT_ERROR_MESSAGE);
     expect(getUserFriendlyErrorMessage(undefined)).toBe(DEFAULT_ERROR_MESSAGE);
   });
+
+  it('Requirement 3 & 4: returns developer wording in dev mode and production wording in production mode for NETWORK_ERROR and NON_JSON_RESPONSE', () => {
+    // Development mode
+    expect(getUserFriendlyErrorMessage('NETWORK_ERROR', true)).toBe(
+      'Cannot reach the server. Check that the API is running.'
+    );
+    expect(getUserFriendlyErrorMessage('NON_JSON_RESPONSE', true)).toBe(
+      'The server sent an unexpected response.'
+    );
+
+    // Production mode
+    expect(getUserFriendlyErrorMessage('NETWORK_ERROR', false)).toBe(
+      "We couldn't reach the server. Please check your connection and try again."
+    );
+    expect(getUserFriendlyErrorMessage('NON_JSON_RESPONSE', false)).toBe(
+      "We couldn't reach the server. Please check your connection and try again."
+    );
+  });
 });

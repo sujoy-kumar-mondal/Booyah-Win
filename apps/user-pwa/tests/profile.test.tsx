@@ -5,28 +5,35 @@ import { Profile } from '../src/pages/Profile.js';
 import { AuthProvider } from '../src/context/AuthContext.js';
 import * as userApi from '../src/api/user.js';
 import { setStoredToken, ApiError } from '../src/api/client.js';
+import { getMeGuard } from '../src/api/guards.js';
+import { loadContractFixture } from './contractFixtures.js';
 
 describe('Requirement 8: Profile Edits (Changed Fields Only & Field Error Display)', () => {
-  const mockUser = {
-    id: '1',
-    email: 'player@example.com',
-    name: 'Player One',
-    mobile: '9876543210',
-    ffId: '11223344',
-    ffName: 'OldIGN',
-    upiId: 'player@upi',
-    dateOfBirth: '2000-01-01',
-    referralCode: 'REF999',
-    referredBy: null,
-    createdAt: '2026-10-01T00:00:00.000Z',
-  };
-
-  const mockWallets = {
-    addMoney: '50.00',
-    cashback: '10.00',
-    winning: '200.00',
-    total: '260.00',
-  };
+  const getMeFixture = (mutate?: (data: any) => void) =>
+    loadContractFixture('GET_api_v1_me.json', getMeGuard, 'GET /api/v1/me', (data) => {
+      data.profile.name = 'Player One';
+      data.profile.email = 'player@example.com';
+      data.profile.mobile = '9876543210';
+      data.profile.ffId = '11223344';
+      data.profile.ffName = 'OldIGN';
+      data.profile.upiId = 'player@upi';
+      data.profile.dateOfBirth = '2000-01-01';
+      data.profile.referralCode = 'REF999';
+      data.profile.referredBy = null;
+      data.wallets = {
+        addMoney: '50.00',
+        cashback: '10.00',
+        winning: '200.00',
+        total: '260.00',
+      };
+      data.cooldowns = {
+        mobileAvailableAt: null,
+        ffIdAvailableAt: null,
+        ffNameAvailableAt: null,
+        upiIdAvailableAt: null,
+      };
+      if (mutate) mutate(data);
+    });
 
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -34,16 +41,7 @@ describe('Requirement 8: Profile Edits (Changed Fields Only & Field Error Displa
   });
 
   it('renders locked fields disabled with explanatory notes', async () => {
-    vi.spyOn(userApi, 'getMe').mockResolvedValue({
-      profile: mockUser,
-      wallets: mockWallets,
-      cooldowns: {
-        mobileAvailableAt: null,
-        ffIdAvailableAt: null,
-        ffNameAvailableAt: null,
-        upiIdAvailableAt: null,
-      },
-    });
+    vi.spyOn(userApi, 'getMe').mockResolvedValue(getMeFixture());
 
     render(
       <MemoryRouter>
@@ -65,27 +63,14 @@ describe('Requirement 8: Profile Edits (Changed Fields Only & Field Error Displa
   });
 
   it('Requirement 8: submits ONLY changed fields to PATCH /me/profile', async () => {
-    vi.spyOn(userApi, 'getMe').mockResolvedValue({
-      profile: mockUser,
-      wallets: mockWallets,
-      cooldowns: {
-        mobileAvailableAt: null,
-        ffIdAvailableAt: null,
-        ffNameAvailableAt: null,
-        upiIdAvailableAt: null,
-      },
-    });
+    vi.spyOn(userApi, 'getMe').mockResolvedValue(getMeFixture());
 
-    const updateProfileSpy = vi.spyOn(userApi, 'updateProfile').mockResolvedValue({
-      profile: { ...mockUser, ffName: 'NewAwesomeIGN' },
-      wallets: mockWallets,
-      cooldowns: {
-        mobileAvailableAt: null,
-        ffIdAvailableAt: null,
-        ffNameAvailableAt: new Date(Date.now() + 86400000).toISOString(),
-        upiIdAvailableAt: null,
-      },
-    });
+    const updateProfileSpy = vi.spyOn(userApi, 'updateProfile').mockResolvedValue(
+      getMeFixture((data) => {
+        data.profile.ffName = 'NewAwesomeIGN';
+        data.cooldowns.ffNameAvailableAt = new Date(Date.now() + 86400000).toISOString();
+      })
+    );
 
     render(
       <MemoryRouter>
@@ -118,16 +103,7 @@ describe('Requirement 8: Profile Edits (Changed Fields Only & Field Error Displa
   });
 
   it('Requirement 8: displays server errors directly under the corresponding field', async () => {
-    vi.spyOn(userApi, 'getMe').mockResolvedValue({
-      profile: mockUser,
-      wallets: mockWallets,
-      cooldowns: {
-        mobileAvailableAt: null,
-        ffIdAvailableAt: null,
-        ffNameAvailableAt: null,
-        upiIdAvailableAt: null,
-      },
-    });
+    vi.spyOn(userApi, 'getMe').mockResolvedValue(getMeFixture());
 
     vi.spyOn(userApi, 'updateProfile').mockRejectedValue(
       new ApiError('MOBILE_EXISTS', 'Mobile already in use')
@@ -156,16 +132,7 @@ describe('Requirement 8: Profile Edits (Changed Fields Only & Field Error Displa
   });
 
   it('displays IN_ACTIVE_MATCH message next to Free Fire fields when user is in an active match', async () => {
-    vi.spyOn(userApi, 'getMe').mockResolvedValue({
-      profile: mockUser,
-      wallets: mockWallets,
-      cooldowns: {
-        mobileAvailableAt: null,
-        ffIdAvailableAt: null,
-        ffNameAvailableAt: null,
-        upiIdAvailableAt: null,
-      },
-    });
+    vi.spyOn(userApi, 'getMe').mockResolvedValue(getMeFixture());
 
     vi.spyOn(userApi, 'updateProfile').mockRejectedValue(
       new ApiError('IN_ACTIVE_MATCH', 'Cannot edit during active match')
@@ -197,16 +164,11 @@ describe('Requirement 8: Profile Edits (Changed Fields Only & Field Error Displa
 
   it('disables input and displays cooldown message in IST when field cooldown is active', async () => {
     const futureIso = '2026-10-25T14:30:00.000Z'; // 25 Oct 2026, 08:00 PM IST
-    vi.spyOn(userApi, 'getMe').mockResolvedValue({
-      profile: mockUser,
-      wallets: mockWallets,
-      cooldowns: {
-        mobileAvailableAt: futureIso,
-        ffIdAvailableAt: null,
-        ffNameAvailableAt: null,
-        upiIdAvailableAt: null,
-      },
-    });
+    vi.spyOn(userApi, 'getMe').mockResolvedValue(
+      getMeFixture((data) => {
+        data.cooldowns.mobileAvailableAt = futureIso;
+      })
+    );
 
     render(
       <MemoryRouter>

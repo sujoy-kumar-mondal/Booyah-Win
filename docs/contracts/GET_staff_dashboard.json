@@ -1,0 +1,14 @@
+{
+  "data": {
+    "pendingDepositsCount": 1,
+    "oldestPendingDepositAgeMinutes": 0,
+    "isOldestDepositOver30Min": false,
+    "pendingWithdrawalsCount": 1,
+    "oldestPendingWithdrawalAgeMinutes": 0,
+    "liveMatchesCount": 2,
+    "upcomingMatchesCount": 2,
+    "roomOpenMatchesCount": 1,
+    "completedMatchesCount": 0,
+    "resultsWaitingApprovalCount": 1
+  }
+}

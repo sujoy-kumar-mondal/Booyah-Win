@@ -91,3 +91,140 @@ export function validateReferralCode(code?: string): string | null {
   }
   return null;
 }
+
+/**
+ * Validates a deposit amount string against API limits.
+ * Requirement 6: Deposit min and max come only from the API; no hardcoded limits.
+ */
+export function validateDepositAmount(
+  amountStr: string,
+  minStr?: string | null,
+  maxStr?: string | null
+): string | null {
+  const trimmed = amountStr.trim();
+  if (!trimmed) return 'Amount is required';
+
+  if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) {
+    return 'Enter a valid amount with at most 2 decimal places';
+  }
+
+  let paise: number;
+  try {
+    paise = parsePaiseSafe(trimmed);
+  } catch {
+    return 'Invalid amount';
+  }
+
+  if (paise <= 0) {
+    return 'Amount must be greater than zero';
+  }
+
+  if (minStr) {
+    try {
+      const minPaise = parsePaiseSafe(minStr);
+      if (paise < minPaise) {
+        return `Minimum deposit is Rs${minStr}`;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  if (maxStr) {
+    try {
+      const maxPaise = parsePaiseSafe(maxStr);
+      if (paise > maxPaise) {
+        return `Maximum deposit is Rs${maxStr}`;
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Validates a withdrawal amount string against minimum 50 and current winning balance.
+ */
+export function validateWithdrawAmount(
+  amountStr: string,
+  winningBalanceStr?: string | null
+): string | null {
+  const trimmed = amountStr.trim();
+  if (!trimmed) return 'Amount is required';
+
+  if (!/^\d+(\.\d{1,2})?$/.test(trimmed)) {
+    return 'Enter a valid amount with at most 2 decimal places';
+  }
+
+  let paise: number;
+  try {
+    paise = parsePaiseSafe(trimmed);
+  } catch {
+    return 'Invalid amount';
+  }
+
+  if (paise < 5000) {
+    return 'Minimum withdrawal is Rs50.00';
+  }
+
+  if (winningBalanceStr) {
+    try {
+      const winningPaise = parsePaiseSafe(winningBalanceStr);
+      if (paise > winningPaise) {
+        return 'Withdrawal amount cannot exceed your Winning balance';
+      }
+    } catch {
+      // ignore
+    }
+  }
+
+  return null;
+}
+
+/**
+ * Validates UTR / Transaction ID (Section 4.5: 10-25 alphanumeric).
+ */
+export function validateUtr(utr: string): string | null {
+  const trimmed = utr.trim();
+  if (!trimmed) return 'UTR / transaction ID is required';
+  if (!/^[A-Za-z0-9]{10,25}$/.test(trimmed)) {
+    return 'UTR must be 10-25 alphanumeric characters';
+  }
+  return null;
+}
+
+/**
+ * Validates screenshot file (JPEG, PNG, WebP; max 2 MB).
+ */
+export function validateScreenshot(file: File | null): string | null {
+  if (!file) return 'Payment screenshot is required';
+  const allowed = ['image/jpeg', 'image/png', 'image/webp'];
+  if (!allowed.includes(file.type)) {
+    return 'Only JPEG, PNG, or WebP images are allowed';
+  }
+  const maxBytes = 2 * 1024 * 1024; // 2 MB
+  if (file.size > maxBytes) {
+    return 'Screenshot size must not exceed 2 MB';
+  }
+  return null;
+}
+
+/**
+ * Helper to safely parse integer paise from a 2-decimal money string without floats.
+ */
+export function parsePaiseSafe(val: string): number {
+  const trimmed = val.trim();
+  if (!/^-?\d+(\.\d{1,2})?$/.test(trimmed)) {
+    throw new Error('Invalid money string');
+  }
+  const isNeg = trimmed.startsWith('-');
+  const clean = isNeg ? trimmed.slice(1) : trimmed;
+  const [intPart, decPart = ''] = clean.split('.');
+  const decPadded = (decPart + '00').slice(0, 2);
+  const paise = BigInt(intPart || '0') * 100n + BigInt(decPadded);
+  const signed = isNeg ? -paise : paise;
+  return Number(signed);
+}
+

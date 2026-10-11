@@ -5,9 +5,11 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { App } from '../src/App.js';
 import { AuthProvider } from '../src/context/AuthContext.js';
 import * as userApi from '../src/api/user.js';
-import { setStoredToken, clearStoredToken, ApiError } from '../src/api/client.js';
+import { setStoredToken, getStoredToken, clearStoredToken, ApiError } from '../src/api/client.js';
 import { ErrorCodes } from '@booyah/shared';
 import { getWatcherIntervalMs } from '../src/hooks/useSessionWatcher.js';
+import { getMeGuard } from '../src/api/guards.js';
+import { loadContractFixture } from './contractFixtures.js';
 
 describe('Session Watcher & Instant Invalidation (Requirements 1 - 6)', () => {
   let queryClient: QueryClient;
@@ -39,6 +41,18 @@ describe('Session Watcher & Instant Invalidation (Requirements 1 - 6)', () => {
     ffNameAvailableAt: null,
     upiIdAvailableAt: null,
   };
+
+  const getMeFixture = () =>
+    loadContractFixture('GET_api_v1_me.json', getMeGuard, 'GET /api/v1/me', (data) => {
+      data.profile.name = 'Player One';
+      data.profile.email = 'player@example.com';
+      data.profile.mobile = '9876543210';
+      data.profile.ffId = '11223344';
+      data.profile.ffName = 'ProPlayer';
+      data.profile.upiId = 'player@upi';
+      data.wallets = mockWallets;
+      data.cooldowns = mockCooldowns;
+    });
 
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -116,11 +130,7 @@ describe('Session Watcher & Instant Invalidation (Requirements 1 - 6)', () => {
     vi.useFakeTimers();
     setStoredToken('valid-token-123');
 
-    const getMeSpy = vi.spyOn(userApi, 'getMe').mockResolvedValue({
-      profile: mockUser,
-      wallets: mockWallets,
-      cooldowns: mockCooldowns,
-    });
+    const getMeSpy = vi.spyOn(userApi, 'getMe').mockResolvedValue(getMeFixture());
 
     await renderApp(['/']);
 
@@ -150,11 +160,7 @@ describe('Session Watcher & Instant Invalidation (Requirements 1 - 6)', () => {
     vi.useFakeTimers();
     setStoredToken('valid-token-123');
 
-    const getMeSpy = vi.spyOn(userApi, 'getMe').mockResolvedValue({
-      profile: mockUser,
-      wallets: mockWallets,
-      cooldowns: mockCooldowns,
-    });
+    const getMeSpy = vi.spyOn(userApi, 'getMe').mockResolvedValue(getMeFixture());
 
     await renderApp(['/']);
     expect(getMeSpy).toHaveBeenCalledTimes(1);
@@ -194,11 +200,7 @@ describe('Session Watcher & Instant Invalidation (Requirements 1 - 6)', () => {
     vi.useFakeTimers();
     setStoredToken('valid-token-123');
 
-    const getMeSpy = vi.spyOn(userApi, 'getMe').mockResolvedValue({
-      profile: mockUser,
-      wallets: mockWallets,
-      cooldowns: mockCooldowns,
-    });
+    const getMeSpy = vi.spyOn(userApi, 'getMe').mockResolvedValue(getMeFixture());
 
     await renderApp(['/']);
     expect(getMeSpy).toHaveBeenCalledTimes(1);
@@ -240,11 +242,7 @@ describe('Session Watcher & Instant Invalidation (Requirements 1 - 6)', () => {
 
     // Initial boot succeeds, next tick fails with SESSION_REPLACED
     vi.spyOn(userApi, 'getMe')
-      .mockResolvedValueOnce({
-        profile: mockUser,
-        wallets: mockWallets,
-        cooldowns: mockCooldowns,
-      })
+      .mockResolvedValueOnce(getMeFixture())
       .mockRejectedValueOnce(
         new ApiError(ErrorCodes.SESSION_REPLACED, 'Replaced by another session')
       );
@@ -278,11 +276,7 @@ describe('Session Watcher & Instant Invalidation (Requirements 1 - 6)', () => {
     setStoredToken('valid-token-123');
 
     vi.spyOn(userApi, 'getMe')
-      .mockResolvedValueOnce({
-        profile: mockUser,
-        wallets: mockWallets,
-        cooldowns: mockCooldowns,
-      })
+      .mockResolvedValueOnce(getMeFixture())
       .mockRejectedValueOnce(
         new ApiError(ErrorCodes.UNAUTHENTICATED, 'Session token expired')
       );
@@ -307,11 +301,7 @@ describe('Session Watcher & Instant Invalidation (Requirements 1 - 6)', () => {
 
     // Initial boot succeeds, then series of non-fatal errors
     vi.spyOn(userApi, 'getMe')
-      .mockResolvedValueOnce({
-        profile: mockUser,
-        wallets: mockWallets,
-        cooldowns: mockCooldowns,
-      })
+      .mockResolvedValueOnce(getMeFixture())
       .mockRejectedValueOnce(new ApiError(ErrorCodes.RATE_LIMITED, 'Too many requests'))
       .mockRejectedValueOnce(new ApiError(ErrorCodes.DATABASE_BUSY, 'Database busy'))
       .mockRejectedValueOnce(new ApiError(ErrorCodes.NOT_FOUND, 'Not found'))
@@ -332,6 +322,34 @@ describe('Session Watcher & Instant Invalidation (Requirements 1 - 6)', () => {
     }
   });
 
+  it('Requirement 5: stays silent and never logs the user out on NETWORK_ERROR or NON_JSON_RESPONSE', async () => {
+    vi.useFakeTimers();
+    setStoredToken('active-session-token');
+
+    vi.spyOn(userApi, 'getMe')
+      .mockResolvedValueOnce(getMeFixture())
+      .mockRejectedValueOnce(new ApiError('NETWORK_ERROR', 'Cannot reach the server. Check that the API is running.'))
+      .mockRejectedValueOnce(new ApiError('NON_JSON_RESPONSE', 'The server sent an unexpected response.'));
+
+    await renderApp(['/']);
+
+    // Tick 1: NETWORK_ERROR occurs
+    await act(async () => {
+      vi.advanceTimersByTime(55000);
+      await Promise.resolve();
+    });
+    expect(screen.queryByTestId('session-replaced-modal')).not.toBeInTheDocument();
+    expect(getStoredToken()).toBe('active-session-token');
+
+    // Tick 2: NON_JSON_RESPONSE occurs
+    await act(async () => {
+      vi.advanceTimersByTime(55000);
+      await Promise.resolve();
+    });
+    expect(screen.queryByTestId('session-replaced-modal')).not.toBeInTheDocument();
+    expect(getStoredToken()).toBe('active-session-token');
+  });
+
   it('Requirement 4: ignores check result if token changed while in flight (new login occurred)', async () => {
     vi.useFakeTimers();
     setStoredToken('old-token-abc');
@@ -342,11 +360,7 @@ describe('Session Watcher & Instant Invalidation (Requirements 1 - 6)', () => {
     });
 
     vi.spyOn(userApi, 'getMe')
-      .mockResolvedValueOnce({
-        profile: mockUser,
-        wallets: mockWallets,
-        cooldowns: mockCooldowns,
-      })
+      .mockResolvedValueOnce(getMeFixture())
       .mockReturnValueOnce(slowCall as any);
 
     await renderApp(['/']);
@@ -362,11 +376,7 @@ describe('Session Watcher & Instant Invalidation (Requirements 1 - 6)', () => {
 
     // Resolve old call with SESSION_REPLACED (from the old token perspective)
     await act(async () => {
-      resolveSlowCall({
-        profile: { ...mockUser, name: 'Old User' },
-        wallets: mockWallets,
-        cooldowns: mockCooldowns,
-      });
+      resolveSlowCall(getMeFixture());
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -386,11 +396,7 @@ describe('Session Watcher & Instant Invalidation (Requirements 1 - 6)', () => {
 
     const getMeSpy = vi
       .spyOn(userApi, 'getMe')
-      .mockResolvedValueOnce({
-        profile: mockUser,
-        wallets: mockWallets,
-        cooldowns: mockCooldowns,
-      })
+      .mockResolvedValueOnce(getMeFixture())
       .mockReturnValueOnce(inFlightPromise as any);
 
     await renderApp(['/']);
@@ -419,11 +425,7 @@ describe('Session Watcher & Instant Invalidation (Requirements 1 - 6)', () => {
 
     // Resolve in-flight call
     await act(async () => {
-      finishInFlight({
-        profile: mockUser,
-        wallets: mockWallets,
-        cooldowns: mockCooldowns,
-      });
+      finishInFlight(getMeFixture());
       await Promise.resolve();
       await Promise.resolve();
     });
@@ -444,11 +446,7 @@ describe('Session Watcher & Instant Invalidation (Requirements 1 - 6)', () => {
     queryClient.setQueryData(['cached-data'], { secret: 'data' });
 
     vi.spyOn(userApi, 'getMe')
-      .mockResolvedValueOnce({
-        profile: mockUser,
-        wallets: mockWallets,
-        cooldowns: mockCooldowns,
-      })
+      .mockResolvedValueOnce(getMeFixture())
       .mockRejectedValueOnce(
         new ApiError(ErrorCodes.SESSION_REPLACED, 'Replaced by another session')
       );
@@ -492,11 +490,7 @@ describe('Session Watcher & Instant Invalidation (Requirements 1 - 6)', () => {
     vi.useFakeTimers();
     setStoredToken('valid-token-123');
 
-    const getMeSpy = vi.spyOn(userApi, 'getMe').mockResolvedValue({
-      profile: mockUser,
-      wallets: mockWallets,
-      cooldowns: mockCooldowns,
-    });
+    const getMeSpy = vi.spyOn(userApi, 'getMe').mockResolvedValue(getMeFixture());
 
     await renderApp(['/profile']);
     expect(getMeSpy).toHaveBeenCalledTimes(1);

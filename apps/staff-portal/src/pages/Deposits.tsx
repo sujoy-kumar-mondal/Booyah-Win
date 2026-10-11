@@ -1,0 +1,626 @@
+/**
+ * Staff Deposit Queue Screen
+ *
+ * Requirements:
+ * - Pending first, oldest first; filter by status
+ * - Amount (string rupee formatter), UTR, user email, age in minutes, needsAdmin badge
+ * - Screenshot viewer with fresh signed URL and no-referrer
+ * - Confirm dialog bound to exact row data and sends that row's ID (Requirement 4)
+ * - If list refreshes while dialog is open, dialog keeps original row data
+ * - Approve flow: catches FORBIDDEN (cannot approve own deposit) and ADMIN_APPROVAL_REQUIRED (Requirement 5)
+ * - Reject flow: requires reason >= 5 characters
+ * - 409 handling: shows "This request was already processed" and refreshes row (Requirement 3)
+ * - Double-click ref guard (isSubmittingRef)
+ * - Cursor pagination with "Load more" (Requirement 9)
+ */
+
+import React, { useState, useRef } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import {
+  getStaffDeposits,
+  approveDeposit,
+  rejectDeposit,
+} from '../api/staff.js';
+import type { StaffDepositDto } from '../api/types.js';
+import {
+  formatIndianRupees,
+  formatISTDate,
+  formatAgeMinutes,
+  isDepositOverdue,
+} from '../utils/formatters.js';
+import { getFriendlyErrorMessage } from '../utils/errors.js';
+import { ScreenshotViewerModal } from '../components/common/ScreenshotViewerModal.js';
+import {
+  ArrowDownToLine,
+  CheckCircle2,
+  XCircle,
+  Eye,
+  Clock,
+  ShieldAlert,
+  AlertTriangle,
+  Loader2,
+  RefreshCw,
+  Search,
+} from 'lucide-react';
+
+const STATUS_FILTERS = [
+  { label: 'Pending', value: 'pending' },
+  { label: 'All', value: 'all' },
+  { label: 'Approved', value: 'approved' },
+  { label: 'Rejected', value: 'rejected' },
+];
+
+export const Deposits: React.FC = () => {
+  const queryClient = useQueryClient();
+
+  const [filter, setFilter] = useState<string>('pending');
+  const [cursor, setCursor] = useState<string | undefined>(undefined);
+  const [allDeposits, setAllDeposits] = useState<StaffDepositDto[]>([]);
+  const [nextCursor, setNextCursor] = useState<string | null>(null);
+
+  // Row being acted on (isolated snapshot per Requirement 4)
+  const [activeDeposit, setActiveDeposit] = useState<StaffDepositDto | null>(null);
+  const [dialogMode, setDialogMode] = useState<'approve' | 'reject' | null>(null);
+  const [rejectReason, setRejectReason] = useState<string>('');
+  const [actionError, setActionError] = useState<string | null>(null);
+
+  // Screenshot viewer state
+  const [viewerDeposit, setViewerDeposit] = useState<StaffDepositDto | null>(null);
+
+  // Double submit ref guard
+  const isSubmittingRef = useRef<boolean>(false);
+
+  // Fetch deposits query
+  const {
+    isLoading,
+    isFetching,
+    refetch,
+  } = useQuery({
+    queryKey: ['staff-deposits', filter, cursor],
+    queryFn: async () => {
+      const res = await getStaffDeposits({ status: filter, cursor, limit: 15 });
+      if (!cursor) {
+        setAllDeposits(res.items);
+      } else {
+        setAllDeposits((prev) => {
+          const existingIds = new Set(prev.map((d) => d.id));
+          const uniqueItems = res.items.filter((d) => !existingIds.has(d.id));
+          return [...prev, ...uniqueItems];
+        });
+      }
+      setNextCursor(res.nextCursor ?? null);
+      return res;
+    },
+  });
+
+  const handleFilterChange = (newFilter: string) => {
+    setFilter(newFilter);
+    setCursor(undefined);
+    setAllDeposits([]);
+    setNextCursor(null);
+  };
+
+  const handleLoadMore = () => {
+    if (nextCursor && !isFetching) {
+      setCursor(nextCursor);
+    }
+  };
+
+  // Fresh signed URL fetcher for screenshot viewer
+  const handleFetchFreshSignedUrl = async (depId: string): Promise<string | null> => {
+    const res = await getStaffDeposits({ limit: 50 });
+    const match = res.items.find((item) => item.id === depId);
+    return match ? match.screenshotUrl : null;
+  };
+
+  // Mutations
+  const approveMutation = useMutation({
+    mutationFn: (id: string) => approveDeposit(id),
+    onSuccess: () => {
+      setDialogMode(null);
+      setActiveDeposit(null);
+      queryClient.invalidateQueries({ queryKey: ['staff-deposits'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard'] });
+    },
+    onError: (err: any) => {
+      const msg = getFriendlyErrorMessage(err, 'deposit');
+      setActionError(msg);
+      // 409 conflict: refresh the queue (Requirement 3)
+      if (err?.status === 409) {
+        queryClient.invalidateQueries({ queryKey: ['staff-deposits'] });
+        queryClient.invalidateQueries({ queryKey: ['staff-dashboard'] });
+      }
+    },
+  });
+
+  const rejectMutation = useMutation({
+    mutationFn: ({ id, reason }: { id: string; reason: string }) =>
+      rejectDeposit(id, reason),
+    onSuccess: () => {
+      setDialogMode(null);
+      setActiveDeposit(null);
+      setRejectReason('');
+      queryClient.invalidateQueries({ queryKey: ['staff-deposits'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard'] });
+    },
+    onError: (err: any) => {
+      const msg = getFriendlyErrorMessage(err, 'deposit');
+      setActionError(msg);
+      if (err?.status === 409) {
+        queryClient.invalidateQueries({ queryKey: ['staff-deposits'] });
+        queryClient.invalidateQueries({ queryKey: ['staff-dashboard'] });
+      }
+    },
+  });
+
+  const handleConfirmApprove = async () => {
+    if (!activeDeposit || isSubmittingRef.current || approveMutation.isPending) return;
+
+    isSubmittingRef.current = true;
+    setActionError(null);
+    try {
+      await approveMutation.mutateAsync(activeDeposit.id);
+    } catch {
+      // Handled in onError
+    } finally {
+      isSubmittingRef.current = false;
+    }
+  };
+
+  const handleConfirmReject = async () => {
+    if (!activeDeposit || isSubmittingRef.current || rejectMutation.isPending) return;
+
+    if (rejectReason.trim().length < 5) {
+      setActionError('Rejection reason must be at least 5 characters');
+      return;
+    }
+
+    isSubmittingRef.current = true;
+    setActionError(null);
+    try {
+      await rejectMutation.mutateAsync({
+        id: activeDeposit.id,
+        reason: rejectReason.trim(),
+      });
+    } catch {
+      // Handled in onError
+    } finally {
+      isSubmittingRef.current = false;
+    }
+  };
+
+  return (
+    <div className="space-y-6" data-testid="deposit-queue-container">
+      {/* Header & Controls */}
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+        <div>
+          <h1 className="text-xl font-black text-slate-100 tracking-tight flex items-center gap-2">
+            <ArrowDownToLine className="h-5 w-5 text-emerald-400" />
+            Deposit Queue
+          </h1>
+          <p className="text-xs text-slate-400">
+            Verify payment screenshots, UTRs, and approve user account credits
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => refetch()}
+            disabled={isFetching}
+            data-testid="refresh-deposits-btn"
+            className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 disabled:opacity-50"
+          >
+            <RefreshCw className={`h-3.5 w-3.5 ${isFetching ? 'animate-spin' : ''}`} />
+            <span>Refresh</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Filter Tabs */}
+      <div className="flex gap-2 border-b border-slate-800 pb-3" data-testid="deposit-filters">
+        {STATUS_FILTERS.map((sf) => (
+          <button
+            key={sf.value}
+            type="button"
+            onClick={() => handleFilterChange(sf.value)}
+            data-testid={`filter-btn-${sf.value}`}
+            className={`rounded-xl px-3 py-1.5 text-xs font-semibold transition-all ${
+              filter === sf.value
+                ? 'bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/10'
+                : 'bg-slate-900 text-slate-400 hover:bg-slate-800 hover:text-slate-200 border border-slate-800'
+            }`}
+          >
+            {sf.label}
+          </button>
+        ))}
+      </div>
+
+      {/* Main Table / Queue List */}
+      {isLoading && allDeposits.length === 0 ? (
+        <div className="flex items-center justify-center p-12 text-slate-400 gap-2">
+          <Loader2 className="h-5 w-5 animate-spin text-emerald-400" />
+          <span className="text-xs font-semibold">Loading deposit requests...</span>
+        </div>
+      ) : allDeposits.length === 0 ? (
+        <div
+          className="rounded-2xl border border-slate-800 bg-slate-900/50 p-12 text-center space-y-3"
+          data-testid="deposits-empty-state"
+        >
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-slate-800 text-slate-400">
+            <Search className="h-6 w-6" />
+          </div>
+          <p className="text-sm font-semibold text-slate-200">No deposit requests found</p>
+          <p className="text-xs text-slate-400">
+            {filter === 'pending'
+              ? 'All incoming deposit requests have been processed.'
+              : `No requests matching "${filter}" status.`}
+          </p>
+        </div>
+      ) : (
+        <div className="space-y-4">
+          <div className="overflow-x-auto rounded-2xl border border-slate-800 bg-slate-900 shadow-xl">
+            <table className="w-full text-left text-xs">
+              <thead className="border-b border-slate-800 bg-slate-950/60 text-[11px] font-bold uppercase tracking-wider text-slate-400">
+                <tr>
+                  <th className="px-4 py-3.5">ID / User</th>
+                  <th className="px-4 py-3.5">Amount</th>
+                  <th className="px-4 py-3.5">UTR / Ref</th>
+                  <th className="px-4 py-3.5">Age / Date</th>
+                  <th className="px-4 py-3.5">Screenshot</th>
+                  <th className="px-4 py-3.5">Status</th>
+                  <th className="px-4 py-3.5 text-right">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-800/60">
+                {allDeposits.map((dep) => {
+                  const isOverdue = dep.status === 'pending' && isDepositOverdue(dep.pendingMinutes);
+                  return (
+                    <tr
+                      key={dep.id}
+                      data-testid={`deposit-row-${dep.id}`}
+                      className="hover:bg-slate-800/30 transition-colors"
+                    >
+                      {/* ID / User */}
+                      <td className="px-4 py-3.5">
+                        <span className="font-mono font-bold text-slate-200">#{dep.id}</span>
+                        <div className="text-[11px] text-slate-400 truncate max-w-[160px]">
+                          {dep.userEmail}
+                        </div>
+                      </td>
+
+                      {/* Amount */}
+                      <td className="px-4 py-3.5">
+                        <span className="font-bold text-emerald-400 text-sm">
+                          {formatIndianRupees(dep.amount)}
+                        </span>
+                        {dep.needsAdmin && (
+                          <div
+                            className="flex items-center gap-1 text-[10px] text-amber-400 mt-0.5"
+                            data-testid={`needs-admin-badge-${dep.id}`}
+                          >
+                            <ShieldAlert className="h-3 w-3 shrink-0" />
+                            <span>Requires Admin</span>
+                          </div>
+                        )}
+                      </td>
+
+                      {/* UTR */}
+                      <td className="px-4 py-3.5 font-mono text-xs text-slate-300 font-semibold select-all">
+                        {dep.utr}
+                      </td>
+
+                      {/* Age / Date */}
+                      <td className="px-4 py-3.5">
+                        <div
+                          className={`flex items-center gap-1 font-semibold ${
+                            isOverdue ? 'text-rose-400' : 'text-slate-300'
+                          }`}
+                        >
+                          <Clock className="h-3 w-3" />
+                          <span>{formatAgeMinutes(dep.pendingMinutes)}</span>
+                          {isOverdue && (
+                            <span className="rounded bg-rose-500/20 px-1 text-[9px] font-bold border border-rose-500/30">
+                              Overdue
+                            </span>
+                          )}
+                        </div>
+                        <div className="text-[10px] text-slate-500 mt-0.5">
+                          {formatISTDate(dep.createdAt)}
+                        </div>
+                      </td>
+
+                      {/* Screenshot Button */}
+                      <td className="px-4 py-3.5">
+                        <button
+                          type="button"
+                          onClick={() => setViewerDeposit(dep)}
+                          data-testid={`view-screenshot-btn-${dep.id}`}
+                          className="flex items-center gap-1 rounded-lg border border-slate-700 bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-slate-300 hover:bg-slate-700 hover:text-emerald-400 transition-colors"
+                        >
+                          <Eye className="h-3 w-3" />
+                          <span>View</span>
+                        </button>
+                      </td>
+
+                      {/* Status */}
+                      <td className="px-4 py-3.5">
+                        {dep.status === 'pending' && (
+                          <span className="rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[10px] font-bold text-amber-400 border border-amber-500/20">
+                            Pending
+                          </span>
+                        )}
+                        {dep.status === 'approved' && (
+                          <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/20">
+                            Approved
+                          </span>
+                        )}
+                        {dep.status === 'rejected' && (
+                          <div>
+                            <span className="rounded-full bg-rose-500/10 px-2.5 py-0.5 text-[10px] font-bold text-rose-400 border border-rose-500/20">
+                              Rejected
+                            </span>
+                            {dep.rejectReason && (
+                              <p className="text-[10px] text-slate-400 mt-1 max-w-[140px] truncate" title={dep.rejectReason}>
+                                {dep.rejectReason}
+                              </p>
+                            )}
+                          </div>
+                        )}
+                      </td>
+
+                      {/* Actions */}
+                      <td className="px-4 py-3.5 text-right">
+                        {dep.status === 'pending' ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveDeposit(dep);
+                                setDialogMode('approve');
+                                setActionError(null);
+                              }}
+                              data-testid={`approve-btn-${dep.id}`}
+                              className="flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500 hover:text-slate-950 transition-all active:scale-[0.98]"
+                            >
+                              <CheckCircle2 className="h-3.5 w-3.5" />
+                              <span>Approve</span>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => {
+                                setActiveDeposit(dep);
+                                setDialogMode('reject');
+                                setRejectReason('');
+                                setActionError(null);
+                              }}
+                              data-testid={`reject-btn-${dep.id}`}
+                              className="flex items-center gap-1 rounded-lg bg-rose-500/10 px-2.5 py-1 text-xs font-bold text-rose-400 border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all active:scale-[0.98]"
+                            >
+                              <XCircle className="h-3.5 w-3.5" />
+                              <span>Reject</span>
+                            </button>
+                          </div>
+                        ) : (
+                          <span className="text-[11px] text-slate-500">Processed</span>
+                        )}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Load More Button (Requirement 9) */}
+          {nextCursor && (
+            <div className="flex justify-center pt-2">
+              <button
+                type="button"
+                onClick={handleLoadMore}
+                disabled={isFetching}
+                data-testid="load-more-deposits-btn"
+                className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-900 px-5 py-2.5 text-xs font-bold text-slate-300 hover:bg-slate-800 hover:text-white transition-all disabled:opacity-50"
+              >
+                {isFetching ? (
+                  <>
+                    <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+                    <span>Loading more...</span>
+                  </>
+                ) : (
+                  <span>Load More Deposits</span>
+                )}
+              </button>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Confirmation Dialogs (Requirement 4: Isolated snapshot of active row data) */}
+      {dialogMode === 'approve' && activeDeposit && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in"
+          data-testid="approve-deposit-modal"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-emerald-400">
+              <CheckCircle2 className="h-6 w-6" />
+              <h3 className="text-base font-bold text-slate-100">Confirm Deposit Approval</h3>
+            </div>
+
+            <p className="text-xs text-slate-300">
+              Are you sure you want to approve this deposit and credit the player's wallet?
+            </p>
+
+            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Deposit ID:</span>
+                <span className="font-mono font-bold text-slate-200">#{activeDeposit.id}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Amount:</span>
+                <span className="font-bold text-emerald-400" data-testid="confirm-dialog-amount">
+                  {formatIndianRupees(activeDeposit.amount)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">UTR / Ref:</span>
+                <span className="font-mono text-slate-200 select-all" data-testid="confirm-dialog-utr">
+                  {activeDeposit.utr}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">User:</span>
+                <span className="text-slate-300 truncate max-w-[200px]">{activeDeposit.userEmail}</span>
+              </div>
+            </div>
+
+            {actionError && (
+              <div
+                className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-400 flex items-start gap-2"
+                data-testid="deposit-action-error"
+              >
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>{actionError}</span>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDialogMode(null);
+                  setActiveDeposit(null);
+                  setActionError(null);
+                }}
+                disabled={approveMutation.isPending}
+                className="flex-1 rounded-xl border border-slate-700 bg-slate-800 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmApprove}
+                disabled={approveMutation.isPending}
+                data-testid="confirm-approve-btn"
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500 py-2.5 text-xs font-bold text-slate-950 hover:bg-emerald-400 transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                {approveMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Approving...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>Confirm Approval</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Reject Modal */}
+      {dialogMode === 'reject' && activeDeposit && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in"
+          data-testid="reject-deposit-modal"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-rose-400">
+              <XCircle className="h-6 w-6" />
+              <h3 className="text-base font-bold text-slate-100">Reject Deposit Request</h3>
+            </div>
+
+            <p className="text-xs text-slate-300">
+              Specify a reason for rejecting deposit #{activeDeposit.id} ({formatIndianRupees(activeDeposit.amount)}).
+            </p>
+
+            <div className="space-y-1.5">
+              <label htmlFor="reject-reason" className="block text-xs font-semibold text-slate-300">
+                Rejection Reason (min 5 characters) <span className="text-rose-400">*</span>
+              </label>
+              <textarea
+                id="reject-reason"
+                rows={3}
+                required
+                placeholder="e.g. UTR reference not found in bank statement"
+                value={rejectReason}
+                onChange={(e) => {
+                  setRejectReason(e.target.value);
+                  setActionError(null);
+                }}
+                data-testid="reject-reason-input"
+                className="w-full rounded-xl border border-slate-700 bg-slate-950 p-3 text-xs text-slate-100 placeholder-slate-500 focus:border-rose-500 focus:outline-none"
+              />
+              <span className="text-[10px] text-slate-500 block text-right">
+                {rejectReason.trim().length} / 5 chars minimum
+              </span>
+            </div>
+
+            {actionError && (
+              <div
+                className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-400 flex items-start gap-2"
+                data-testid="deposit-reject-error"
+              >
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>{actionError}</span>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDialogMode(null);
+                  setActiveDeposit(null);
+                  setActionError(null);
+                  setRejectReason('');
+                }}
+                disabled={rejectMutation.isPending}
+                className="flex-1 rounded-xl border border-slate-700 bg-slate-800 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmReject}
+                disabled={rejectMutation.isPending || rejectReason.trim().length < 5}
+                data-testid="confirm-reject-btn"
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-rose-500 py-2.5 text-xs font-bold text-white hover:bg-rose-400 transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                {rejectMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Rejecting...</span>
+                  </>
+                ) : (
+                  <>
+                    <XCircle className="h-3.5 w-3.5" />
+                    <span>Confirm Rejection</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Screenshot Viewer (Requirement 7) */}
+      {viewerDeposit && (
+        <ScreenshotViewerModal
+          isOpen={true}
+          depositId={viewerDeposit.id}
+          initialUrl={viewerDeposit.screenshotUrl}
+          onClose={() => setViewerDeposit(null)}
+          onFetchFreshUrl={handleFetchFreshSignedUrl}
+        />
+      )}
+    </div>
+  );
+};

@@ -30,7 +30,7 @@ export interface JoinedPlayerDto {
   name: string;
   ffId: string;
   ffName: string;
-  teamId?: string | null;
+  teamId: string | null;
   paidAddMoney: string;
   paidCashback: string;
   paidWinning: string;
@@ -38,8 +38,18 @@ export interface JoinedPlayerDto {
   joinedAt: string;
 }
 
+export interface MatchTeamStaffDto {
+  id: string;
+  name: string | null;
+  size: number;
+  status: string;
+  leaderId: string;
+  memberUserIds: string[];
+}
+
 export interface MatchDetailStaffDto extends MatchStaffDto {
   players: JoinedPlayerDto[];
+  teams: MatchTeamStaffDto[];
 }
 
 export interface MatchUserDto {

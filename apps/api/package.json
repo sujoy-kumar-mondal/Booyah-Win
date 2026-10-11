@@ -14,7 +14,8 @@
     "seed:tiers": "tsx src/scripts/seedTiers.ts",
     "migrate:dev": "node-pg-migrate -m migrations up",
     "migrate:test": "tsx src/scripts/runTestMigrations.ts",
-    "check:env": "tsx src/scripts/checkEnv.ts"
+    "check:env": "tsx src/scripts/checkEnv.ts",
+    "contracts": "tsx src/scripts/generateContracts.ts"
   },
   "dependencies": {
     "@booyah/shared": "*",

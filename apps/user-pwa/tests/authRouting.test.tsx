@@ -5,6 +5,8 @@ import { App } from '../src/App.js';
 import { AuthProvider } from '../src/context/AuthContext.js';
 import * as userApi from '../src/api/user.js';
 import { setStoredToken, clearStoredToken } from '../src/api/client.js';
+import { getMeGuard } from '../src/api/guards.js';
+import { loadContractFixture } from './contractFixtures.js';
 
 describe('Requirement 7: Route Protection & Zero-Flash Loading State', () => {
   beforeEach(() => {
@@ -69,33 +71,23 @@ describe('Requirement 7: Route Protection & Zero-Flash Loading State', () => {
   it('renders protected screen after successful GET /me on boot with stored token', async () => {
     setStoredToken('valid-stored-token');
 
-    vi.spyOn(userApi, 'getMe').mockResolvedValue({
-      profile: {
-        id: '1',
-        email: 'player@example.com',
-        name: 'Pro Player',
-        mobile: '9876543210',
-        ffId: '12345678',
-        ffName: 'ProPlayerIGN',
-        upiId: 'pro@upi',
-        dateOfBirth: '2000-01-01',
-        referralCode: 'REF123',
-        referredBy: null,
-        createdAt: '2026-10-01T00:00:00.000Z',
-      },
-      wallets: {
-        addMoney: '100.00',
-        cashback: '20.00',
-        winning: '300.00',
-        total: '420.00',
-      },
-      cooldowns: {
-        mobileAvailableAt: null,
-        ffIdAvailableAt: null,
-        ffNameAvailableAt: null,
-        upiIdAvailableAt: null,
-      },
-    });
+    vi.spyOn(userApi, 'getMe').mockResolvedValue(
+      loadContractFixture('GET_api_v1_me.json', getMeGuard, 'GET /api/v1/me', (data) => {
+        data.profile.name = 'Pro Player';
+        data.wallets = {
+          addMoney: '100.00',
+          cashback: '20.00',
+          winning: '300.00',
+          total: '420.00',
+        };
+        data.cooldowns = {
+          mobileAvailableAt: null,
+          ffIdAvailableAt: null,
+          ffNameAvailableAt: null,
+          upiIdAvailableAt: null,
+        };
+      })
+    );
 
     render(
       <MemoryRouter initialEntries={['/']}>

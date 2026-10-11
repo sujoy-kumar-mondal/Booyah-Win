@@ -1,4 +1,10 @@
 import { apiClient } from './client.js';
+import {
+  runGuard,
+  loginVerifyResponseGuard,
+  registerVerifyResponseGuard,
+  registerCompleteResponseGuard,
+} from './guards.js';
 import type {
   LoginVerifyResponse,
   RegisterVerifyResponse,
@@ -14,10 +20,11 @@ export async function requestLoginOtp(email: string): Promise<{ message: string 
 }
 
 export async function verifyLoginOtp(email: string, otp: string): Promise<LoginVerifyResponse> {
-  return apiClient<LoginVerifyResponse>('/api/v1/auth/login/verify-otp', {
+  const data = await apiClient<LoginVerifyResponse>('/api/v1/auth/login/verify-otp', {
     method: 'POST',
     body: JSON.stringify({ email, otp }),
   });
+  return runGuard(loginVerifyResponseGuard, data, 'POST /api/v1/auth/login/verify-otp');
 }
 
 export async function requestRegisterOtp(email: string): Promise<{ message: string }> {
@@ -28,17 +35,19 @@ export async function requestRegisterOtp(email: string): Promise<{ message: stri
 }
 
 export async function verifyRegisterOtp(email: string, otp: string): Promise<RegisterVerifyResponse> {
-  return apiClient<RegisterVerifyResponse>('/api/v1/auth/register/verify-otp', {
+  const data = await apiClient<RegisterVerifyResponse>('/api/v1/auth/register/verify-otp', {
     method: 'POST',
     body: JSON.stringify({ email, otp }),
   });
+  return runGuard(registerVerifyResponseGuard, data, 'POST /api/v1/auth/register/verify-otp');
 }
 
 export async function completeRegistration(payload: RegisterCompletePayload): Promise<RegisterCompleteResponse> {
-  return apiClient<RegisterCompleteResponse>('/api/v1/auth/register/complete', {
+  const data = await apiClient<RegisterCompleteResponse>('/api/v1/auth/register/complete', {
     method: 'POST',
     body: JSON.stringify(payload),
   });
+  return runGuard(registerCompleteResponseGuard, data, 'POST /api/v1/auth/register/complete');
 }
 
 export async function logout(): Promise<{ message: string }> {

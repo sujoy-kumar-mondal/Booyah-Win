@@ -1,0 +1,11 @@
+{
+  "data": {
+    "profile": {
+      "id": "2",
+      "role": "employee",
+      "name": "Employee User",
+      "email": "staff@booyah.win",
+      "mobile": "9999999999"
+    }
+  }
+}

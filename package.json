@@ -18,7 +18,12 @@
     "start:api": "npm run start --workspace=apps/api",
     "check:env": "npm run check:env --workspace=apps/api",
     "dev:pwa": "npm run dev --workspace=apps/user-pwa",
-    "test:pwa": "npm run test --workspace=apps/user-pwa"
+    "test:pwa": "npm run test --workspace=apps/user-pwa",
+    "dev:staff": "npm run dev --workspace=apps/staff-portal",
+    "test:staff": "npm run test --workspace=apps/staff-portal",
+    "test:all": "npm run test && npm run test:pwa && npm run test:staff",
+    "contracts": "npm run contracts --workspace=apps/api",
+    "smoke": "tsx scripts/smoke.ts"
   },
   "devDependencies": {
     "typescript": "^5.4.5"

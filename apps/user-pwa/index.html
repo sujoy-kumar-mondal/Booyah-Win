@@ -8,12 +8,13 @@
     <meta name="description" content="Booyah Win - Competitive Free Fire Match Platform" />
     <meta
       http-equiv="Content-Security-Policy"
-      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; connect-src 'self' http://localhost:* ws://localhost:* https://*.render.com; font-src 'self' data:; object-src 'none'; base-uri 'self';"
+      content="default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; img-src 'self' blob: %VITE_API_ORIGIN% %VITE_STORAGE_ORIGIN%; connect-src 'self' http://localhost:* ws://localhost:* https://*.render.com %VITE_API_ORIGIN%; font-src 'self' data:; object-src 'none'; base-uri 'self';"
     />
     <title>Booyah Win</title>
   </head>
   <body class="bg-slate-950 text-slate-100 antialiased selection:bg-emerald-500 selection:text-white">
     <div id="root"></div>
+    <div id="modal-root"></div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

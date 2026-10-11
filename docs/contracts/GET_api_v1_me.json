@@ -1,0 +1,29 @@
+{
+  "data": {
+    "profile": {
+      "id": "1",
+      "email": "user@example.com",
+      "name": "Player One",
+      "mobile": "9999999999",
+      "ffId": "12345678",
+      "ffName": "ProPlayer1",
+      "upiId": "user@upi",
+      "dateOfBirth": "2000-01-01",
+      "referralCode": "CSDNR3B2",
+      "referredBy": null,
+      "createdAt": "2026-10-11T10:32:32.667Z"
+    },
+    "wallets": {
+      "addMoney": "210.00",
+      "cashback": "0.00",
+      "winning": "150.00",
+      "total": "360.00"
+    },
+    "cooldowns": {
+      "mobileAvailableAt": null,
+      "ffIdAvailableAt": null,
+      "ffNameAvailableAt": null,
+      "upiIdAvailableAt": null
+    }
+  }
+}

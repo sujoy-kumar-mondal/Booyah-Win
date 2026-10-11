@@ -1,0 +1,13 @@
+{
+  "data": {
+    "id": "3",
+    "amount": "50.00",
+    "utr": "123456789012",
+    "screenshotUrl": "https://storage.example.com/placeholder.jpg",
+    "status": "pending",
+    "rejectReason": null,
+    "needsAdmin": false,
+    "createdAt": "2026-10-11T10:32:33.154Z",
+    "reviewedAt": null
+  }
+}

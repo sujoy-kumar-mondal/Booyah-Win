@@ -1,0 +1,15 @@
+{
+  "error": {
+    "code": "LOW_BALANCE",
+    "message": "Cannot reverse result: one or more players have insufficient winning balance",
+    "details": {
+      "affectedUsers": [
+        {
+          "userId": "1",
+          "winningPaise": 0,
+          "requiredPaise": 31000
+        }
+      ]
+    }
+  }
+}

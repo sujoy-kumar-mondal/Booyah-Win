@@ -1,0 +1,22 @@
+{
+  "data": {
+    "items": [
+      {
+        "id": "1",
+        "userId": "1",
+        "userEmail": "user@example.com",
+        "amount": "50.00",
+        "utr": "123456789012",
+        "screenshotUrl": "https://storage.example.com/placeholder.jpg",
+        "status": "pending",
+        "rejectReason": null,
+        "needsAdmin": false,
+        "pendingMinutes": 0,
+        "createdAt": "2026-10-11T10:32:32.864Z",
+        "reviewedAt": null,
+        "reviewedBy": null
+      }
+    ],
+    "nextCursor": null
+  }
+}

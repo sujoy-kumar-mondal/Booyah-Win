@@ -81,3 +81,45 @@ export function formatCooldownMessage(availableAt: string | null | undefined): s
   if (!formatted) return null;
   return `Next change available on ${formatted}`;
 }
+
+/**
+ * Formats signed transaction amount with +/- sign and accessible label.
+ * Requirement 12: Credits and debits carry the +/- sign and an accessible label, not color alone.
+ */
+export function formatSignedRupees(amountStr: string | null | undefined): {
+  text: string;
+  isCredit: boolean;
+  accessibleLabel: string;
+} {
+  if (!amountStr || typeof amountStr !== 'string') {
+    return { text: 'Rs0.00', isCredit: true, accessibleLabel: 'Zero rupees' };
+  }
+  const trimmed = amountStr.trim();
+  const isDebit = trimmed.startsWith('-');
+  const clean = isDebit ? trimmed.slice(1) : trimmed;
+  const formatted = formatIndianRupees(clean);
+
+  if (isDebit) {
+    return {
+      text: `-${formatted}`,
+      isCredit: false,
+      accessibleLabel: `Debit of ${formatted}`,
+    };
+  }
+
+  // Pure zero check
+  if (clean === '0' || clean === '0.00' || clean === '00' || clean === '0.0') {
+    return {
+      text: formatted,
+      isCredit: true,
+      accessibleLabel: 'Zero rupees',
+    };
+  }
+
+  return {
+    text: `+${formatted}`,
+    isCredit: true,
+    accessibleLabel: `Credit of ${formatted}`,
+  };
+}
+

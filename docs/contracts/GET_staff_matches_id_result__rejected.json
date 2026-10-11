@@ -1,0 +1,26 @@
+{
+  "data": {
+    "id": "2",
+    "matchId": "6",
+    "entries": [
+      {
+        "kills": 1,
+        "userId": "1",
+        "position": 1
+      },
+      {
+        "kills": 0,
+        "userId": "2",
+        "position": 2
+      }
+    ],
+    "screenshotUrl": "https://storage.example.com/placeholder.jpg",
+    "signedScreenshotUrl": "https://storage.example.com/placeholder.jpg",
+    "status": "rejected",
+    "rejectReason": "Screenshot unreadable for player kills",
+    "submittedBy": "2",
+    "approvedBy": null,
+    "createdAt": "2026-10-11T10:32:33.032Z",
+    "approvedAt": null
+  }
+}

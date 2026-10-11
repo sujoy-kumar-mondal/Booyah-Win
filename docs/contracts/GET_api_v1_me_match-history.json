@@ -1,0 +1,98 @@
+{
+  "data": {
+    "items": [
+      {
+        "matchId": "8",
+        "gameMode": "battle_royale",
+        "teamMode": "solo",
+        "entryFee": "20.00",
+        "startTime": "2026-12-10T12:00:00.000Z",
+        "matchStatus": "upcoming",
+        "joinedAt": "2026-10-11T10:32:33.197Z",
+        "refundedAt": null,
+        "kills": 0,
+        "position": null,
+        "payout": "0.00",
+        "displayStatus": "Result pending",
+        "positionLabel": "Result pending"
+      },
+      {
+        "matchId": "6",
+        "gameMode": "battle_royale",
+        "teamMode": "solo",
+        "entryFee": "20.00",
+        "startTime": "2026-12-01T20:00:00.000Z",
+        "matchStatus": "live",
+        "joinedAt": "2026-10-11T10:32:32.813Z",
+        "refundedAt": null,
+        "kills": 0,
+        "position": null,
+        "payout": "0.00",
+        "displayStatus": "Result pending",
+        "positionLabel": "Result pending"
+      },
+      {
+        "matchId": "4",
+        "gameMode": "battle_royale",
+        "teamMode": "solo",
+        "entryFee": "20.00",
+        "startTime": "2026-12-01T18:00:00.000Z",
+        "matchStatus": "live",
+        "joinedAt": "2026-10-11T10:32:32.769Z",
+        "refundedAt": null,
+        "kills": 0,
+        "position": null,
+        "payout": "0.00",
+        "displayStatus": "Result pending",
+        "positionLabel": "Result pending"
+      },
+      {
+        "matchId": "3",
+        "gameMode": "clash_squad",
+        "teamMode": "squad",
+        "entryFee": "25.00",
+        "startTime": "2026-12-01T17:00:00.000Z",
+        "matchStatus": "upcoming",
+        "joinedAt": "2026-10-11T10:32:32.751Z",
+        "refundedAt": null,
+        "kills": 0,
+        "position": null,
+        "payout": "0.00",
+        "displayStatus": "Result pending",
+        "positionLabel": "Result pending"
+      },
+      {
+        "matchId": "2",
+        "gameMode": "battle_royale",
+        "teamMode": "duo",
+        "entryFee": "20.00",
+        "startTime": "2026-12-01T16:00:00.000Z",
+        "matchStatus": "live",
+        "joinedAt": "2026-10-11T10:32:32.742Z",
+        "refundedAt": null,
+        "kills": 0,
+        "position": null,
+        "payout": "0.00",
+        "displayStatus": "Result pending",
+        "positionLabel": "Result pending"
+      },
+      {
+        "matchId": "1",
+        "gameMode": "battle_royale",
+        "teamMode": "solo",
+        "entryFee": "20.00",
+        "startTime": "2026-12-01T15:00:00.000Z",
+        "matchStatus": "cancelled",
+        "joinedAt": "2026-10-11T10:32:32.720Z",
+        "refundedAt": "2026-10-11T10:32:33.023Z",
+        "kills": 0,
+        "position": null,
+        "payout": "0.00",
+        "displayStatus": "Cancelled (refunded)",
+        "positionLabel": "Cancelled (refunded)"
+      }
+    ],
+    "nextCursor": null,
+    "hasMore": false
+  }
+}

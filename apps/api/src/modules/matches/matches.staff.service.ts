@@ -14,6 +14,7 @@ import type {
   MatchDetailStaffDto,
   MatchStaffDto,
   JoinedPlayerDto,
+  MatchTeamStaffDto,
 } from './matches.types.js';
 
 // ISO 8601 with timezone offset regex: requires Z or +/-HH:MM
@@ -267,7 +268,7 @@ export async function getMatchDetailStaff(matchId: string): Promise<MatchDetailS
   const row = matchRes.rows[0];
 
   const playersRes = await query(
-    `SELECT mp.user_id, u.name, u.ff_id, u.ff_name,
+    `SELECT mp.user_id, mp.team_id, u.name, u.ff_id, u.ff_name,
             mp.paid_add_money, mp.paid_cashback, mp.paid_winning,
             mp.refunded_at, mp.joined_at
      FROM match_players mp
@@ -282,12 +283,50 @@ export async function getMatchDetailStaff(matchId: string): Promise<MatchDetailS
     name: p.name,
     ffId: p.ff_id,
     ffName: p.ff_name,
+    teamId: row.team_mode === 'solo' ? null : (p.team_id ? p.team_id.toString() : null),
     paidAddMoney: paiseToString(stringToPaise(p.paid_add_money.toString())),
     paidCashback:  paiseToString(stringToPaise(p.paid_cashback.toString())),
     paidWinning:   paiseToString(stringToPaise(p.paid_winning.toString())),
     refundedAt:    p.refunded_at ? p.refunded_at.toISOString() : null,
     joinedAt:      p.joined_at.toISOString(),
   }));
+
+  let teams: MatchTeamStaffDto[] = [];
+  if (row.team_mode !== 'solo') {
+    const teamsRes = await query<{
+      id: string;
+      name: string | null;
+      size: number;
+      status: string;
+      leader_id: string;
+    }>(
+      `SELECT t.id, t.name, t.size, t.status, t.leader_id
+       FROM teams t
+       WHERE t.match_id = $1
+       ORDER BY t.created_at ASC, t.id ASC`,
+      [matchId]
+    );
+
+    const teamMembersMap = new Map<string, string[]>();
+    for (const p of playersRes.rows) {
+      if (p.team_id && !p.refunded_at) {
+        const tid = p.team_id.toString();
+        if (!teamMembersMap.has(tid)) {
+          teamMembersMap.set(tid, []);
+        }
+        teamMembersMap.get(tid)!.push(p.user_id.toString());
+      }
+    }
+
+    teams = teamsRes.rows.map((t) => ({
+      id: t.id.toString(),
+      name: t.name ?? null,
+      size: Number(t.size),
+      status: t.status,
+      leaderId: t.leader_id.toString(),
+      memberUserIds: teamMembersMap.get(t.id.toString()) ?? [],
+    }));
+  }
 
   return {
     id: row.id.toString(),
@@ -309,6 +348,7 @@ export async function getMatchDetailStaff(matchId: string): Promise<MatchDetailS
     createdAt: row.created_at.toISOString(),
     joinedCount: Number(row.joined_count || 0),
     players,
+    teams,
   };
 }
 

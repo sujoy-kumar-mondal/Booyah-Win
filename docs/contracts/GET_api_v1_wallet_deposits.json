@@ -1,0 +1,40 @@
+{
+  "data": {
+    "items": [
+      {
+        "id": "3",
+        "amount": "50.00",
+        "utr": "123456789012",
+        "screenshotUrl": "https://storage.example.com/placeholder.jpg",
+        "status": "pending",
+        "rejectReason": null,
+        "needsAdmin": false,
+        "createdAt": "2026-10-11T10:32:33.154Z",
+        "reviewedAt": null
+      },
+      {
+        "id": "2",
+        "amount": "30.00",
+        "utr": "123456789012",
+        "screenshotUrl": "https://storage.example.com/placeholder.jpg",
+        "status": "rejected",
+        "rejectReason": "UTR already claimed or unverified",
+        "needsAdmin": false,
+        "createdAt": "2026-10-11T10:32:33.108Z",
+        "reviewedAt": "2026-10-11T10:32:33.112Z"
+      },
+      {
+        "id": "1",
+        "amount": "50.00",
+        "utr": "123456789012",
+        "screenshotUrl": "https://storage.example.com/placeholder.jpg",
+        "status": "approved",
+        "rejectReason": null,
+        "needsAdmin": false,
+        "createdAt": "2026-10-11T10:32:32.864Z",
+        "reviewedAt": "2026-10-11T10:32:33.099Z"
+      }
+    ],
+    "nextCursor": null
+  }
+}

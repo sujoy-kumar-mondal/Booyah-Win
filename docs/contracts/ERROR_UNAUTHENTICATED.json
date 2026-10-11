@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "UNAUTHENTICATED",
+    "message": "Staff authentication token required",
+    "details": {}
+  }
+}

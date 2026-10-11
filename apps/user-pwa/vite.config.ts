@@ -4,8 +4,22 @@ import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 import { pwaWorkboxConfig } from './src/pwaConfig.js';
 
+function cspHtmlPlugin() {
+  return {
+    name: 'csp-html-plugin',
+    transformIndexHtml(html: string) {
+      const apiOrigin = (process.env.VITE_API_ORIGIN || process.env.VITE_API_URL || '').trim();
+      const storageOrigin = (process.env.VITE_STORAGE_ORIGIN || '').trim();
+      return html
+        .replace('%VITE_API_ORIGIN%', apiOrigin)
+        .replace('%VITE_STORAGE_ORIGIN%', storageOrigin);
+    },
+  };
+}
+
 export default defineConfig({
   plugins: [
+    cspHtmlPlugin(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',

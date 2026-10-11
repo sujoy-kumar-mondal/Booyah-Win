@@ -21,3 +21,12 @@ Object.defineProperty(window, 'matchMedia', {
     dispatchEvent: vi.fn(),
   })),
 });
+
+// Mock URL.createObjectURL and URL.revokeObjectURL for JSDOM
+if (!URL.createObjectURL) {
+  URL.createObjectURL = vi.fn(() => 'blob:mock-object-url');
+}
+if (!URL.revokeObjectURL) {
+  URL.revokeObjectURL = vi.fn();
+}
+

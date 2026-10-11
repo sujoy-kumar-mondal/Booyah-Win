@@ -1,0 +1,43 @@
+{
+  "data": {
+    "match": {
+      "id": "1",
+      "tierId": "1",
+      "gameMode": "battle_royale",
+      "teamMode": "solo",
+      "entryFee": "20.00",
+      "killPrice": "10.00",
+      "minKillsForReward": 1,
+      "positionPrizes": {
+        "1": "300.00",
+        "2": "150.00",
+        "3": "50.00"
+      },
+      "maxPlayers": 48,
+      "minPlayers": 2,
+      "startTime": "2026-12-01T15:00:00.000Z",
+      "roomId": "123456",
+      "roomPassword": "test-room-password",
+      "status": "room_open",
+      "cancelReason": null,
+      "createdBy": "2",
+      "createdAt": "2026-10-11T10:32:32.710Z",
+      "joinedCount": 1,
+      "players": [
+        {
+          "userId": "1",
+          "name": "Player One",
+          "ffId": "12345678",
+          "ffName": "ProPlayer1",
+          "teamId": null,
+          "paidAddMoney": "20.00",
+          "paidCashback": "0.00",
+          "paidWinning": "0.00",
+          "refundedAt": null,
+          "joinedAt": "2026-10-11T10:32:32.720Z"
+        }
+      ],
+      "teams": []
+    }
+  }
+}

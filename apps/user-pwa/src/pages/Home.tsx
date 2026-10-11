@@ -1,10 +1,12 @@
 import React from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { formatIndianRupees } from '../utils/formatters.js';
 import { Wallet, PlusCircle, ArrowDownToLine, Trophy, Flame, ShieldAlert } from 'lucide-react';
 
 export const Home: React.FC = () => {
   const { user, wallets } = useAuth();
+  const navigate = useNavigate();
 
   return (
     <div className="space-y-5" data-testid="home-screen">
@@ -43,21 +45,25 @@ export const Home: React.FC = () => {
           {formatIndianRupees(wallets?.total || '0.00')}
         </div>
 
-        {/* Quick Action Buttons (Placeholders for M9b) */}
+        {/* Quick Action Buttons */}
         <div className="mt-4 grid grid-cols-2 gap-3 pt-2">
           <button
             type="button"
+            onClick={() => navigate('/wallet?tab=add')}
+            data-testid="home-add-money-btn"
             className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500 py-2.5 text-xs font-bold text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.98]"
           >
             <PlusCircle className="h-4 w-4" />
-            Add Money (Soon)
+            Add Money
           </button>
           <button
             type="button"
+            onClick={() => navigate('/wallet?tab=withdraw')}
+            data-testid="home-withdraw-btn"
             className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/80 py-2.5 text-xs font-bold text-slate-200 transition-all hover:bg-slate-700 active:scale-[0.98]"
           >
             <ArrowDownToLine className="h-4 w-4" />
-            Withdraw (Soon)
+            Withdraw
           </button>
         </div>
       </div>

@@ -1,0 +1,117 @@
+{
+  "data": {
+    "items": [
+      {
+        "transactionId": "BW-0000015",
+        "type": "withdrawal_hold",
+        "createdAt": "2026-10-11T10:32:33.165Z",
+        "amount": "-50.00",
+        "remainingAmount": "310.00",
+        "wallet": "winning",
+        "refType": "withdrawal",
+        "refId": "3"
+      },
+      {
+        "transactionId": "BW-0000014",
+        "type": "withdrawal_refund",
+        "createdAt": "2026-10-11T10:32:33.133Z",
+        "amount": "50.00",
+        "remainingAmount": "360.00",
+        "wallet": "winning",
+        "refType": "withdrawal",
+        "refId": "2"
+      },
+      {
+        "transactionId": "BW-0000013",
+        "type": "withdrawal_hold",
+        "createdAt": "2026-10-11T10:32:33.128Z",
+        "amount": "-50.00",
+        "remainingAmount": "310.00",
+        "wallet": "winning",
+        "refType": "withdrawal",
+        "refId": "2"
+      },
+      {
+        "transactionId": "BW-0000012",
+        "type": "add_money",
+        "createdAt": "2026-10-11T10:32:33.099Z",
+        "amount": "50.00",
+        "remainingAmount": "360.00",
+        "wallet": "add_money",
+        "refType": "deposit",
+        "refId": "1"
+      },
+      {
+        "transactionId": "BW-0000010",
+        "type": "reversal",
+        "createdAt": "2026-10-11T10:32:33.069Z",
+        "amount": "-310.00",
+        "remainingAmount": "310.00",
+        "wallet": "winning",
+        "refType": null,
+        "refId": "4"
+      },
+      {
+        "transactionId": "BW-0000008",
+        "type": "winning",
+        "createdAt": "2026-10-11T10:32:33.055Z",
+        "amount": "310.00",
+        "remainingAmount": "620.00",
+        "wallet": "winning",
+        "refType": null,
+        "refId": "4"
+      },
+      {
+        "transactionId": "BW-0000007",
+        "type": "refund",
+        "createdAt": "2026-10-11T10:32:33.023Z",
+        "amount": "20.00",
+        "remainingAmount": "310.00",
+        "wallet": "add_money",
+        "refType": "match",
+        "refId": "1"
+      },
+      {
+        "transactionId": "BW-0000006",
+        "type": "withdrawal_hold",
+        "createdAt": "2026-10-11T10:32:32.872Z",
+        "amount": "-50.00",
+        "remainingAmount": "290.00",
+        "wallet": "winning",
+        "refType": "withdrawal",
+        "refId": "1"
+      },
+      {
+        "transactionId": "BW-0000004",
+        "type": "join_fee",
+        "createdAt": "2026-10-11T10:32:32.813Z",
+        "amount": "-20.00",
+        "remainingAmount": "340.00",
+        "wallet": "add_money",
+        "refType": "match",
+        "refId": "6"
+      },
+      {
+        "transactionId": "BW-0000002",
+        "type": "join_fee",
+        "createdAt": "2026-10-11T10:32:32.769Z",
+        "amount": "-20.00",
+        "remainingAmount": "360.00",
+        "wallet": "add_money",
+        "refType": "match",
+        "refId": "4"
+      },
+      {
+        "transactionId": "BW-0000001",
+        "type": "join_fee",
+        "createdAt": "2026-10-11T10:32:32.720Z",
+        "amount": "-20.00",
+        "remainingAmount": "380.00",
+        "wallet": "add_money",
+        "refType": "match",
+        "refId": "1"
+      }
+    ],
+    "nextCursor": null
+  }
+}

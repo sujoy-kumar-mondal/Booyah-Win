@@ -103,16 +103,35 @@ List endpoints with pagination return cursor parameters:
 #### `GET /api/v1/payment-info`
 - **Auth**: None
 - **Rate Limit**: Global (100 req/min)
-- **Description**: Returns UPI ID and payment QR signed URL for manual deposits.
+- **Description**: Returns UPI ID, payment QR signed URL, and deposit limits for manual deposits.
 - **Success Response (200)**:
-  ```json
-  {
-    "data": {
-      "upiId": "merchant@okhdfcbank",
-      "qrUrl": "https://storage.../payment_qr.png?token=..."
+  - When configured:
+    ```json
+    {
+      "data": {
+        "configured": true,
+        "paymentUpiId": "merchant@okhdfcbank",
+        "paymentQrUrl": "https://storage.../payment_qr.png?token=...",
+        "qrUrl": "https://storage.../payment_qr.png?token=...",
+        "minDeposit": "10.00",
+        "maxDeposit": "5000.00"
+      }
     }
-  }
-  ```
+    ```
+  - When not configured:
+    ```json
+    {
+      "data": {
+        "configured": false,
+        "message": "Payment information not configured yet",
+        "paymentUpiId": null,
+        "paymentQrUrl": null,
+        "qrUrl": null,
+        "minDeposit": "10.00",
+        "maxDeposit": "5000.00"
+      }
+    }
+    ```
 
 #### `GET /api/v1/files/:key`
 - **Auth**: HMAC signed URL (`token` and `expires` query parameters)
@@ -280,11 +299,11 @@ List endpoints with pagination return cursor parameters:
   ```json
   {
     "data": {
-      "message": "Staff OTP sent successfully"
+      "message": "If this email is registered, an OTP has been sent"
     }
   }
   ```
-- **Error Codes**: `VALIDATION_ERROR`, `NOT_FOUND` (if not registered staff member), `OTP_RATE_LIMITED`
+- **Error Codes**: `VALIDATION_ERROR`, `OTP_RATE_LIMITED`
 
 #### `POST /api/v1/staff/auth/login/verify-otp`
 - **Auth**: None
@@ -318,7 +337,7 @@ List endpoints with pagination return cursor parameters:
   ```json
   {
     "data": {
-      "message": "Staff logged out successfully"
+      "message": "Logged out successfully"
     }
   }
   ```
@@ -454,19 +473,21 @@ List endpoints with pagination return cursor parameters:
 - **Rate Limit**: 10 req/min per user
 - **Form Fields**:
   - `amount`: string (e.g. `"100.00"`)
-  - `utr`: string (12 alphanumeric characters)
+  - `utr`: string (10-25 alphanumeric characters, Section 4.5)
   - `screenshot`: file (image/jpeg, image/png, image/webp; max 2 MB)
 - **Success Response (201)**:
   ```json
   {
     "data": {
       "id": "1",
-      "displayId": "BW-DEP-1",
       "amount": "100.00",
       "utr": "123456789012",
-      "status": "pending",
       "screenshotUrl": "/api/v1/files/...",
-      "createdAt": "2026-10-10T12:00:00.000Z"
+      "status": "pending",
+      "rejectReason": null,
+      "needsAdmin": false,
+      "createdAt": "2026-10-10T12:00:00.000Z",
+      "reviewedAt": null
     }
   }
   ```
@@ -474,19 +495,28 @@ List endpoints with pagination return cursor parameters:
 
 #### `GET /api/v1/wallet/deposits`
 - **Auth**: `requireUser`
+- **Query Parameters**:
+  - `cursor`: string (optional, deposit ID)
+  - `limit`: number between 1 and 100 (default: 20)
 - **Success Response (200)**:
   ```json
   {
-    "data": [
-      {
-        "id": "1",
-        "displayId": "BW-DEP-1",
-        "amount": "100.00",
-        "utr": "123456789012",
-        "status": "approved",
-        "createdAt": "2026-10-10T12:00:00.000Z"
-      }
-    ]
+    "data": {
+      "items": [
+        {
+          "id": "1",
+          "amount": "100.00",
+          "utr": "123456789012",
+          "screenshotUrl": "/api/v1/files/...",
+          "status": "approved",
+          "rejectReason": null,
+          "needsAdmin": false,
+          "createdAt": "2026-10-10T12:00:00.000Z",
+          "reviewedAt": "2026-10-10T12:15:00.000Z"
+        }
+      ],
+      "nextCursor": null
+    }
   }
   ```
 
@@ -496,7 +526,9 @@ List endpoints with pagination return cursor parameters:
 - **Request Body**:
   ```json
   {
-    "amount": "150.00"
+    "amount": "150.00",
+    "upiId": "player@upi",
+    "confirm": true
   }
   ```
 - **Validation**: Minimum ₹50.00; must not exceed `winning` balance; user cannot have another pending withdrawal; blocked for 48 hours after UPI change.
@@ -505,10 +537,13 @@ List endpoints with pagination return cursor parameters:
   {
     "data": {
       "id": "1",
-      "displayId": "BW-WTH-1",
       "amount": "150.00",
+      "upiId": "player@upi",
       "status": "pending",
-      "createdAt": "2026-10-10T12:00:00.000Z"
+      "rejectReason": null,
+      "payoutRef": null,
+      "createdAt": "2026-10-10T12:00:00.000Z",
+      "processedAt": null
     }
   }
   ```
@@ -516,45 +551,53 @@ List endpoints with pagination return cursor parameters:
 
 #### `GET /api/v1/wallet/withdrawals`
 - **Auth**: `requireUser`
-- **Success Response (200)**:
-  ```json
-  {
-    "data": [
-      {
-        "id": "1",
-        "displayId": "BW-WTH-1",
-        "amount": "150.00",
-        "status": "pending",
-        "createdAt": "2026-10-10T12:00:00.000Z"
-      }
-    ]
-  }
-  ```
-
-#### `GET /api/v1/wallet/transactions`
-- **Auth**: `requireUser`
 - **Query Parameters**:
-  - `cursor`: string (optional)
-  - `limit`: number (default: 20, max: 50)
-  - `type`: comma-separated ledger types (`join_fee`, `winning`, `refund`, etc.)
+  - `cursor`: string (optional, withdrawal ID)
+  - `limit`: number between 1 and 100 (default: 20)
 - **Success Response (200)**:
   ```json
   {
     "data": {
       "items": [
         {
-          "id": "10",
-          "displayId": "BW-TXN-10",
-          "type": "winning",
-          "walletKind": "winning",
+          "id": "1",
           "amount": "150.00",
-          "balanceAfter": "450.00",
-          "description": "Prize won in match BW-MAT-1",
-          "createdAt": "2026-10-10T15:30:00.000Z"
+          "upiId": "player@upi",
+          "status": "pending",
+          "rejectReason": null,
+          "payoutRef": null,
+          "createdAt": "2026-10-10T12:00:00.000Z",
+          "processedAt": null
         }
       ],
-      "nextCursor": null,
-      "hasMore": false
+      "nextCursor": null
+    }
+  }
+  ```
+
+#### `GET /api/v1/wallet/transactions`
+- **Auth**: `requireUser`
+- **Query Parameters**:
+  - `cursor`: string (optional, ledger ID)
+  - `limit`: number between 1 and 100 (default: 20)
+  - `type`: filter key (`add_money`, `referral`, `withdrawal`, `join_fee`, `winning`, `refund`)
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "items": [
+        {
+          "transactionId": "BW-0000010",
+          "type": "winning",
+          "createdAt": "2026-10-10T15:30:00.000Z",
+          "amount": "150.00",
+          "remainingAmount": "450.00",
+          "wallet": "winning",
+          "refType": "match",
+          "refId": "1"
+        }
+      ],
+      "nextCursor": null
     }
   }
   ```
@@ -776,11 +819,16 @@ List endpoints with pagination return cursor parameters:
   ```json
   {
     "data": {
-      "pendingDeposits": 3,
-      "pendingWithdrawals": 1,
-      "upcomingMatches": 5,
-      "liveMatches": 1,
-      "resultsPendingApproval": 2
+      "pendingDepositsCount": 3,
+      "oldestPendingDepositAgeMinutes": 35.5,
+      "isOldestDepositOver30Min": true,
+      "pendingWithdrawalsCount": 1,
+      "oldestPendingWithdrawalAgeMinutes": 1500.0,
+      "liveMatchesCount": 1,
+      "upcomingMatchesCount": 5,
+      "roomOpenMatchesCount": 0,
+      "completedMatchesCount": 12,
+      "resultsWaitingApprovalCount": 2
     }
   }
   ```
@@ -790,17 +838,26 @@ List endpoints with pagination return cursor parameters:
 - **Success Response (200)**:
   ```json
   {
-    "data": [
-      {
-        "id": "1",
-        "name": "BR Bronze",
-        "gameMode": "battle_royale",
-        "entryFee": "10.00",
-        "perKillReward": "5.00",
-        "minPlayers": 24,
-        "maxPlayers": 48
-      }
-    ]
+    "data": {
+      "tiers": [
+        {
+          "id": "1",
+          "gameMode": "battle_royale",
+          "teamMode": "solo",
+          "entryFee": "10.00",
+          "killPrice": "5.00",
+          "minKillsForReward": 2,
+          "maxPlayers": 48,
+          "minPlayers": 24,
+          "positions": [
+            { "position": 1, "prize": "100.00" },
+            { "position": 2, "prize": "60.00" },
+            { "position": 3, "prize": "40.00" }
+          ],
+          "createdAt": "2026-10-10T12:00:00.000Z"
+        }
+      ]
+    }
   }
   ```
 
@@ -853,11 +910,71 @@ List endpoints with pagination return cursor parameters:
     "data": {
       "match": {
         "id": "2",
-        "status": "upcoming"
+        "tierId": "1",
+        "gameMode": "battle_royale",
+        "teamMode": "duo",
+        "entryFee": "10.00",
+        "killPrice": "5.00",
+        "minKillsForReward": 2,
+        "positionPrizes": {
+          "1": "50.00",
+          "2": "40.00"
+        },
+        "maxPlayers": 48,
+        "minPlayers": 24,
+        "startTime": "2026-10-15T16:00:00.000Z",
+        "roomId": "ROOM-12345",
+        "roomPassword": "secretpassword",
+        "status": "upcoming",
+        "cancelReason": null,
+        "createdBy": "1",
+        "createdAt": "2026-10-10T12:00:00.000Z",
+        "joinedCount": 2,
+        "players": [
+          {
+            "userId": "10",
+            "name": "Player One",
+            "ffId": "111222333",
+            "ffName": "BooyahKing",
+            "teamId": "5",
+            "paidAddMoney": "10.00",
+            "paidCashback": "0.00",
+            "paidWinning": "0.00",
+            "refundedAt": null,
+            "joinedAt": "2026-10-10T12:30:00.000Z"
+          },
+          {
+            "userId": "11",
+            "name": "Player Two",
+            "ffId": "444555666",
+            "ffName": "ProShooter",
+            "teamId": "5",
+            "paidAddMoney": "10.00",
+            "paidCashback": "0.00",
+            "paidWinning": "0.00",
+            "refundedAt": null,
+            "joinedAt": "2026-10-10T12:35:00.000Z"
+          }
+        ],
+        "teams": [
+          {
+            "id": "5",
+            "name": "Alpha Squad",
+            "size": 2,
+            "status": "confirmed",
+            "leaderId": "10",
+            "memberUserIds": ["10", "11"]
+          }
+        ]
       }
     }
   }
   ```
+- **Notes**:
+  - For solo matches (`teamMode: "solo"`), `teams` is an empty array (`[]`) and each player has `teamId: null`.
+  - For team modes (`duo`, `squad`, `clash_squad`), `teams` contains all teams for the match (including disbanded teams).
+  - `memberUserIds` contains only active (non-refunded) players in that team in joined order.
+  - Clients must compare `memberUserIds.length` to `size` to check the current active seat occupancy of the team (e.g. if a member was refunded or left, `memberUserIds.length` will be shorter than `size`).
 - **Error Codes**: `NOT_FOUND`, `VALIDATION_ERROR`
 
 #### `POST /api/v1/staff/matches/:id/open-room`
@@ -918,16 +1035,18 @@ List endpoints with pagination return cursor parameters:
 - **Rate Limit**: 30 req/min per staff user (Requirement 4)
 - **Content-Type**: `multipart/form-data`
 - **Form Fields**:
-  - `entries`: JSON string containing array of `{ playerId, kills, position }`
+  - `entries`: JSON string containing array of `{ userId, kills, position }`
   - `screenshot`: file (max 2 MB)
 - **Validation**: Staff member cannot submit result if they participated in the match.
 - **Success Response (201)**:
   ```json
   {
     "data": {
-      "resultId": "1",
-      "matchId": "2",
-      "status": "pending_approval"
+      "result": {
+        "id": "1",
+        "matchId": "2",
+        "status": "pending_approval"
+      }
     }
   }
   ```
@@ -939,7 +1058,23 @@ List endpoints with pagination return cursor parameters:
   ```json
   {
     "data": {
-      "result": { ... }
+      "id": "1",
+      "matchId": "2",
+      "entries": [
+        {
+          "userId": "10",
+          "kills": 3,
+          "position": 1
+        }
+      ],
+      "screenshotUrl": "match-results/2/result_123.jpg",
+      "signedScreenshotUrl": "http://localhost:3000/api/v1/files/match-results/2/result_123.jpg?token=...",
+      "status": "pending_approval",
+      "rejectReason": null,
+      "submittedBy": "1",
+      "approvedBy": null,
+      "createdAt": "2026-10-10T16:00:00.000Z",
+      "approvedAt": null
     }
   }
   ```
@@ -955,9 +1090,24 @@ List endpoints with pagination return cursor parameters:
   ```json
   {
     "data": {
-      "items": [ ... ],
-      "nextCursor": null,
-      "hasMore": false
+      "items": [
+        {
+          "id": "1",
+          "userId": "10",
+          "userEmail": "player@example.com",
+          "amount": "100.00",
+          "utr": "123456789012",
+          "screenshotUrl": "https://storage.booyah.win/uploads/s.jpg?sig=...",
+          "status": "pending",
+          "rejectReason": null,
+          "needsAdmin": false,
+          "pendingMinutes": 15,
+          "createdAt": "2026-10-10T10:00:00.000Z",
+          "reviewedAt": null,
+          "reviewedBy": null
+        }
+      ],
+      "nextCursor": null
     }
   }
   ```
@@ -965,17 +1115,16 @@ List endpoints with pagination return cursor parameters:
 #### `POST /api/v1/staff/deposits/:id/approve`
 - **Auth**: `requireStaff`
 - **Rate Limit**: 30 req/min per staff user (Requirement 4)
-- **Validation**: If deposit amount > `admin_approval_threshold`, employees are blocked with `ADMIN_APPROVAL_REQUIRED`.
+- **Validation**: If deposit amount > `admin_approval_threshold`, employees are blocked with `ADMIN_APPROVAL_REQUIRED`. Staff cannot approve their own deposit (`FORBIDDEN`).
 - **Success Response (200)**:
   ```json
   {
     "data": {
-      "id": "1",
-      "status": "approved"
+      "message": "Deposit approved"
     }
   }
   ```
-- **Error Codes**: `ADMIN_APPROVAL_REQUIRED`, `INVALID_TRANSITION`, `NOT_FOUND`, `VALIDATION_ERROR`
+- **Error Codes**: `ADMIN_APPROVAL_REQUIRED`, `FORBIDDEN`, `VALIDATION_ERROR`, `NOT_FOUND`
 
 #### `POST /api/v1/staff/deposits/:id/reject`
 - **Auth**: `requireStaff`
@@ -986,28 +1135,43 @@ List endpoints with pagination return cursor parameters:
     "reason": "Invalid transaction reference"
   }
   ```
+- **Validation**: Rejection reason must be at least 5 characters.
 - **Success Response (200)**:
   ```json
   {
     "data": {
-      "id": "1",
-      "status": "rejected"
+      "message": "Deposit rejected"
     }
   }
   ```
-- **Error Codes**: `VALIDATION_ERROR`, `INVALID_TRANSITION`, `NOT_FOUND`
+- **Error Codes**: `VALIDATION_ERROR`, `NOT_FOUND`
 
 #### `GET /api/v1/staff/withdrawals`
 - **Auth**: `requireStaff`
 - **Query Parameters**:
   - `status`: `'pending' | 'paid' | 'rejected'`
+  - `cursor`: string
+  - `limit`: number
 - **Success Response (200)**:
   ```json
   {
     "data": {
-      "items": [ ... ],
-      "nextCursor": null,
-      "hasMore": false
+      "items": [
+        {
+          "id": "1",
+          "userId": "10",
+          "userEmail": "player@example.com",
+          "amount": "50.00",
+          "upiId": "player@upi",
+          "status": "pending",
+          "rejectReason": null,
+          "payoutRef": null,
+          "createdAt": "2026-10-10T10:00:00.000Z",
+          "processedAt": null,
+          "processedBy": null
+        }
+      ],
+      "nextCursor": null
     }
   }
   ```
@@ -1021,16 +1185,16 @@ List endpoints with pagination return cursor parameters:
     "payoutRef": "BANK-REF-9988"
   }
   ```
+- **Validation**: `payoutRef` is required. High-value withdrawals require admin role. Staff cannot process their own withdrawal (`FORBIDDEN`).
 - **Success Response (200)**:
   ```json
   {
     "data": {
-      "id": "1",
-      "status": "paid"
+      "message": "Withdrawal marked as paid"
     }
   }
   ```
-- **Error Codes**: `VALIDATION_ERROR`, `INVALID_TRANSITION`, `NOT_FOUND`
+- **Error Codes**: `ADMIN_APPROVAL_REQUIRED`, `FORBIDDEN`, `VALIDATION_ERROR`, `NOT_FOUND`
 
 #### `POST /api/v1/staff/withdrawals/:id/reject`
 - **Auth**: `requireStaff`
@@ -1041,16 +1205,16 @@ List endpoints with pagination return cursor parameters:
     "reason": "Invalid UPI VPA"
   }
   ```
+- **Validation**: Rejection reason must be at least 5 characters. Staff cannot reject their own withdrawal (`FORBIDDEN`).
 - **Success Response (200)**:
   ```json
   {
     "data": {
-      "id": "1",
-      "status": "rejected"
+      "message": "Withdrawal rejected"
     }
   }
   ```
-- **Error Codes**: `VALIDATION_ERROR`, `INVALID_TRANSITION`, `NOT_FOUND`
+- **Error Codes**: `FORBIDDEN`, `VALIDATION_ERROR`, `NOT_FOUND`
 
 ---
 
@@ -1289,15 +1453,22 @@ List endpoints with pagination return cursor parameters:
 - **Success Response (200)**:
   ```json
   {
-    "data": [
-      {
-        "id": "1",
-        "matchId": "2",
-        "status": "pending_approval",
-        "submittedBy": "1",
-        "submittedAt": "2026-10-10T16:00:00.000Z"
-      }
-    ]
+    "data": {
+      "results": [
+        {
+          "id": "1",
+          "matchId": "2",
+          "status": "pending_approval",
+          "submittedBy": "1",
+          "createdAt": "2026-10-10T16:00:00.000Z",
+          "screenshotUrl": "match-results/2/result_123.jpg",
+          "gameMode": "battle_royale",
+          "teamMode": "duo",
+          "matchStatus": "live"
+        }
+      ],
+      "count": 1
+    }
   }
   ```
 
@@ -1307,9 +1478,25 @@ List endpoints with pagination return cursor parameters:
   ```json
   {
     "data": {
-      "matchId": "2",
-      "payouts": [ ... ],
-      "totalPayout": "450.00"
+      "entries": [
+        {
+          "userId": "10",
+          "kills": 3,
+          "position": 1,
+          "killReward": "15.00",
+          "positionPrize": "50.00",
+          "payout": "65.00",
+          "payoutPaise": 6500,
+          "isDeleted": false
+        }
+      ],
+      "totalCollected": "40.00",
+      "totalCollectedPaise": 4000,
+      "totalPayout": "135.00",
+      "totalPayoutPaise": 13500,
+      "difference": "-95.00",
+      "differencePaise": -9500,
+      "warning": "Payout exceeds total entry fees collected"
     }
   }
   ```
@@ -1323,9 +1510,9 @@ List endpoints with pagination return cursor parameters:
   ```json
   {
     "data": {
-      "resultId": "1",
+      "matchId": "2",
       "status": "approved",
-      "totalPaid": "450.00"
+      "message": "Result approved and payouts credited"
     }
   }
   ```
@@ -1344,8 +1531,9 @@ List endpoints with pagination return cursor parameters:
   ```json
   {
     "data": {
-      "resultId": "1",
-      "status": "rejected"
+      "matchId": "2",
+      "status": "rejected",
+      "rejectionReason": "Scoreboard screenshot does not match entered kills"
     }
   }
   ```
@@ -1360,18 +1548,37 @@ List endpoints with pagination return cursor parameters:
     "reason": "Dispute resolved in favor of runner up"
   }
   ```
-- **Description**: Atomically debits winning balances credited during approval, records `reversal` ledger entries and audit log.
+- **Description**: Atomically debits winning balances credited during approval, records `reversal` ledger entries and audit log. Resets match back to `live` and result back to `rejected`.
 - **Success Response (200)**:
   ```json
   {
     "data": {
-      "resultId": "1",
-      "reversed": true,
-      "status": "rejected"
+      "matchId": "2",
+      "status": "reversed",
+      "message": "Result reversed and payouts debited"
     }
   }
   ```
-- **Error Codes**: `VALIDATION_ERROR`, `INVALID_TRANSITION`
+- **Error Codes**: `VALIDATION_ERROR`, `INVALID_TRANSITION`, `LOW_BALANCE`
+  - `400 LOW_BALANCE`:
+    ```json
+    {
+      "error": {
+        "code": "LOW_BALANCE",
+        "message": "Cannot reverse result: one or more players have insufficient winning balance",
+        "details": {
+          "affectedUsers": [
+            {
+              "userId": "10",
+              "requiredWinningPaise": 5000,
+              "currentWinningPaise": 1000,
+              "deficitPaise": 4000
+            }
+          ]
+        }
+      }
+    }
+    ```
 
 #### `GET /api/v1/admin/settings`
 - **Auth**: `requireAdmin`

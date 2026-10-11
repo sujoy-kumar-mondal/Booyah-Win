@@ -1,0 +1,37 @@
+{
+  "data": {
+    "items": [
+      {
+        "id": "3",
+        "amount": "50.00",
+        "upiId": "user@upi",
+        "status": "pending",
+        "rejectReason": null,
+        "payoutRef": null,
+        "createdAt": "2026-10-11T10:32:33.165Z",
+        "processedAt": null
+      },
+      {
+        "id": "2",
+        "amount": "50.00",
+        "upiId": "user@upi",
+        "status": "rejected",
+        "rejectReason": "Invalid or unreachable UPI ID handle",
+        "payoutRef": null,
+        "createdAt": "2026-10-11T10:32:33.128Z",
+        "processedAt": "2026-10-11T10:32:33.133Z"
+      },
+      {
+        "id": "1",
+        "amount": "50.00",
+        "upiId": "user@upi",
+        "status": "paid",
+        "rejectReason": null,
+        "payoutRef": "REF123456789",
+        "createdAt": "2026-10-11T10:32:32.872Z",
+        "processedAt": "2026-10-11T10:32:33.122Z"
+      }
+    ],
+    "nextCursor": null
+  }
+}

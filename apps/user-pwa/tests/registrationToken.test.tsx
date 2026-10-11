@@ -4,6 +4,8 @@ import { MemoryRouter } from 'react-router-dom';
 import { Register } from '../src/pages/Register.js';
 import * as authApi from '../src/api/auth.js';
 import { AuthProvider } from '../src/context/AuthContext.js';
+import { registerVerifyResponseGuard } from '../src/api/guards.js';
+import { loadContractFixture } from './contractFixtures.js';
 
 describe('Requirement 2 & 5: Registration Token Lifecycle & Storage Isolation', () => {
   beforeEach(() => {
@@ -17,7 +19,16 @@ describe('Requirement 2 & 5: Registration Token Lifecycle & Storage Isolation', 
     const mockRegToken = 'jwt-reg-token-xyz-12345';
 
     vi.spyOn(authApi, 'requestRegisterOtp').mockResolvedValue({ message: 'OTP sent' });
-    vi.spyOn(authApi, 'verifyRegisterOtp').mockResolvedValue({ registrationToken: mockRegToken });
+    vi.spyOn(authApi, 'verifyRegisterOtp').mockResolvedValue(
+      loadContractFixture(
+        'POST_api_v1_auth_register_verify-otp.json',
+        registerVerifyResponseGuard,
+        'POST /api/v1/auth/register/verify-otp',
+        (data) => {
+          data.registrationToken = mockRegToken;
+        }
+      )
+    );
 
     const { unmount } = render(
       <MemoryRouter>

@@ -99,8 +99,9 @@ export async function apiClient<T>(endpoint: string, options: RequestOptions = {
   const baseUrl = (typeof import.meta !== 'undefined' && import.meta.env?.VITE_API_URL) || '';
   const url = baseUrl ? `${baseUrl.replace(/\/+$/, '')}/${endpoint.replace(/^\/+/, '')}` : endpoint;
 
+  const isFormData = typeof FormData !== 'undefined' && restOptions.body instanceof FormData;
   const reqHeaders: Record<string, string> = {
-    'Content-Type': 'application/json',
+    ...(isFormData ? {} : { 'Content-Type': 'application/json' }),
     ...(headers as Record<string, string>),
   };
 
@@ -144,8 +145,8 @@ export async function apiClient<T>(endpoint: string, options: RequestOptions = {
     // Non-JSON responses (e.g. HTML 502/503 from proxy or sleeping Render instance)
     if (!json) {
       throw new ApiError(
-        'SERVER_UNAVAILABLE',
-        'Server is currently unavailable or starting up. Please try again in a few moments.',
+        'NON_JSON_RESPONSE',
+        getUserFriendlyErrorMessage('NON_JSON_RESPONSE'),
         {},
         res.status || 503
       );
@@ -182,7 +183,7 @@ export async function apiClient<T>(endpoint: string, options: RequestOptions = {
     // Generic network connection error (never expose raw internal error)
     throw new ApiError(
       'NETWORK_ERROR',
-      'Unable to connect to the server. Please check your internet connection.',
+      getUserFriendlyErrorMessage('NETWORK_ERROR'),
       {},
       0
     );

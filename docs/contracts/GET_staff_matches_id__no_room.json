@@ -1,0 +1,50 @@
+{
+  "data": {
+    "match": {
+      "id": "2",
+      "tierId": "3",
+      "gameMode": "battle_royale",
+      "teamMode": "duo",
+      "entryFee": "20.00",
+      "killPrice": "10.00",
+      "minKillsForReward": 1,
+      "positionPrizes": {
+        "1": "300.00"
+      },
+      "maxPlayers": 48,
+      "minPlayers": 2,
+      "startTime": "2026-12-01T16:00:00.000Z",
+      "status": "upcoming",
+      "cancelReason": null,
+      "createdBy": "2",
+      "createdAt": "2026-10-11T10:32:32.737Z",
+      "joinedCount": 1,
+      "players": [
+        {
+          "userId": "1",
+          "name": "Player One",
+          "ffId": "12345678",
+          "ffName": "ProPlayer1",
+          "teamId": "1",
+          "paidAddMoney": "20.00",
+          "paidCashback": "0.00",
+          "paidWinning": "0.00",
+          "refundedAt": null,
+          "joinedAt": "2026-10-11T10:32:32.742Z"
+        }
+      ],
+      "teams": [
+        {
+          "id": "1",
+          "name": "Alpha Team",
+          "size": 2,
+          "status": "confirmed",
+          "leaderId": "1",
+          "memberUserIds": [
+            "1"
+          ]
+        }
+      ]
+    }
+  }
+}

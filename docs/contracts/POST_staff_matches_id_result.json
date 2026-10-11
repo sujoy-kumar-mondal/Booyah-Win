@@ -1,0 +1,9 @@
+{
+  "data": {
+    "id": "2",
+    "matchId": "6",
+    "status": "pending_approval",
+    "screenshotUrl": "https://storage.example.com/placeholder.jpg",
+    "approved": false
+  }
+}

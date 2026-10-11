@@ -1,0 +1,170 @@
+{
+  "data": {
+    "matches": [
+      {
+        "id": "7",
+        "tierId": "1",
+        "gameMode": "battle_royale",
+        "teamMode": "solo",
+        "entryFee": "20.00",
+        "killPrice": "10.00",
+        "minKillsForReward": 1,
+        "positionPrizes": {
+          "1": "300.00",
+          "2": "150.00",
+          "3": "50.00"
+        },
+        "maxPlayers": 48,
+        "minPlayers": 2,
+        "startTime": "2026-12-05T12:00:00.000Z",
+        "status": "upcoming",
+        "cancelReason": null,
+        "createdBy": "2",
+        "createdAt": "2026-10-11T10:32:32.969Z",
+        "joinedCount": 0,
+        "seatsTaken": 0
+      },
+      {
+        "id": "6",
+        "tierId": "1",
+        "gameMode": "battle_royale",
+        "teamMode": "solo",
+        "entryFee": "20.00",
+        "killPrice": "10.00",
+        "minKillsForReward": 1,
+        "positionPrizes": {
+          "1": "300.00",
+          "2": "150.00",
+          "3": "50.00"
+        },
+        "maxPlayers": 48,
+        "minPlayers": 2,
+        "startTime": "2026-12-01T20:00:00.000Z",
+        "roomId": "334455",
+        "roomPassword": "test-room-password",
+        "status": "live",
+        "cancelReason": null,
+        "createdBy": "2",
+        "createdAt": "2026-10-11T10:32:32.807Z",
+        "joinedCount": 2,
+        "seatsTaken": 2
+      },
+      {
+        "id": "5",
+        "tierId": "1",
+        "gameMode": "battle_royale",
+        "teamMode": "solo",
+        "entryFee": "20.00",
+        "killPrice": "10.00",
+        "minKillsForReward": 1,
+        "positionPrizes": {
+          "1": "300.00",
+          "2": "150.00",
+          "3": "50.00"
+        },
+        "maxPlayers": 48,
+        "minPlayers": 2,
+        "startTime": "2026-12-01T19:00:00.000Z",
+        "status": "cancelled",
+        "cancelReason": "Insufficient players for fair tournament",
+        "createdBy": "2",
+        "createdAt": "2026-10-11T10:32:32.794Z",
+        "joinedCount": 0,
+        "seatsTaken": 0
+      },
+      {
+        "id": "4",
+        "tierId": "1",
+        "gameMode": "battle_royale",
+        "teamMode": "solo",
+        "entryFee": "20.00",
+        "killPrice": "10.00",
+        "minKillsForReward": 1,
+        "positionPrizes": {
+          "1": "300.00",
+          "2": "150.00",
+          "3": "50.00"
+        },
+        "maxPlayers": 48,
+        "minPlayers": 2,
+        "startTime": "2026-12-01T18:00:00.000Z",
+        "roomId": "998877",
+        "roomPassword": "test-room-password",
+        "status": "live",
+        "cancelReason": null,
+        "createdBy": "2",
+        "createdAt": "2026-10-11T10:32:32.762Z",
+        "joinedCount": 2,
+        "seatsTaken": 2
+      },
+      {
+        "id": "3",
+        "tierId": "2",
+        "gameMode": "clash_squad",
+        "teamMode": "squad",
+        "entryFee": "25.00",
+        "killPrice": "0.00",
+        "minKillsForReward": 0,
+        "positionPrizes": {
+          "1": "200.00"
+        },
+        "maxPlayers": 8,
+        "minPlayers": 8,
+        "startTime": "2026-12-01T17:00:00.000Z",
+        "status": "upcoming",
+        "cancelReason": null,
+        "createdBy": "2",
+        "createdAt": "2026-10-11T10:32:32.747Z",
+        "joinedCount": 1,
+        "seatsTaken": 4
+      },
+      {
+        "id": "2",
+        "tierId": "3",
+        "gameMode": "battle_royale",
+        "teamMode": "duo",
+        "entryFee": "20.00",
+        "killPrice": "10.00",
+        "minKillsForReward": 1,
+        "positionPrizes": {
+          "1": "300.00"
+        },
+        "maxPlayers": 48,
+        "minPlayers": 2,
+        "startTime": "2026-12-01T16:00:00.000Z",
+        "status": "upcoming",
+        "cancelReason": null,
+        "createdBy": "2",
+        "createdAt": "2026-10-11T10:32:32.737Z",
+        "joinedCount": 1,
+        "seatsTaken": 2
+      },
+      {
+        "id": "1",
+        "tierId": "1",
+        "gameMode": "battle_royale",
+        "teamMode": "solo",
+        "entryFee": "20.00",
+        "killPrice": "10.00",
+        "minKillsForReward": 1,
+        "positionPrizes": {
+          "1": "300.00",
+          "2": "150.00",
+          "3": "50.00"
+        },
+        "maxPlayers": 48,
+        "minPlayers": 2,
+        "startTime": "2026-12-01T15:00:00.000Z",
+        "roomId": "123456",
+        "roomPassword": "test-room-password",
+        "status": "room_open",
+        "cancelReason": null,
+        "createdBy": "2",
+        "createdAt": "2026-10-11T10:32:32.710Z",
+        "joinedCount": 1,
+        "seatsTaken": 1
+      }
+    ],
+    "nextCursor": null
+  }
+}

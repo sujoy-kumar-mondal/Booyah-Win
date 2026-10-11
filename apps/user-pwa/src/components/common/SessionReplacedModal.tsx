@@ -1,13 +1,40 @@
-import React from 'react';
+import React, { useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../../context/AuthContext.js';
 import { Smartphone, LogIn } from 'lucide-react';
 
 export const SessionReplacedModal: React.FC = () => {
   const { sessionReplacedOpen, sessionDialogMessage, sessionDialogTitle, dismissSessionReplaced } = useAuth();
+  const buttonRef = useRef<HTMLButtonElement>(null);
+
+  useEffect(() => {
+    const rootEl = typeof document !== 'undefined' ? document.getElementById('root') : null;
+    if (!rootEl) return;
+
+    if (sessionReplacedOpen) {
+      rootEl.setAttribute('inert', '');
+      // Auto-focus primary action button in dialog
+      setTimeout(() => {
+        buttonRef.current?.focus();
+      }, 0);
+    } else {
+      rootEl.removeAttribute('inert');
+    }
+
+    return () => {
+      rootEl.removeAttribute('inert');
+    };
+  }, [sessionReplacedOpen]);
 
   if (!sessionReplacedOpen) return null;
 
-  return (
+  const modalRoot =
+    (typeof document !== 'undefined' && document.getElementById('modal-root')) ||
+    (typeof document !== 'undefined' ? document.body : null);
+
+  if (!modalRoot) return null;
+
+  const content = (
     <div
       role="dialog"
       aria-modal="true"
@@ -25,6 +52,7 @@ export const SessionReplacedModal: React.FC = () => {
           {sessionDialogMessage || 'You were logged out because your account was used on another device.'}
         </p>
         <button
+          ref={buttonRef}
           onClick={dismissSessionReplaced}
           data-testid="session-dialog-dismiss-btn"
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-semibold text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.98]"
@@ -35,4 +63,6 @@ export const SessionReplacedModal: React.FC = () => {
       </div>
     </div>
   );
+
+  return createPortal(content, modalRoot);
 };

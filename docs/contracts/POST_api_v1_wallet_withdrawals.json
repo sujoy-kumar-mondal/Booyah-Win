@@ -1,0 +1,12 @@
+{
+  "data": {
+    "id": "3",
+    "amount": "50.00",
+    "upiId": "user@upi",
+    "status": "pending",
+    "rejectReason": null,
+    "payoutRef": null,
+    "createdAt": "2026-10-11T10:32:33.165Z",
+    "processedAt": null
+  }
+}

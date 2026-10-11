@@ -1,0 +1,29 @@
+{
+  "data": {
+    "results": [
+      {
+        "id": "1",
+        "matchId": "4",
+        "status": "pending_approval",
+        "submittedBy": "2",
+        "createdAt": "2026-10-11T10:32:32.853Z",
+        "screenshotUrl": "https://storage.example.com/placeholder.jpg",
+        "gameMode": "battle_royale",
+        "teamMode": "solo",
+        "matchStatus": "live"
+      },
+      {
+        "id": "2",
+        "matchId": "6",
+        "status": "pending_approval",
+        "submittedBy": "2",
+        "createdAt": "2026-10-11T10:32:33.032Z",
+        "screenshotUrl": "https://storage.example.com/placeholder.jpg",
+        "gameMode": "battle_royale",
+        "teamMode": "solo",
+        "matchStatus": "live"
+      }
+    ],
+    "count": 2
+  }
+}

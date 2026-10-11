@@ -38,9 +38,25 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
 };
 
 export const DEFAULT_ERROR_MESSAGE = 'An unexpected error occurred. Please try again.';
+export const PROD_NETWORK_OR_NON_JSON_MESSAGE = "We couldn't reach the server. Please check your connection and try again.";
+export const DEV_NETWORK_MESSAGE = 'Cannot reach the server. Check that the API is running.';
+export const DEV_NON_JSON_MESSAGE = 'The server sent an unexpected response.';
 
-export function getUserFriendlyErrorMessage(code?: string | null): string {
+export function getUserFriendlyErrorMessage(
+  code?: string | null,
+  isDev: boolean = typeof import.meta !== 'undefined' && Boolean(import.meta.env?.DEV)
+): string {
   if (!code) return DEFAULT_ERROR_MESSAGE;
+  if (code === 'UNEXPECTED_RESPONSE') return 'unexpected response, please refresh';
+
+  if (code === 'NETWORK_ERROR') {
+    return isDev ? DEV_NETWORK_MESSAGE : PROD_NETWORK_OR_NON_JSON_MESSAGE;
+  }
+
+  if (code === 'NON_JSON_RESPONSE' || code === 'SERVER_UNAVAILABLE') {
+    return isDev ? DEV_NON_JSON_MESSAGE : PROD_NETWORK_OR_NON_JSON_MESSAGE;
+  }
+
   const mapped = ERROR_MESSAGES[code as ErrorCode];
   return mapped || DEFAULT_ERROR_MESSAGE;
 }

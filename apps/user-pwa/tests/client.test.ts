@@ -106,7 +106,7 @@ describe('API Client Envelope, Interceptors & Error Handling', () => {
     } catch (err: any) {
       expect(err).toBeInstanceOf(ApiError);
       expect(err.code).toBe('NETWORK_ERROR');
-      expect(err.message).toBe('Unable to connect to the server. Please check your internet connection.');
+      expect(err.message).toBe('Cannot reach the server. Check that the API is running.');
     }
   });
 
@@ -144,8 +144,8 @@ describe('API Client Envelope, Interceptors & Error Handling', () => {
       expect.fail('Should have thrown');
     } catch (err: any) {
       expect(err).toBeInstanceOf(ApiError);
-      expect(err.code).toBe('SERVER_UNAVAILABLE');
-      expect(err.message).toBe('Server is currently unavailable or starting up. Please try again in a few moments.');
+      expect(err.code).toBe('NON_JSON_RESPONSE');
+      expect(err.message).toBe('The server sent an unexpected response.');
     }
   });
 
@@ -215,5 +215,27 @@ describe('API Client Envelope, Interceptors & Error Handling', () => {
     expect(replacedListener).toHaveBeenCalled();
 
     unsub();
+  });
+
+  it('Requirement 2: does not set Content-Type: application/json when body is FormData', async () => {
+    global.fetch = vi.fn().mockResolvedValue({
+      ok: true,
+      headers: { get: () => 'application/json' },
+      json: async () => ({ data: { id: '1', status: 'pending' } }),
+    });
+
+    const formData = new FormData();
+    formData.append('amount', '100.00');
+    formData.append('utr', '123456789012');
+
+    await apiClient('/api/v1/wallet/deposits', {
+      method: 'POST',
+      body: formData,
+    });
+
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    const callArgs = (global.fetch as any).mock.calls[0];
+    const headers = callArgs[1].headers;
+    expect(headers['Content-Type']).toBeUndefined();
   });
 });

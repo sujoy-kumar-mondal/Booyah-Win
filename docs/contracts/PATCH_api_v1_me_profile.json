@@ -1,0 +1,29 @@
+{
+  "data": {
+    "profile": {
+      "id": "4",
+      "email": "user@example.com",
+      "name": "New Player",
+      "mobile": "9999999999",
+      "ffId": "99887766",
+      "ffName": "ProPlayerUpdated",
+      "upiId": "user@upi",
+      "dateOfBirth": "2000-01-01",
+      "referralCode": "EM9YQZX5",
+      "referredBy": null,
+      "createdAt": "2026-10-11T10:32:32.909Z"
+    },
+    "wallets": {
+      "addMoney": "0.00",
+      "cashback": "0.00",
+      "winning": "0.00",
+      "total": "0.00"
+    },
+    "cooldowns": {
+      "mobileAvailableAt": null,
+      "ffIdAvailableAt": null,
+      "ffNameAvailableAt": "2026-11-10T10:32:33.145Z",
+      "upiIdAvailableAt": null
+    }
+  }
+}

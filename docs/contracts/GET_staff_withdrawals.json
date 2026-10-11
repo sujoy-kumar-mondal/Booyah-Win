@@ -1,0 +1,20 @@
+{
+  "data": {
+    "items": [
+      {
+        "id": "1",
+        "userId": "1",
+        "userEmail": "user@example.com",
+        "amount": "50.00",
+        "upiId": "user@upi",
+        "status": "pending",
+        "rejectReason": null,
+        "payoutRef": null,
+        "createdAt": "2026-10-11T10:32:32.872Z",
+        "processedAt": null,
+        "processedBy": null
+      }
+    ],
+    "nextCursor": null
+  }
+}

@@ -1,0 +1,50 @@
+{
+  "data": {
+    "match": {
+      "id": "3",
+      "tierId": "2",
+      "gameMode": "clash_squad",
+      "teamMode": "squad",
+      "entryFee": "25.00",
+      "killPrice": "0.00",
+      "minKillsForReward": 0,
+      "positionPrizes": {
+        "1": "200.00"
+      },
+      "maxPlayers": 8,
+      "minPlayers": 8,
+      "startTime": "2026-12-01T17:00:00.000Z",
+      "status": "upcoming",
+      "cancelReason": null,
+      "createdBy": "2",
+      "createdAt": "2026-10-11T10:32:32.747Z",
+      "joinedCount": 1,
+      "players": [
+        {
+          "userId": "1",
+          "name": "Player One",
+          "ffId": "12345678",
+          "ffName": "ProPlayer1",
+          "teamId": "2",
+          "paidAddMoney": "25.00",
+          "paidCashback": "0.00",
+          "paidWinning": "0.00",
+          "refundedAt": null,
+          "joinedAt": "2026-10-11T10:32:32.751Z"
+        }
+      ],
+      "teams": [
+        {
+          "id": "2",
+          "name": "Blue Squad",
+          "size": 4,
+          "status": "confirmed",
+          "leaderId": "1",
+          "memberUserIds": [
+            "1"
+          ]
+        }
+      ]
+    }
+  }
+}
