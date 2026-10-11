@@ -112,7 +112,7 @@ CREATE TABLE deposit_requests (
   id             BIGSERIAL PRIMARY KEY,
   user_id        BIGINT NOT NULL REFERENCES users(id),
   amount         NUMERIC(12,2) NOT NULL CHECK (amount > 0),
-  utr            TEXT NOT NULL UNIQUE,              -- blocks reuse of a transaction id
+  utr            TEXT NOT NULL,                    -- uniqueness enforced by partial index below
   screenshot_url TEXT NOT NULL,
   status         request_status NOT NULL DEFAULT 'pending',
   reject_reason  TEXT,
@@ -218,9 +218,9 @@ CREATE TABLE match_players (
   kills           INT,
   position        INT,                              -- 1,2,3...; NULL = lost
   payout          NUMERIC(12,2),
-  joined_at       TIMESTAMPTZ NOT NULL DEFAULT now(),
-  UNIQUE (match_id, user_id)                          -- one join per match
+  joined_at       TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+CREATE UNIQUE INDEX ON match_players (match_id, user_id) WHERE refunded_at IS NULL;
 
 -- ---------- RESULTS (employee submits, admin approves) ----------
 CREATE TABLE match_results (
@@ -284,3 +284,15 @@ CREATE TABLE app_settings (
 
 -- One account per UPI id (blocks multi-account abuse).
 CREATE UNIQUE INDEX users_upi_unique ON users (lower(upi_id));
+
+-- UTR uniqueness: allows re-use after rejection, blocks duplicates while pending/approved.
+CREATE UNIQUE INDEX deposit_requests_utr_active_unique
+  ON deposit_requests (utr)
+  WHERE status <> 'rejected';
+
+-- One pending withdrawal per user (enforced at DB level; 23505 maps to WITHDRAWAL_PENDING).
+CREATE UNIQUE INDEX withdrawal_requests_user_pending_unique
+  ON withdrawal_requests (user_id)
+  WHERE status = 'pending';
+
+-- uploads/ folder (local dev only) is listed in .gitignore.

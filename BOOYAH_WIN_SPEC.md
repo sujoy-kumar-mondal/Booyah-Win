@@ -87,7 +87,7 @@ CORS_ORIGINS=                # comma-separated allowed origins
 NODE_ENV=
 ```
 
-Business settings (min/max deposit, admin approval threshold, support contact, payment QR/UPI) live in the `app_settings` table, editable by admin. Seed defaults: `min_deposit=10`, `max_deposit=5000`, `admin_approval_threshold=2000`.
+Business settings (min/max deposit, admin approval threshold, support contact, payment QR/UPI, payment_qr_key) live in the `app_settings` table, editable by admin. `payment_qr_key` is the storage key for the payment QR image, updated only via the upload endpoint. Seed defaults: `min_deposit=10`, `max_deposit=5000`, `admin_approval_threshold=2000`.
 
 ---
 
@@ -476,7 +476,7 @@ Admin sees everything employees see, plus:
 ### 16.4 Result approvals: Section 12.3. Reversal: 12.5.
 
 ### 16.5 Settings
-Edit `app_settings`: support contact, payment QR image (upload), payment UPI ID, min/max deposit, admin approval threshold.
+Edit `app_settings`: support contact, payment QR image (upload via `POST /admin/settings/payment-qr` writing `payment_qr_key`; `PATCH /admin/settings` rejects `payment_qr_key`), payment UPI ID, min/max deposit, admin approval threshold.
 
 ### 16.6 Audit log
 `GET /admin/audit-logs?staffId=&action=&from=&to=`. Every staff action that touches money, matches, users or staff writes an `audit_logs` row (who, action, target, details JSON).
@@ -578,7 +578,7 @@ The AI must write and pass these before moving on:
 
 ## 22. Error Codes
 
-`UNAUTHENTICATED`, `SESSION_REPLACED`, `FORBIDDEN`, `ADMIN_APPROVAL_REQUIRED`, `VALIDATION_ERROR`, `INVALID_OTP`, `OTP_RATE_LIMITED`, `EMAIL_EXISTS`, `MOBILE_EXISTS`, `FF_ID_EXISTS`, `UPI_EXISTS`, `INVALID_REFERRAL`, `FIELD_COOLDOWN`, `IN_ACTIVE_MATCH`, `LOW_BALANCE`, `UTR_EXISTS`, `DEPOSIT_LIMIT`, `WITHDRAWAL_PENDING`, `UPI_RECENTLY_CHANGED`, `MATCH_FULL`, `ALREADY_JOINED`, `MATCH_NOT_JOINABLE`, `TEAM_INVALID`, `INVITE_EXPIRED`, `RESULT_INVALID`, `RESULT_LOCKED`, `NOT_FOUND`, `RATE_LIMITED`, `INTERNAL_ERROR`.
+`UNAUTHENTICATED`, `SESSION_REPLACED`, `FORBIDDEN`, `ADMIN_APPROVAL_REQUIRED`, `VALIDATION_ERROR`, `INVALID_OTP`, `OTP_RATE_LIMITED`, `EMAIL_EXISTS`, `MOBILE_EXISTS`, `FF_ID_EXISTS`, `UPI_EXISTS`, `INVALID_REFERRAL`, `FIELD_COOLDOWN`, `IN_ACTIVE_MATCH`, `LOW_BALANCE`, `UTR_EXISTS`, `DEPOSIT_LIMIT`, `WITHDRAWAL_PENDING`, `UPI_RECENTLY_CHANGED`, `MATCH_FULL`, `ALREADY_JOINED`, `MATCH_NOT_JOINABLE`, `TEAM_INVALID`, `INVITE_EXPIRED`, `RESULT_INVALID`, `RESULT_LOCKED`, `NOT_FOUND`, `RATE_LIMITED`, `INTERNAL_ERROR`, `INVALID_TRANSITION`, `DATABASE_BUSY`.
 
 ---
 

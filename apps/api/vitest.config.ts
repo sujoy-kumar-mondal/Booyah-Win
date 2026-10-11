@@ -12,7 +12,7 @@ export default defineConfig({
   },
   resolve: {
     alias: {
-      '@booyah/shared': path.resolve(__dirname, '../../packages/shared/src/index.ts'),
+      '@booyah/shared': path.resolve(__dirname, '../../packages/shared/dist/index.js'),
     },
   },
 });

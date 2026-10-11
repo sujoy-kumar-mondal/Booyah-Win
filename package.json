@@ -10,11 +10,22 @@
     "build": "npm run build --workspaces",
     "test": "npm run test --workspace=apps/api",
     "seed:admin": "npm run seed:admin --workspace=apps/api",
+    "seed:settings": "npm run seed:settings --workspace=apps/api",
+    "seed:tiers": "npm run seed:tiers --workspace=apps/api",
     "migrate:dev": "npm run migrate:dev --workspace=apps/api",
     "migrate:test": "npm run migrate:test --workspace=apps/api",
-    "dev:api": "npm run dev --workspace=apps/api"
+    "dev:api": "npm run dev --workspace=apps/api",
+    "start:api": "npm run start --workspace=apps/api",
+    "check:env": "npm run check:env --workspace=apps/api",
+    "dev:pwa": "npm run dev --workspace=apps/user-pwa",
+    "test:pwa": "npm run test --workspace=apps/user-pwa"
   },
   "devDependencies": {
     "typescript": "^5.4.5"
+  },
+  "overrides": {
+    "node-pg-migrate": {
+      "glob": "^11.1.0"
+    }
   }
 }

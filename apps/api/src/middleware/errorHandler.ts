@@ -49,6 +49,17 @@ export function errorHandler(
     return;
   }
 
+  if (err?.name === 'MulterError') {
+    res.status(400).json({
+      error: {
+        code: ErrorCodes.VALIDATION_ERROR,
+        message: err.code === 'LIMIT_FILE_SIZE' ? 'File too large: maximum 2 MB' : 'File upload error',
+        details: { code: err.code },
+      },
+    });
+    return;
+  }
+
   if (err instanceof jwt.TokenExpiredError) {
     res.status(401).json({
       error: {
@@ -98,6 +109,70 @@ export function errorHandler(
       });
       return;
     }
+    if (constraint === 'deposit_requests_utr_active_unique') {
+      res.status(409).json({
+        error: { code: ErrorCodes.UTR_EXISTS, message: 'This UTR has already been submitted', details: {} },
+      });
+      return;
+    }
+    if (constraint === 'withdrawal_requests_user_pending_unique') {
+      res.status(409).json({
+        error: { code: ErrorCodes.WITHDRAWAL_PENDING, message: 'You already have a pending withdrawal', details: {} },
+      });
+      return;
+    }
+    if (
+      constraint === 'match_players_match_id_user_id_active_unique' ||
+      constraint === 'match_players_match_id_user_id_key'
+    ) {
+      res.status(409).json({
+        error: { code: ErrorCodes.ALREADY_JOINED, message: 'You have already joined this match', details: {} },
+      });
+      return;
+    }
+  }
+
+  // Database check-constraint violation (code 23514)
+  if (err?.code === '23514') {
+    const constraint = err?.constraint || '';
+    if (
+      constraint === 'wallets_add_money_check' ||
+      constraint === 'wallets_cashback_check' ||
+      constraint === 'wallets_winning_check'
+    ) {
+      res.status(402).json({
+        error: {
+          code: ErrorCodes.LOW_BALANCE,
+          message: 'Low balance, please add money',
+          details: {},
+        },
+      });
+      return;
+    }
+
+    logger.warn({ constraint }, 'Database check constraint violation');
+    res.status(400).json({
+      error: {
+        code: ErrorCodes.VALIDATION_ERROR,
+        message: 'Validation error: constraint check failed',
+        details: {},
+      },
+    });
+    return;
+  }
+
+
+  // Database lock_timeout (55P03) and query_canceled / statement_timeout (57014)
+  if (err?.code === '55P03' || err?.code === '57014') {
+    logger.warn({ code: err.code }, 'Database lock/statement timeout');
+    res.status(503).json({
+      error: {
+        code: ErrorCodes.DATABASE_BUSY,
+        message: 'Database server is busy. Please retry shortly.',
+        details: {},
+      },
+    });
+    return;
   }
 
   // Fallback internal server error

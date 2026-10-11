@@ -6,9 +6,11 @@ import {
   stringToPaise,
   UserDto,
   StaffDto,
+  UserCooldownsDto,
 } from '@booyah/shared';
 import { query, withTransaction } from '../../db/index.js';
 import { AppError } from '../../middleware/errorHandler.js';
+import { UsersService } from '../users/users.service.js';
 import {
   generateOtp,
   hashOtp,
@@ -547,53 +549,8 @@ export class AuthService {
   static async getUserProfileWithWallets(userId: string): Promise<{
     profile: UserDto;
     wallets: { addMoney: string; cashback: string; winning: string; total: string };
+    cooldowns?: UserCooldownsDto;
   }> {
-    const userRes = await query(
-      `SELECT id, email, name, mobile, ff_id, ff_name, upi_id,
-              to_char(date_of_birth, 'YYYY-MM-DD') as date_of_birth,
-              referral_code, referred_by, created_at
-       FROM users WHERE id = $1 AND deleted_at IS NULL`,
-      [userId]
-    );
-
-    if (userRes.rowCount === 0) {
-      throw new AppError(ErrorCodes.UNAUTHENTICATED, 'User not found', 401);
-    }
-
-    const row = userRes.rows[0];
-
-    const walletRes = await query(
-      'SELECT add_money, cashback, winning FROM wallets WHERE user_id = $1',
-      [userId]
-    );
-
-    const w = walletRes.rows[0] || { add_money: '0.00', cashback: '0.00', winning: '0.00' };
-
-    const addMoneyPaise = stringToPaise(w.add_money.toString());
-    const cashbackPaise = stringToPaise(w.cashback.toString());
-    const winningPaise = stringToPaise(w.winning.toString());
-    const totalPaise = addMoneyPaise + cashbackPaise + winningPaise;
-
-    return {
-      profile: {
-        id: row.id.toString(),
-        email: row.email,
-        name: row.name,
-        mobile: row.mobile,
-        ffId: row.ff_id,
-        ffName: row.ff_name,
-        upiId: row.upi_id,
-        dateOfBirth: row.date_of_birth,
-        referralCode: row.referral_code,
-        referredBy: row.referred_by ? row.referred_by.toString() : null,
-        createdAt: row.created_at.toISOString(),
-      },
-      wallets: {
-        addMoney: paiseToString(addMoneyPaise),
-        cashback: paiseToString(cashbackPaise),
-        winning: paiseToString(winningPaise),
-        total: paiseToString(totalPaise),
-      },
-    };
+    return UsersService.getProfile(userId);
   }
 }

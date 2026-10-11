@@ -25,7 +25,9 @@ const envSchema = z.object({
   ADMIN_NAME: z.string().optional(),
   ADMIN_MOBILE: z.string().optional(),
   CRON_SECRET: z.string().optional(),
-  CORS_ORIGINS: z.string().default('http://localhost:5173,http://localhost:5174'),
+  FILE_URL_SECRET: z.string().optional(),
+  DATABASE_SSL: z.string().optional(),
+  DATABASE_SSL_CA: z.string().optional(),
 });
 
 export function validateTestDatabaseUrl(url: string | undefined): string {
@@ -58,6 +60,74 @@ export function validateTestDatabaseUrl(url: string | undefined): string {
   }
 
   return url;
+}
+
+export function validateProductionEnv(env: Record<string, string | undefined> = process.env): void {
+  // 1. DATABASE_URL
+  if (!env.DATABASE_URL || env.DATABASE_URL.trim() === '') {
+    throw new Error('Missing required environment variable: DATABASE_URL');
+  }
+  if (env.DATABASE_URL.includes(':6543')) {
+    throw new Error('DATABASE_URL must use the Supabase session pooler on port 5432, not transaction pooler (:6543)');
+  }
+
+  // 2. JWT_SECRET
+  if (!env.JWT_SECRET || env.JWT_SECRET.length < 32) {
+    throw new Error('Invalid or missing environment variable: JWT_SECRET must be at least 32 characters');
+  }
+
+  // 3. OTP_HMAC_SECRET
+  if (!env.OTP_HMAC_SECRET || env.OTP_HMAC_SECRET.length < 32) {
+    throw new Error('Invalid or missing environment variable: OTP_HMAC_SECRET must be at least 32 characters');
+  }
+
+  // 4. FIELD_ENCRYPTION_KEY (must be exactly 32 bytes when base64 decoded)
+  if (!env.FIELD_ENCRYPTION_KEY || env.FIELD_ENCRYPTION_KEY.trim() === '') {
+    throw new Error('Missing required environment variable: FIELD_ENCRYPTION_KEY');
+  }
+  try {
+    const keyBuf = Buffer.from(env.FIELD_ENCRYPTION_KEY, 'base64');
+    if (keyBuf.length !== 32) {
+      throw new Error();
+    }
+  } catch {
+    throw new Error('Invalid environment variable: FIELD_ENCRYPTION_KEY must be a base64 string of exactly 32 bytes');
+  }
+
+  // 5. CORS_ORIGINS (no wildcards)
+  if (!env.CORS_ORIGINS || env.CORS_ORIGINS.trim() === '') {
+    throw new Error('Missing required environment variable: CORS_ORIGINS');
+  }
+  const origins = env.CORS_ORIGINS.split(',').map((o) => o.trim());
+  if (origins.some((o) => o === '*' || o.includes('*'))) {
+    throw new Error('Invalid environment variable: CORS_ORIGINS must not contain wildcard (*)');
+  }
+
+  // 6. Supabase settings
+  if (!env.SUPABASE_URL || env.SUPABASE_URL.trim() === '') {
+    throw new Error('Missing required environment variable: SUPABASE_URL');
+  }
+  if (!env.SUPABASE_SERVICE_KEY || env.SUPABASE_SERVICE_KEY.trim() === '') {
+    throw new Error('Missing required environment variable: SUPABASE_SERVICE_KEY');
+  }
+
+  // 7. Gmail settings
+  if (!env.GMAIL_USER || env.GMAIL_USER.trim() === '') {
+    throw new Error('Missing required environment variable: GMAIL_USER');
+  }
+  if (!env.GMAIL_APP_PASSWORD || env.GMAIL_APP_PASSWORD.trim() === '') {
+    throw new Error('Missing required environment variable: GMAIL_APP_PASSWORD');
+  }
+
+  // 8. CRON_SECRET
+  if (!env.CRON_SECRET || env.CRON_SECRET.trim() === '') {
+    throw new Error('Missing required environment variable: CRON_SECRET');
+  }
+
+  // 9. FILE_URL_SECRET
+  if (!env.FILE_URL_SECRET || env.FILE_URL_SECRET.length < 32) {
+    throw new Error('Invalid or missing environment variable: FILE_URL_SECRET must be at least 32 characters');
+  }
 }
 
 if (process.env.NODE_ENV === 'test') {
@@ -131,5 +201,17 @@ export const config = {
     return (process.env.CORS_ORIGINS || 'http://localhost:5173,http://localhost:5174')
       .split(',')
       .map((o) => o.trim());
+  },
+  get DATABASE_SSL() {
+    return process.env.DATABASE_SSL === 'true';
+  },
+  get DATABASE_SSL_CA() {
+    return process.env.DATABASE_SSL_CA || '';
+  },
+  get FILE_URL_SECRET() {
+    return (
+      process.env.FILE_URL_SECRET ||
+      'test_file_url_secret_must_be_at_least_32_characters_long'
+    );
   },
 };

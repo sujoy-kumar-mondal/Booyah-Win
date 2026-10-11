@@ -97,3 +97,13 @@ export const completeRegistrationSchema = z
     referralCode: referralCodeSchema.optional(),
   })
   .strict();
+
+// Update Profile Schema (only mobile, ffId, ffName, upiId are editable; any other field rejected)
+export const updateProfileSchema = z
+  .object({
+    mobile: mobileSchema.optional(),
+    ffId: ffIdSchema.optional(),
+    ffName: ffNameSchema.optional(),
+    upiId: upiIdSchema.optional(),
+  })
+  .strict();

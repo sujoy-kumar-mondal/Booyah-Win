@@ -21,9 +21,33 @@ export function getPool(): pg.Pool {
         `Database connection string is missing for environment: ${config.NODE_ENV}`
       );
     }
+
+    let ssl: pg.PoolConfig['ssl'] | undefined = undefined;
+    const isRemote =
+      !connectionString.includes('localhost') &&
+      !connectionString.includes('127.0.0.1') &&
+      !connectionString.includes('::1');
+
+    if (config.DATABASE_SSL || (config.NODE_ENV === 'production' && isRemote)) {
+      ssl = {
+        rejectUnauthorized: true,
+        ca: config.DATABASE_SSL_CA ? config.DATABASE_SSL_CA : undefined,
+      };
+    }
+
     poolInstance = new Pool({
       connectionString,
-      max: config.NODE_ENV === 'test' ? 10 : 20,
+      ssl,
+      max: config.NODE_ENV === 'test' ? 20 : (Number(process.env.DATABASE_POOL_SIZE) || 10),
+      connectionTimeoutMillis: 5000,
+      idleTimeoutMillis: 30000,
+      statement_timeout: 30000,
+    });
+
+    poolInstance.on('connect', (client) => {
+      client.query('SET statement_timeout = 30000; SET lock_timeout = 8000;').catch((err) => {
+        logger.error({ err }, 'Failed to set session timeouts on database connection');
+      });
     });
 
     poolInstance.on('error', (err) => {

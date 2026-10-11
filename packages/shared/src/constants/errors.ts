@@ -28,6 +28,8 @@ export const ErrorCodes = {
   NOT_FOUND: 'NOT_FOUND',
   RATE_LIMITED: 'RATE_LIMITED',
   INTERNAL_ERROR: 'INTERNAL_ERROR',
+  INVALID_TRANSITION: 'INVALID_TRANSITION',
+  DATABASE_BUSY: 'DATABASE_BUSY',
 } as const;
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];

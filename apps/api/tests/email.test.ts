@@ -1,11 +1,12 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import nodemailer from 'nodemailer';
-import { sendOtpEmail, testOtpStore } from '../src/utils/email.js';
+import { sendOtpEmail, testOtpStore, resetTransporterForTests } from '../src/utils/email.js';
 import { config } from '../src/config/index.js';
 
 describe('OTP Email Delivery Rules', () => {
   beforeEach(() => {
     testOtpStore.clear();
+    resetTransporterForTests();
     vi.restoreAllMocks();
   });
 
@@ -50,6 +51,41 @@ describe('OTP Email Delivery Rules', () => {
     });
 
     // Reset back to test
+    process.env.NODE_ENV = 'test';
+  });
+
+  it('attempts real email send when NODE_ENV is missing, misspelled, or capitalized "Production"', async () => {
+    const invalidEnvs = [undefined, 'developmnt', 'Production', 'staging'];
+
+    for (const testEnv of invalidEnvs) {
+      resetTransporterForTests();
+      const sendMailMock = vi.fn().mockResolvedValue({ messageId: 'test-id' });
+      vi.spyOn(nodemailer, 'createTransport').mockReturnValue({
+        sendMail: sendMailMock,
+      } as any);
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      if (testEnv === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = testEnv;
+      }
+
+      await sendOtpEmail('player_strict@example.com', '999888');
+
+      // Must never print OTP to console
+      expect(consoleSpy).not.toHaveBeenCalled();
+      // Must attempt real email delivery via nodemailer
+      expect(sendMailMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'player_strict@example.com',
+          text: expect.stringContaining('999888'),
+        })
+      );
+
+      consoleSpy.mockRestore();
+    }
+
     process.env.NODE_ENV = 'test';
   });
 });

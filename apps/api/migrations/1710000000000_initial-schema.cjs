@@ -4,55 +4,20 @@ exports.up = (pgm) => {
 CREATE EXTENSION IF NOT EXISTS citext;
 
 -- ---------- ENUMS ----------
-DO $$ BEGIN
-  CREATE TYPE game_mode AS ENUM ('battle_royale', 'clash_squad');
-EXCEPTION WHEN duplicate_object THEN null;
-END $$;
-
-DO $$ BEGIN
-  CREATE TYPE team_mode AS ENUM ('solo', 'duo', 'squad');
-EXCEPTION WHEN duplicate_object THEN null;
-END $$;
-
-DO $$ BEGIN
-  CREATE TYPE wallet_kind AS ENUM ('add_money', 'cashback', 'winning');
-EXCEPTION WHEN duplicate_object THEN null;
-END $$;
-
-DO $$ BEGIN
-  CREATE TYPE ledger_type AS ENUM ('add_money', 'referral', 'join_fee', 'refund',
-                                   'winning', 'withdrawal_hold', 'withdrawal_paid',
-                                   'withdrawal_refund', 'admin_adjustment', 'reversal');
-EXCEPTION WHEN duplicate_object THEN null;
-END $$;
-
-DO $$ BEGIN
-  CREATE TYPE request_status AS ENUM ('pending', 'approved', 'rejected');
-EXCEPTION WHEN duplicate_object THEN null;
-END $$;
-
-DO $$ BEGIN
-  CREATE TYPE withdraw_status AS ENUM ('pending', 'paid', 'rejected');
-EXCEPTION WHEN duplicate_object THEN null;
-END $$;
-
-DO $$ BEGIN
-  CREATE TYPE match_status AS ENUM ('upcoming', 'room_open', 'live', 'completed', 'cancelled');
-EXCEPTION WHEN duplicate_object THEN null;
-END $$;
-
-DO $$ BEGIN
-  CREATE TYPE result_status AS ENUM ('pending_approval', 'approved', 'rejected');
-EXCEPTION WHEN duplicate_object THEN null;
-END $$;
-
-DO $$ BEGIN
-  CREATE TYPE staff_role AS ENUM ('admin', 'employee');
-EXCEPTION WHEN duplicate_object THEN null;
-END $$;
+CREATE TYPE game_mode      AS ENUM ('battle_royale', 'clash_squad');
+CREATE TYPE team_mode      AS ENUM ('solo', 'duo', 'squad');
+CREATE TYPE wallet_kind    AS ENUM ('add_money', 'cashback', 'winning');
+CREATE TYPE ledger_type    AS ENUM ('add_money', 'referral', 'join_fee', 'refund',
+                                    'winning', 'withdrawal_hold', 'withdrawal_paid',
+                                    'withdrawal_refund', 'admin_adjustment', 'reversal');
+CREATE TYPE request_status AS ENUM ('pending', 'approved', 'rejected');
+CREATE TYPE withdraw_status AS ENUM ('pending', 'paid', 'rejected');
+CREATE TYPE match_status   AS ENUM ('upcoming', 'room_open', 'live', 'completed', 'cancelled');
+CREATE TYPE result_status  AS ENUM ('pending_approval', 'approved', 'rejected');
+CREATE TYPE staff_role     AS ENUM ('admin', 'employee');
 
 -- ---------- STAFF (admin + employees) ----------
-CREATE TABLE IF NOT EXISTS staff (
+CREATE TABLE staff (
   id            BIGSERIAL PRIMARY KEY,
   role          staff_role NOT NULL DEFAULT 'employee',
   name          TEXT NOT NULL,
@@ -66,7 +31,7 @@ CREATE TABLE IF NOT EXISTS staff (
 );
 
 -- ---------- USERS ----------
-CREATE TABLE IF NOT EXISTS users (
+CREATE TABLE users (
   id               BIGSERIAL PRIMARY KEY,
   email            CITEXT NOT NULL UNIQUE,
   name             TEXT NOT NULL,
@@ -89,7 +54,7 @@ CREATE TABLE IF NOT EXISTS users (
 );
 
 -- ---------- AUTH (no passwords) ----------
-CREATE TABLE IF NOT EXISTS otp_requests (
+CREATE TABLE otp_requests (
   id          BIGSERIAL PRIMARY KEY,
   email       CITEXT NOT NULL,
   audience    TEXT NOT NULL CHECK (audience IN ('user', 'staff')),
@@ -101,9 +66,9 @@ CREATE TABLE IF NOT EXISTS otp_requests (
   consumed_at TIMESTAMPTZ,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS otp_requests_email_created_at_idx ON otp_requests (email, created_at DESC);
+CREATE INDEX ON otp_requests (email, created_at DESC);
 
-CREATE TABLE IF NOT EXISTS sessions (
+CREATE TABLE sessions (
   id            UUID PRIMARY KEY,
   account_type  TEXT NOT NULL CHECK (account_type IN ('user', 'staff')),
   account_id    BIGINT NOT NULL,
@@ -113,14 +78,14 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 -- ---------- WALLETS & LEDGER ----------
-CREATE TABLE IF NOT EXISTS wallets (
+CREATE TABLE wallets (
   user_id    BIGINT PRIMARY KEY REFERENCES users(id),
   add_money  NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (add_money >= 0),
   cashback   NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (cashback  >= 0),
   winning    NUMERIC(12,2) NOT NULL DEFAULT 0 CHECK (winning   >= 0)
 );
 
-CREATE TABLE IF NOT EXISTS wallet_ledger (
+CREATE TABLE wallet_ledger (
   id             BIGSERIAL PRIMARY KEY,
   user_id        BIGINT NOT NULL REFERENCES users(id),
   wallet         wallet_kind NOT NULL,
@@ -132,11 +97,11 @@ CREATE TABLE IF NOT EXISTS wallet_ledger (
   ref_id         BIGINT,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS wallet_ledger_user_id_created_at_idx ON wallet_ledger (user_id, created_at DESC);
-CREATE INDEX IF NOT EXISTS wallet_ledger_user_id_type_idx ON wallet_ledger (user_id, type);
+CREATE INDEX ON wallet_ledger (user_id, created_at DESC);
+CREATE INDEX ON wallet_ledger (user_id, type);
 
 -- ---------- DEPOSITS (manual QR) ----------
-CREATE TABLE IF NOT EXISTS deposit_requests (
+CREATE TABLE deposit_requests (
   id             BIGSERIAL PRIMARY KEY,
   user_id        BIGINT NOT NULL REFERENCES users(id),
   amount         NUMERIC(12,2) NOT NULL CHECK (amount > 0),
@@ -151,7 +116,7 @@ CREATE TABLE IF NOT EXISTS deposit_requests (
 );
 
 -- ---------- WITHDRAWALS ----------
-CREATE TABLE IF NOT EXISTS withdrawal_requests (
+CREATE TABLE withdrawal_requests (
   id            BIGSERIAL PRIMARY KEY,
   user_id       BIGINT NOT NULL REFERENCES users(id),
   amount        NUMERIC(12,2) NOT NULL CHECK (amount >= 50),
@@ -165,7 +130,7 @@ CREATE TABLE IF NOT EXISTS withdrawal_requests (
 );
 
 -- ---------- ENTRY TIERS ----------
-CREATE TABLE IF NOT EXISTS entry_tiers (
+CREATE TABLE entry_tiers (
   id                  BIGSERIAL PRIMARY KEY,
   game_mode           game_mode NOT NULL,
   team_mode           team_mode NOT NULL,
@@ -178,7 +143,7 @@ CREATE TABLE IF NOT EXISTS entry_tiers (
   created_at          TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS tier_position_prizes (
+CREATE TABLE tier_position_prizes (
   tier_id   BIGINT NOT NULL REFERENCES entry_tiers(id),
   position  INT NOT NULL CHECK (position >= 1),
   prize     NUMERIC(12,2) NOT NULL CHECK (prize >= 0),
@@ -186,7 +151,7 @@ CREATE TABLE IF NOT EXISTS tier_position_prizes (
 );
 
 -- ---------- MATCHES ----------
-CREATE TABLE IF NOT EXISTS matches (
+CREATE TABLE matches (
   id             BIGSERIAL PRIMARY KEY,
   tier_id        BIGINT NOT NULL REFERENCES entry_tiers(id),
   game_mode      game_mode NOT NULL,
@@ -205,9 +170,9 @@ CREATE TABLE IF NOT EXISTS matches (
   created_by     BIGINT NOT NULL REFERENCES staff(id),
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now()
 );
-CREATE INDEX IF NOT EXISTS matches_status_start_time_idx ON matches (status, start_time);
+CREATE INDEX ON matches (status, start_time);
 
-CREATE TABLE IF NOT EXISTS teams (
+CREATE TABLE teams (
   id          BIGSERIAL PRIMARY KEY,
   match_id    BIGINT NOT NULL REFERENCES matches(id),
   leader_id   BIGINT NOT NULL REFERENCES users(id),
@@ -218,7 +183,7 @@ CREATE TABLE IF NOT EXISTS teams (
   created_at  TIMESTAMPTZ NOT NULL DEFAULT now()
 );
 
-CREATE TABLE IF NOT EXISTS team_invites (
+CREATE TABLE team_invites (
   id               BIGSERIAL PRIMARY KEY,
   team_id          BIGINT NOT NULL REFERENCES teams(id),
   invited_user_id  BIGINT NOT NULL REFERENCES users(id),
@@ -229,7 +194,7 @@ CREATE TABLE IF NOT EXISTS team_invites (
   UNIQUE (team_id, invited_user_id)
 );
 
-CREATE TABLE IF NOT EXISTS match_players (
+CREATE TABLE match_players (
   id              BIGSERIAL PRIMARY KEY,
   match_id        BIGINT NOT NULL REFERENCES matches(id),
   user_id         BIGINT NOT NULL REFERENCES users(id),
@@ -246,7 +211,7 @@ CREATE TABLE IF NOT EXISTS match_players (
 );
 
 -- ---------- RESULTS ----------
-CREATE TABLE IF NOT EXISTS match_results (
+CREATE TABLE match_results (
   id              BIGSERIAL PRIMARY KEY,
   match_id        BIGINT NOT NULL UNIQUE REFERENCES matches(id),
   entries         JSONB NOT NULL,
@@ -260,7 +225,7 @@ CREATE TABLE IF NOT EXISTS match_results (
 );
 
 -- ---------- REFERRALS ----------
-CREATE TABLE IF NOT EXISTS referrals (
+CREATE TABLE referrals (
   id           BIGSERIAL PRIMARY KEY,
   referrer_id  BIGINT NOT NULL REFERENCES users(id),
   referred_id  BIGINT NOT NULL UNIQUE REFERENCES users(id),
@@ -269,7 +234,7 @@ CREATE TABLE IF NOT EXISTS referrals (
 );
 
 -- ---------- AUDIT ----------
-CREATE TABLE IF NOT EXISTS audit_logs (
+CREATE TABLE audit_logs (
   id          BIGSERIAL PRIMARY KEY,
   staff_id    BIGINT REFERENCES staff(id),
   action      TEXT NOT NULL,
@@ -280,7 +245,7 @@ CREATE TABLE IF NOT EXISTS audit_logs (
 );
 
 -- ---------- APP SETTINGS ----------
-CREATE TABLE IF NOT EXISTS app_settings (
+CREATE TABLE app_settings (
   key        TEXT PRIMARY KEY,
   value      TEXT NOT NULL,
   updated_by BIGINT REFERENCES staff(id),
@@ -288,7 +253,7 @@ CREATE TABLE IF NOT EXISTS app_settings (
 );
 
 -- ---------- UNIQUE INDEXES ----------
-CREATE UNIQUE INDEX IF NOT EXISTS users_upi_unique ON users (lower(upi_id));
+CREATE UNIQUE INDEX users_upi_unique ON users (lower(upi_id));
   `);
 };
 

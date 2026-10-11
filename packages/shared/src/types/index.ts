@@ -40,9 +40,17 @@ export interface WalletSummaryDto {
   total: string;
 }
 
+export interface UserCooldownsDto {
+  mobileAvailableAt: string | null;
+  ffIdAvailableAt: string | null;
+  ffNameAvailableAt: string | null;
+  upiIdAvailableAt: string | null;
+}
+
 export interface UserMeDto {
   profile: UserDto;
   wallets: WalletSummaryDto;
+  cooldowns?: UserCooldownsDto;
 }
 
 export interface StaffMeDto {

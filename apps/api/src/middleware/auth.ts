@@ -79,7 +79,11 @@ export async function authenticateUser(
       [payload.typ, payload.sub]
     );
 
-    if (sessionRes.rowCount === 0 || sessionRes.rows[0].id !== payload.sid) {
+    if (sessionRes.rowCount === 0) {
+      throw new AppError(ErrorCodes.UNAUTHENTICATED, 'Session not found or expired', 401);
+    }
+
+    if (sessionRes.rows[0].id !== payload.sid) {
       throw new AppError(
         ErrorCodes.SESSION_REPLACED,
         'You were logged out because your account was used on another device.',
@@ -158,7 +162,11 @@ export async function authenticateStaff(
       [payload.typ, payload.sub]
     );
 
-    if (sessionRes.rowCount === 0 || sessionRes.rows[0].id !== payload.sid) {
+    if (sessionRes.rowCount === 0) {
+      throw new AppError(ErrorCodes.UNAUTHENTICATED, 'Session not found or expired', 401);
+    }
+
+    if (sessionRes.rows[0].id !== payload.sid) {
       throw new AppError(
         ErrorCodes.SESSION_REPLACED,
         'You were logged out because your account was used on another device.',
@@ -199,6 +207,22 @@ export async function authenticateStaff(
 export function requireAdmin(req: Request, res: Response, next: NextFunction): void {
   if (!req.staff || req.staff.role !== 'admin') {
     throw new AppError(ErrorCodes.FORBIDDEN, 'Admin privileges required', 403);
+  }
+  next();
+}
+
+/** requireStaff – confirms req.staff is populated with admin or employee role. */
+export function requireStaff(req: Request, res: Response, next: NextFunction): void {
+  if (!req.staff || (req.staff.role !== 'admin' && req.staff.role !== 'employee')) {
+    throw new AppError(ErrorCodes.FORBIDDEN, 'Staff access required', 403);
+  }
+  next();
+}
+
+/** requireUser – confirms req.user is populated. */
+export function requireUser(req: Request, res: Response, next: NextFunction): void {
+  if (!req.user) {
+    throw new AppError(ErrorCodes.UNAUTHENTICATED, 'User authentication required', 401);
   }
   next();
 }

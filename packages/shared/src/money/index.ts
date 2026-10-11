@@ -46,3 +46,35 @@ export function stringToPaise(rupeeStr: string): number {
 export function formatDbNumeric(paise: number | bigint): string {
   return paiseToString(paise);
 }
+
+/**
+ * Parse a user-supplied money string into integer paise.
+ * Rejects: more than 2 decimal places, zero, negative, NaN, non-numeric.
+ * Throws a user-friendly Error (caught by controllers and wrapped in AppError).
+ */
+export function parseMoney(raw: string | number): number {
+  const s = String(raw).trim();
+
+  if (s === '' || s === 'NaN' || s === 'Infinity' || s === '-Infinity') {
+    throw new Error('Invalid amount');
+  }
+
+  // Reject more than 2 decimal places
+  const dotIdx = s.indexOf('.');
+  if (dotIdx !== -1 && s.length - dotIdx - 1 > 2) {
+    throw new Error('Amount must have at most 2 decimal places');
+  }
+
+  // Must match a valid money pattern (positive only)
+  if (!/^\d+(\.\d{1,2})?$/.test(s)) {
+    throw new Error('Invalid amount');
+  }
+
+  const paise = stringToPaise(s);
+
+  if (paise <= 0) {
+    throw new Error('Amount must be greater than zero');
+  }
+
+  return paise;
+}

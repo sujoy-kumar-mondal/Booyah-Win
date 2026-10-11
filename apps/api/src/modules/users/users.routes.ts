@@ -1,17 +1,38 @@
-import { Router, Request, Response, NextFunction } from 'express';
+import { Router, Request } from 'express';
+import rateLimit from 'express-rate-limit';
+import { ErrorCodes } from '@booyah/shared';
 import { authenticateUser } from '../../middleware/auth.js';
-import { AuthService } from '../auth/auth.service.js';
+import { AppError } from '../../middleware/errorHandler.js';
+import { TeamsController } from '../matches/teams.controller.js';
+import { UsersController } from './users.controller.js';
 
 export const usersRouter = Router();
 
-usersRouter.get('/me', authenticateUser, async (req: Request, res: Response, next: NextFunction) => {
-  try {
-    if (!req.user) {
-      return;
-    }
-    const data = await AuthService.getUserProfileWithWallets(req.user.id);
-    res.status(200).json({ data });
-  } catch (err) {
-    next(err);
-  }
+// Requirement 7: Rate limit PATCH /me/profile to 10/min per user
+const profileUpdateRateLimiter = rateLimit({
+  windowMs: 60 * 1000,
+  max: 10,
+  keyGenerator: (req: Request) => req.user?.id || req.ip || 'global',
+  skip: (req: Request) => !req.app.get('enableRateLimiting'),
+  standardHeaders: true,
+  legacyHeaders: false,
+  handler: () => {
+    throw new AppError(
+      ErrorCodes.RATE_LIMITED,
+      'Too many profile update requests. Please slow down.',
+      429
+    );
+  },
 });
+
+// Profile endpoints
+usersRouter.get('/me', authenticateUser, UsersController.getProfile);
+usersRouter.patch('/me/profile', authenticateUser, profileUpdateRateLimiter, UsersController.updateProfile);
+usersRouter.patch('/profile', authenticateUser, profileUpdateRateLimiter, UsersController.updateProfile);
+
+// Match history endpoints
+usersRouter.get('/me/match-history', authenticateUser, UsersController.getMatchHistory);
+usersRouter.get('/match-history', authenticateUser, UsersController.getMatchHistory);
+
+// Team invites
+usersRouter.get('/me/team-invites', authenticateUser, TeamsController.listUserInvites);
