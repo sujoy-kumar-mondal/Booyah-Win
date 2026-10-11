@@ -17,7 +17,11 @@ import { CreateMatch } from './pages/CreateMatch.js';
 import { MatchDetail } from './pages/MatchDetail.js';
 import { AddResult } from './pages/AddResult.js';
 import { AdminResultApprovals } from './pages/AdminResultApprovals.js';
-import { ComingSoon } from './pages/ComingSoon.js';
+import { Employees } from './pages/Employees.js';
+import { EntryTiers } from './pages/EntryTiers.js';
+import { Users } from './pages/Users.js';
+import { Settings } from './pages/Settings.js';
+import { AuditLogs } from './pages/AuditLogs.js';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -58,7 +62,7 @@ export const App: React.FC = () => {
               <Route path="matches/:id" element={<MatchDetail />} />
               <Route path="matches/:id/result" element={<AddResult />} />
 
-              {/* Results Approval Queue (Admin only) */}
+              {/* Administration Pages (Admin only - Milestone 10c) */}
               <Route
                 path="results"
                 element={
@@ -71,10 +75,23 @@ export const App: React.FC = () => {
                 path="employees"
                 element={
                   <RequireAdminRole>
-                    <ComingSoon
-                      title="Employee Management"
-                      description="Register staff members, review Aadhaar/PAN verifications, and manage permissions."
-                    />
+                    <Employees />
+                  </RequireAdminRole>
+                }
+              />
+              <Route
+                path="tiers"
+                element={
+                  <RequireAdminRole>
+                    <EntryTiers />
+                  </RequireAdminRole>
+                }
+              />
+              <Route
+                path="users"
+                element={
+                  <RequireAdminRole>
+                    <Users />
                   </RequireAdminRole>
                 }
               />
@@ -82,10 +99,7 @@ export const App: React.FC = () => {
                 path="settings"
                 element={
                   <RequireAdminRole>
-                    <ComingSoon
-                      title="Platform Settings"
-                      description="Configure global deposit limits, payment QR codes, and system operating parameters."
-                    />
+                    <Settings />
                   </RequireAdminRole>
                 }
               />
@@ -93,10 +107,7 @@ export const App: React.FC = () => {
                 path="audit-logs"
                 element={
                   <RequireAdminRole>
-                    <ComingSoon
-                      title="Audit Logs"
-                      description="View administrative activity logs, financial approvals, and sensitive action traces."
-                    />
+                    <AuditLogs />
                   </RequireAdminRole>
                 }
               />

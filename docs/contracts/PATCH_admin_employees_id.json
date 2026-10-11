@@ -1,0 +1,15 @@
+{
+  "data": {
+    "employee": {
+      "id": "4",
+      "role": "employee",
+      "name": "Contract Staff Updated",
+      "email": "staff@booyah.win",
+      "mobile": "9999999999",
+      "pan": "XXXXXX234F",
+      "aadhaar": "XXXX XXXX 9012",
+      "createdBy": "1",
+      "createdAt": "2026-10-11T17:36:34.948Z"
+    }
+  }
+}

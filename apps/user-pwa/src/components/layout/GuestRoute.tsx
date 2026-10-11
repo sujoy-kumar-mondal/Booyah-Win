@@ -14,5 +14,11 @@ export const GuestRoute: React.FC = () => {
     return <Navigate to="/" replace />;
   }
 
-  return <Outlet />;
+  return (
+    <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
+      <main className="mx-auto flex-1 w-full max-w-md px-4 flex flex-col justify-center">
+        <Outlet />
+      </main>
+    </div>
+  );
 };

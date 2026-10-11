@@ -2,7 +2,7 @@
   "data": {
     "token": "test-token-placeholder",
     "user": {
-      "id": "4",
+      "id": "5",
       "email": "user@example.com",
       "name": "New Player",
       "mobile": "9999999999",
@@ -10,9 +10,9 @@
       "ffName": "NewPlayerPro",
       "upiId": "user@upi",
       "dateOfBirth": "2000-01-01",
-      "referralCode": "EM9YQZX5",
+      "referralCode": "S5WNQDEN",
       "referredBy": null,
-      "createdAt": "2026-10-11T10:32:32.909Z"
+      "createdAt": "2026-10-11T17:36:34.377Z"
     }
   }
 }

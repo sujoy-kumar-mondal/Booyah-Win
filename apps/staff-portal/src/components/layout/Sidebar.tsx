@@ -16,10 +16,11 @@ import {
   Swords,
   Trophy,
   Users,
+  Layers,
+  UserCheck,
   Settings,
   FileText,
   Shield,
-  Clock,
 } from 'lucide-react';
 
 export const Sidebar: React.FC<{ isOpen?: boolean; onClose?: () => void }> = ({
@@ -36,9 +37,12 @@ export const Sidebar: React.FC<{ isOpen?: boolean; onClose?: () => void }> = ({
     { label: 'Withdrawal Queue', path: '/withdrawals', icon: ArrowUpRight },
   ];
 
-  // Admin-only placeholder navigation items (coming soon)
-  const adminPlaceholderItems = [
+  // Admin navigation items - Milestone 10c real pages
+  const adminNavItems = [
+    { label: 'Results Approval', path: '/results', icon: Trophy },
     { label: 'Employees', path: '/employees', icon: Users },
+    { label: 'Entry Tiers', path: '/tiers', icon: Layers },
+    { label: 'Users', path: '/users', icon: UserCheck },
     { label: 'Settings', path: '/settings', icon: Settings },
     { label: 'Audit Logs', path: '/audit-logs', icon: FileText },
   ];
@@ -103,46 +107,22 @@ export const Sidebar: React.FC<{ isOpen?: boolean; onClose?: () => void }> = ({
               </span>
             </div>
             <nav className="mt-2 space-y-1">
-              <NavLink
-                to="/results"
-                onClick={onClose}
-                data-testid="nav-results"
-                className={({ isActive }) =>
-                  `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all ${
-                    isActive
-                      ? 'bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/10'
-                      : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
-                  }`
-                }
-              >
-                <Trophy className="h-4 w-4 shrink-0" />
-                <span>Results Approval</span>
-              </NavLink>
-              {adminPlaceholderItems.map((item) => (
+              {adminNavItems.map((item) => (
                 <NavLink
                   key={item.path}
                   to={item.path}
                   onClick={onClose}
                   data-testid={`nav-${item.path.replace('/', '')}`}
                   className={({ isActive }) =>
-                    `flex items-center justify-between rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all ${
+                    `flex items-center gap-3 rounded-xl px-3.5 py-2.5 text-xs font-semibold transition-all ${
                       isActive
-                        ? 'bg-slate-800 text-emerald-400 border border-slate-700'
-                        : 'text-slate-400 hover:bg-slate-800/60 hover:text-slate-200'
+                        ? 'bg-emerald-500 text-slate-950 font-bold shadow-md shadow-emerald-500/10'
+                        : 'text-slate-400 hover:bg-slate-800 hover:text-slate-200'
                     }`
                   }
                 >
-                  <div className="flex items-center gap-3">
-                    <item.icon className="h-4 w-4 shrink-0" />
-                    <span>{item.label}</span>
-                  </div>
-                  <span
-                    className="flex items-center gap-1 rounded-md bg-amber-500/10 px-1.5 py-0.5 text-[9px] font-bold text-amber-400 border border-amber-500/20"
-                    data-testid="coming-soon-badge"
-                  >
-                    <Clock className="h-2.5 w-2.5" />
-                    Soon
-                  </span>
+                  <item.icon className="h-4 w-4 shrink-0" />
+                  <span>{item.label}</span>
                 </NavLink>
               ))}
             </nav>

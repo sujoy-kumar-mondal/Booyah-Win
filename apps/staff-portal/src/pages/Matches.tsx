@@ -109,6 +109,8 @@ export const Matches: React.FC = () => {
         cursor,
         limit: 20,
       }),
+    staleTime: 0,
+    refetchInterval: cursor ? false : 10000,
   });
 
   const matches: MatchStaffDto[] = data?.matches || [];

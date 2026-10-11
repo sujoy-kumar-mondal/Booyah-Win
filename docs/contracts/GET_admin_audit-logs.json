@@ -1,0 +1,134 @@
+{
+  "data": {
+    "items": [
+      {
+        "id": "49",
+        "staffId": "1",
+        "action": "settings_payment_qr_updated",
+        "targetType": "app_settings",
+        "targetId": null,
+        "details": {
+          "newKey": "https://storage.example.com/placeholder.jpg",
+          "oldKey": null
+        },
+        "createdAt": "2026-10-11T17:36:35.069Z"
+      },
+      {
+        "id": "48",
+        "staffId": "1",
+        "action": "settings_updated",
+        "targetType": "app_settings",
+        "targetId": null,
+        "details": {
+          "updatedKeys": [
+            "min_deposit",
+            "max_deposit",
+            "support_name"
+          ]
+        },
+        "createdAt": "2026-10-11T17:36:35.059Z"
+      },
+      {
+        "id": "47",
+        "staffId": "1",
+        "action": "user_deleted",
+        "targetType": "user",
+        "targetId": "6",
+        "details": {
+          "reason": "Terms of service violation",
+          "deletedBy": "1"
+        },
+        "createdAt": "2026-10-11T17:36:35.049Z"
+      },
+      {
+        "id": "46",
+        "staffId": "1",
+        "action": "balance_adjusted",
+        "targetType": "user",
+        "targetId": "1",
+        "details": {
+          "amount": "20.00",
+          "reason": "Tournament bonus reward",
+          "wallet": "winning",
+          "adminId": "1",
+          "amountPaise": 2000
+        },
+        "createdAt": "2026-10-11T17:36:35.042Z"
+      },
+      {
+        "id": "45",
+        "staffId": "1",
+        "action": "tier_deleted",
+        "targetType": "entry_tiers",
+        "targetId": "7",
+        "details": null,
+        "createdAt": "2026-10-11T17:36:35.025Z"
+      },
+      {
+        "id": "44",
+        "staffId": "1",
+        "action": "tier_updated",
+        "targetType": "entry_tiers",
+        "targetId": "7",
+        "details": {
+          "updatedFields": [
+            "killPrice"
+          ]
+        },
+        "createdAt": "2026-10-11T17:36:34.983Z"
+      },
+      {
+        "id": "43",
+        "staffId": "1",
+        "action": "tier_created",
+        "targetType": "entry_tiers",
+        "targetId": "7",
+        "details": {
+          "entryFee": "25.00",
+          "gameMode": "battle_royale",
+          "teamMode": "squad",
+          "positionsCount": 2
+        },
+        "createdAt": "2026-10-11T17:36:34.971Z"
+      },
+      {
+        "id": "42",
+        "staffId": "1",
+        "action": "employee_deleted",
+        "targetType": "staff",
+        "targetId": "4",
+        "details": null,
+        "createdAt": "2026-10-11T17:36:34.965Z"
+      },
+      {
+        "id": "41",
+        "staffId": "1",
+        "action": "employee_updated",
+        "targetType": "staff",
+        "targetId": "4",
+        "details": {
+          "updatedFields": [
+            "name"
+          ]
+        },
+        "createdAt": "2026-10-11T17:36:34.959Z"
+      },
+      {
+        "id": "40",
+        "staffId": "1",
+        "action": "employee_created",
+        "targetType": "staff",
+        "targetId": "4",
+        "details": {
+          "name": "Contract Staff",
+          "email": "staff@booyah.win",
+          "hasPan": "[REDACTED]",
+          "mobile": "9999999999",
+          "hasAadhaar": "[REDACTED]"
+        },
+        "createdAt": "2026-10-11T17:36:34.948Z"
+      }
+    ],
+    "nextCursor": "40"
+  }
+}

@@ -1,0 +1,122 @@
+import React, { useState, useEffect } from 'react';
+import { Headphones, Phone, Mail, Clock, AlertCircle } from 'lucide-react';
+import { fetchSupportInfo, type SupportInfo } from '../api/support.js';
+
+export const Support: React.FC = () => {
+  const [support, setSupport] = useState<SupportInfo | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    async function loadSupport() {
+      setIsLoading(true);
+      setError(null);
+      try {
+        const data = await fetchSupportInfo();
+        setSupport(data);
+      } catch (err: any) {
+        setError(err?.message || 'Failed to load support information.');
+      } finally {
+        setIsLoading(false);
+      }
+    }
+    loadSupport();
+  }, []);
+
+  const isConfigured = Boolean(
+    support && (support.supportPhone.trim() || support.supportEmail.trim())
+  );
+
+  return (
+    <div data-testid="support-page" className="space-y-4">
+      <div className="flex items-center gap-2.5 pb-2 border-b border-slate-800">
+        <Headphones className="h-6 w-6 text-emerald-400" />
+        <h1 className="text-lg font-bold text-slate-100">Help & Support</h1>
+      </div>
+
+      {isLoading && (
+        <div data-testid="support-loading" className="py-12 text-center text-xs text-slate-400">
+          <p>Loading support information...</p>
+        </div>
+      )}
+
+      {error && (
+        <div
+          data-testid="support-error"
+          className="rounded-xl border border-rose-500/20 bg-rose-500/10 p-4 text-xs text-rose-300 flex items-center gap-2"
+        >
+          <AlertCircle className="h-4 w-4 shrink-0" />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {!isLoading && !error && support && (
+        <>
+          {isConfigured ? (
+            <div data-testid="support-configured-state" className="space-y-3">
+              <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 space-y-3 shadow-md">
+                <h3 className="font-bold text-slate-100 text-sm">{support.supportName}</h3>
+
+                {support.supportPhone && (
+                  <div className="flex items-center gap-3 text-xs">
+                    <Phone className="h-4 w-4 text-emerald-400 shrink-0" />
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Phone Support</span>
+                      <a
+                        href={`tel:${support.supportPhone}`}
+                        data-testid="support-phone-link"
+                        className="font-medium text-slate-200 hover:text-emerald-400"
+                      >
+                        {support.supportPhone}
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {support.supportEmail && (
+                  <div className="flex items-center gap-3 text-xs">
+                    <Mail className="h-4 w-4 text-emerald-400 shrink-0" />
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Email Support</span>
+                      <a
+                        href={`mailto:${support.supportEmail}`}
+                        data-testid="support-email-link"
+                        className="font-medium text-slate-200 hover:text-emerald-400"
+                      >
+                        {support.supportEmail}
+                      </a>
+                    </div>
+                  </div>
+                )}
+
+                {support.supportHours && (
+                  <div className="flex items-center gap-3 text-xs">
+                    <Clock className="h-4 w-4 text-emerald-400 shrink-0" />
+                    <div>
+                      <span className="text-slate-400 block text-[10px]">Operating Hours</span>
+                      <span data-testid="support-hours-text" className="font-medium text-slate-200">
+                        {support.supportHours}
+                      </span>
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          ) : (
+            <div
+              data-testid="support-not-configured-state"
+              className="rounded-2xl border border-slate-800 bg-slate-900/40 p-8 text-center text-xs text-slate-400 space-y-2"
+            >
+              <Headphones className="mx-auto h-8 w-8 text-slate-600" />
+              <h4 className="text-sm font-bold text-slate-300">Support Not Yet Configured</h4>
+              <p>
+                Our customer support channels are currently being updated. Please check back soon or
+                reach out through the platform announcements.
+              </p>
+            </div>
+          )}
+        </>
+      )}
+    </div>
+  );
+};

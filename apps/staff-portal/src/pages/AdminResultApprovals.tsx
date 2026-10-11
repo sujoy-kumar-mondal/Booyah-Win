@@ -79,7 +79,6 @@ export const AdminResultApprovals: React.FC = () => {
   const isSubmittingRef = useRef(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  // Fetch pending results queue
   const {
     data: queueData,
     isLoading: queueLoading,
@@ -90,6 +89,8 @@ export const AdminResultApprovals: React.FC = () => {
   } = useQuery({
     queryKey: ['admin-results-queue'],
     queryFn: getAdminResultsQueue,
+    staleTime: 0,
+    refetchInterval: 10000,
   });
 
   const queueItems: AdminQueueItemDto[] = queueData?.results || [];

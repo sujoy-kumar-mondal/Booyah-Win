@@ -1,0 +1,29 @@
+{
+  "data": {
+    "team": {
+      "id": "3",
+      "matchId": "13",
+      "leaderId": "1",
+      "name": "Bravo Team",
+      "size": 2,
+      "status": "forming",
+      "createdAt": "2026-10-11T17:36:34.805Z",
+      "members": [
+        {
+          "userId": "1",
+          "freeFireId": "12345678",
+          "name": "",
+          "role": "leader",
+          "status": "confirmed"
+        },
+        {
+          "userId": "2",
+          "freeFireId": "87654321",
+          "name": "Player Two",
+          "role": "member",
+          "status": "pending"
+        }
+      ]
+    }
+  }
+}

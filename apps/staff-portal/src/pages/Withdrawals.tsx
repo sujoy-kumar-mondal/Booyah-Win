@@ -14,7 +14,7 @@
  * - Cursor pagination with "Load more" (Requirement 9)
  */
 
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getStaffWithdrawals,
@@ -73,26 +73,31 @@ export const Withdrawals: React.FC = () => {
 
   // Fetch withdrawals query
   const {
+    data,
     isLoading,
     isFetching,
     refetch,
   } = useQuery({
     queryKey: ['staff-withdrawals', filter, cursor],
-    queryFn: async () => {
-      const res = await getStaffWithdrawals({ status: filter, cursor, limit: 15 });
-      if (!cursor) {
-        setAllWithdrawals(res.items);
-      } else {
-        setAllWithdrawals((prev) => {
-          const existingIds = new Set(prev.map((w) => w.id));
-          const uniqueItems = res.items.filter((w) => !existingIds.has(w.id));
-          return [...prev, ...uniqueItems];
-        });
-      }
-      setNextCursor(res.nextCursor ?? null);
-      return res;
-    },
+    queryFn: () => getStaffWithdrawals({ status: filter, cursor, limit: 15 }),
+    staleTime: 0,
+    refetchInterval: cursor ? false : 5000,
   });
+
+  // Sync query data into allWithdrawals state (handles cache hits, remounts, polling, and pagination)
+  useEffect(() => {
+    if (!data) return;
+    if (!cursor) {
+      setAllWithdrawals(data.items);
+    } else {
+      setAllWithdrawals((prev) => {
+        const existingIds = new Set(prev.map((w) => w.id));
+        const uniqueItems = data.items.filter((w) => !existingIds.has(w.id));
+        return [...prev, ...uniqueItems];
+      });
+    }
+    setNextCursor(data.nextCursor ?? null);
+  }, [data, cursor]);
 
   const handleFilterChange = (newFilter: string) => {
     setFilter(newFilter);
@@ -230,7 +235,10 @@ export const Withdrawals: React.FC = () => {
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => refetch()}
+            onClick={() => {
+              if (cursor) setCursor(undefined);
+              refetch();
+            }}
             disabled={isFetching}
             data-testid="refresh-withdrawals-btn"
             className="flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-700 disabled:opacity-50"

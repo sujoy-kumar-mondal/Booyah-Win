@@ -196,3 +196,140 @@ export const transactionListResponseGuard = z.object({
   items: z.array(transactionDtoGuard),
   nextCursor: z.string().nullable().optional(),
 }).passthrough();
+
+// ─── 3. Match Schemas ────────────────────────────────────────────────────────
+export const matchUserDtoGuard = z.object({
+  id: z.string(),
+  gameMode: z.string(),
+  teamMode: z.string(),
+  entryFee: moneyStringSchema,
+  prizes: z.object({
+    positions: z.record(z.string(), moneyStringSchema),
+    killPrice: moneyStringSchema,
+    minKillsForReward: z.number(),
+  }),
+  joinedPlayers: z.number(),
+  seatsTaken: z.number(),
+  maxPlayers: z.number(),
+  minPlayers: z.number(),
+  startTime: z.string(),
+  status: z.string(),
+  hasJoined: z.boolean(),
+  isInTeam: z.boolean(),
+  roomId: z.string().optional(),
+  roomPassword: z.string().optional(),
+}).passthrough();
+
+export const userMatchListResponseGuard = z.object({
+  matches: z.array(matchUserDtoGuard),
+}).passthrough();
+
+export const userMatchDetailResponseGuard = z.object({
+  match: matchUserDtoGuard,
+}).passthrough();
+
+export const userMatchJoinResponseGuard = z.object({
+  message: z.string(),
+  matchId: z.string(),
+  joinedAt: z.string(),
+}).passthrough();
+
+// ─── 4. Team & Invites Schemas ───────────────────────────────────────────────
+export const teamMemberDtoGuard = z.object({
+  userId: z.string(),
+  freeFireId: z.string(),
+  name: z.string(),
+  role: z.enum(['leader', 'member']),
+  status: z.enum(['confirmed', 'pending', 'declined', 'expired']),
+}).passthrough();
+
+export const teamDtoGuard = z.object({
+  id: z.string(),
+  matchId: z.string(),
+  leaderId: z.string(),
+  name: z.string().nullable(),
+  size: z.number(),
+  status: z.enum(['forming', 'confirmed', 'disbanded']),
+  createdAt: z.string(),
+  members: z.array(teamMemberDtoGuard),
+}).passthrough();
+
+export const userTeamCreateResponseGuard = z.object({
+  team: teamDtoGuard,
+}).passthrough();
+
+export const userTeamReplaceResponseGuard = z.object({
+  message: z.string(),
+}).passthrough();
+
+export const userTeamDisbandResponseGuard = z.object({
+  message: z.string(),
+}).passthrough();
+
+export const teamInviteDtoGuard = z.object({
+  id: z.string(),
+  teamId: z.string(),
+  teamName: z.string().nullable(),
+  teamSize: z.number(),
+  leaderId: z.string(),
+  leaderName: z.string().optional(),
+  leaderFfId: z.string().optional(),
+  matchId: z.string(),
+  gameMode: z.string().optional(),
+  teamMode: z.string().optional(),
+  entryFee: moneyStringSchema.optional(),
+  startTime: z.string().optional(),
+  matchStatus: z.string().optional(),
+  invitedUserId: z.string(),
+  status: z.enum(['pending', 'accepted', 'declined', 'expired']),
+  createdAt: z.string(),
+  respondedAt: z.string().nullable(),
+}).passthrough();
+
+export const userTeamInvitesResponseGuard = z.object({
+  invites: z.array(teamInviteDtoGuard),
+}).passthrough();
+
+export const userInviteActionResponseGuard = z.object({
+  message: z.string(),
+}).passthrough();
+
+// ─── 5. Match History Schemas ─────────────────────────────────────────────────
+export const userMatchHistoryItemGuard = z.object({
+  matchId: z.string(),
+  gameMode: z.string(),
+  teamMode: z.string(),
+  entryFee: moneyStringSchema,
+  startTime: z.string(),
+  matchStatus: z.string(),
+  joinedAt: z.string(),
+  refundedAt: z.string().nullable(),
+  kills: z.number(),
+  position: z.number().nullable(),
+  payout: moneyStringSchema,
+  displayStatus: z.string(),
+  positionLabel: z.string(),
+}).passthrough();
+
+export const userMatchHistoryResponseGuard = z.object({
+  items: z.array(userMatchHistoryItemGuard),
+  nextCursor: z.string().nullable().optional(),
+  hasMore: z.boolean(),
+}).passthrough();
+
+// ─── 6. Support Schemas ───────────────────────────────────────────────────────
+export const userSupportInfoResponseGuard = z.object({
+  supportName: z.string(),
+  supportPhone: z.string(),
+  supportEmail: z.string(),
+  supportHours: z.string(),
+}).passthrough();
+
+// ─── 7. Error Envelope Schema ─────────────────────────────────────────────────
+export const apiErrorEnvelopeGuard = z.object({
+  error: z.object({
+    code: z.string(),
+    message: z.string(),
+    details: z.any().optional(),
+  }),
+}).passthrough();

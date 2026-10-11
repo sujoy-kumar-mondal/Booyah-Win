@@ -1,0 +1,26 @@
+{
+  "data": {
+    "tier": {
+      "id": "7",
+      "gameMode": "battle_royale",
+      "teamMode": "squad",
+      "entryFee": "25.00",
+      "killPrice": "10.00",
+      "minKillsForReward": 2,
+      "maxPlayers": 48,
+      "minPlayers": 24,
+      "positions": [
+        {
+          "position": 1,
+          "prize": "100.00"
+        },
+        {
+          "position": 2,
+          "prize": "50.00"
+        }
+      ],
+      "createdAt": "2026-10-11T17:36:34.971Z"
+    },
+    "warning": "Profit guard warning: Max possible payout (₹620.00) exceeds minimum collected fees (₹600.00)."
+  }
+}

@@ -415,23 +415,27 @@ List endpoints with pagination return cursor parameters:
 - **Query Parameters**:
   - `cursor`: string (optional)
   - `limit`: number between 1 and 50 (default: 20)
+  - `gameMode`: `'battle_royale' | 'clash_squad'` (optional)
+  - `teamMode`: `'solo' | 'duo' | 'squad'` (optional)
 - **Success Response (200)**:
   ```json
   {
     "data": {
       "items": [
         {
-          "matchId": "1",
-          "matchDisplayId": "BW-MAT-1",
+          "matchId": "20",
           "gameMode": "battle_royale",
           "teamMode": "solo",
-          "startTime": "2026-10-10T15:00:00.000Z",
-          "status": "completed",
-          "kills": 5,
-          "position": 1,
-          "prizeWon": "150.00",
-          "positionLabel": "Booyah",
-          "refunded": false
+          "entryFee": "20.00",
+          "startTime": "2026-11-05T12:00:00.000Z",
+          "matchStatus": "completed",
+          "joinedAt": "2026-10-11T17:12:34.863Z",
+          "refundedAt": null,
+          "kills": 0,
+          "position": null,
+          "payout": "0.00",
+          "displayStatus": "Lost",
+          "positionLabel": "Lost"
         }
       ],
       "nextCursor": null,
@@ -445,19 +449,29 @@ List endpoints with pagination return cursor parameters:
 - **Success Response (200)**:
   ```json
   {
-    "data": [
-      {
-        "id": "1",
-        "teamId": "10",
-        "teamName": "Squad Alpha",
-        "matchId": "5",
-        "matchTitle": "Squad BR #5",
-        "entryFee": "20.00",
-        "invitedBy": "Leader One",
-        "status": "pending",
-        "createdAt": "2026-10-10T14:30:00.000Z"
-      }
-    ]
+    "data": {
+      "invites": [
+        {
+          "id": "1",
+          "teamId": "3",
+          "teamName": "Bravo Team",
+          "teamSize": 2,
+          "leaderId": "1",
+          "leaderName": "Player One",
+          "leaderFfId": "12345678",
+          "matchId": "13",
+          "gameMode": "battle_royale",
+          "teamMode": "duo",
+          "entryFee": "20.00",
+          "startTime": "2026-12-11T12:00:00.000Z",
+          "matchStatus": "upcoming",
+          "invitedUserId": "2",
+          "status": "pending",
+          "createdAt": "2026-10-11T17:12:34.779Z",
+          "respondedAt": null
+        }
+      ]
+    }
   }
   ```
 
@@ -609,57 +623,70 @@ List endpoints with pagination return cursor parameters:
 > Untested endpoints: **None**
 
 #### `GET /api/v1/matches`
-- **Auth**: Optional `requireUser`
-- **Query Parameters**:
-  - `status`: `'upcoming' | 'room_open' | 'live' | 'completed' | 'cancelled'`
-  - `gameMode`: `'battle_royale' | 'clash_squad'`
-  - `teamMode`: `'solo' | 'duo' | 'squad'`
-  - `cursor`: string
-  - `limit`: number (default: 20)
+- **Auth**: `requireUser`
 - **Success Response (200)**:
   ```json
   {
     "data": {
-      "items": [
+      "matches": [
         {
-          "id": "1",
-          "displayId": "BW-MAT-1",
+          "id": "2",
           "gameMode": "battle_royale",
-          "teamMode": "solo",
-          "status": "upcoming",
-          "entryFee": "10.00",
-          "prizePool": "400.00",
-          "totalSeats": 48,
-          "seatsTaken": 24,
-          "startTime": "2026-10-10T18:00:00.000Z",
-          "isJoined": false
+          "teamMode": "duo",
+          "entryFee": "20.00",
+          "prizes": {
+            "positions": {
+              "1": "300.00"
+            },
+            "killPrice": "10.00",
+            "minKillsForReward": 1
+          },
+          "joinedPlayers": 1,
+          "seatsTaken": 2,
+          "maxPlayers": 48,
+          "minPlayers": 2,
+          "startTime": "2026-12-01T16:00:00.000Z",
+          "status": "live",
+          "hasJoined": true,
+          "isInTeam": true,
+          "roomId": "887766",
+          "roomPassword": "test-room-password"
         }
-      ],
-      "nextCursor": null,
-      "hasMore": false
+      ]
     }
   }
   ```
 
 #### `GET /api/v1/matches/:id`
-- **Auth**: Optional `requireUser`
+- **Auth**: `requireUser`
 - **Description**: Returns match details. If joined and status is `room_open` or `live`, reveals `roomId` and `roomPassword`.
 - **Success Response (200)**:
   ```json
   {
     "data": {
-      "id": "1",
-      "displayId": "BW-MAT-1",
-      "gameMode": "battle_royale",
-      "teamMode": "solo",
-      "status": "room_open",
-      "roomId": "123456",
-      "roomPassword": "pass",
-      "rules": "Default competitive rules",
-      "prizes": [
-        { "position": 1, "label": "Booyah", "amount": "200.00" }
-      ],
-      "perKillReward": "5.00"
+      "match": {
+        "id": "2",
+        "gameMode": "battle_royale",
+        "teamMode": "duo",
+        "entryFee": "20.00",
+        "prizes": {
+          "positions": {
+            "1": "300.00"
+          },
+          "killPrice": "10.00",
+          "minKillsForReward": 1
+        },
+        "joinedPlayers": 1,
+        "seatsTaken": 2,
+        "maxPlayers": 48,
+        "minPlayers": 2,
+        "startTime": "2026-12-01T16:00:00.000Z",
+        "status": "live",
+        "hasJoined": true,
+        "isInTeam": true,
+        "roomId": "887766",
+        "roomPassword": "test-room-password"
+      }
     }
   }
   ```
@@ -672,13 +699,9 @@ List endpoints with pagination return cursor parameters:
   ```json
   {
     "data": {
-      "joined": true,
-      "matchId": "1",
-      "paid": {
-        "cashback": "0.50",
-        "addMoney": "9.50",
-        "winning": "0.00"
-      }
+      "message": "Successfully joined match",
+      "matchId": "8",
+      "joinedAt": "2026-10-11T16:26:06.254Z"
     }
   }
   ```
@@ -690,21 +713,43 @@ List endpoints with pagination return cursor parameters:
 - **Request Body**:
   ```json
   {
-    "teamName": "Warriors",
-    "memberFfIds": ["22334455", "33445566", "44556677"]
+    "teamName": "Bravo Team",
+    "memberFfIds": ["87654321"]
   }
   ```
 - **Success Response (201)**:
   ```json
   {
     "data": {
-      "teamId": "5",
-      "status": "forming",
-      "invitedMembers": 3
+      "team": {
+        "id": "3",
+        "matchId": "9",
+        "leaderId": "1",
+        "name": "Bravo Team",
+        "size": 2,
+        "status": "forming",
+        "createdAt": "2026-10-11T16:26:06.275Z",
+        "members": [
+          {
+            "userId": "1",
+            "freeFireId": "12345678",
+            "name": "",
+            "role": "leader",
+            "status": "confirmed"
+          },
+          {
+            "userId": "2",
+            "freeFireId": "87654321",
+            "name": "Player Two",
+            "role": "member",
+            "status": "pending"
+          }
+        ]
+      }
     }
   }
   ```
-- **Error Codes**: `VALIDATION_ERROR`, `MATCH_NOT_JOINABLE`, `MATCH_FULL`, `TEAM_INVALID`, `LOW_BALANCE`
+- **Error Codes**: `VALIDATION_ERROR`, `MATCH_NOT_JOINABLE`, `MATCH_FULL`, `TEAM_INVALID`, `LOW_BALANCE`, `ALREADY_JOINED`
 
 #### `POST /api/v1/matches/:id/teams/mine/replace`
 - **Auth**: `requireUser` (Team Leader)
@@ -712,19 +757,19 @@ List endpoints with pagination return cursor parameters:
 - **Request Body**:
   ```json
   {
-    "oldFfId": "22334455",
-    "newFfId": "99001122"
+    "oldFfId": "87654321",
+    "newFfId": "55667788"
   }
   ```
 - **Success Response (200)**:
   ```json
   {
     "data": {
-      "replaced": true
+      "message": "Invite replaced successfully"
     }
   }
   ```
-- **Error Codes**: `VALIDATION_ERROR`, `MATCH_NOT_JOINABLE`, `TEAM_INVALID`, `FORBIDDEN`
+- **Error Codes**: `VALIDATION_ERROR`, `MATCH_NOT_JOINABLE`, `TEAM_INVALID`, `NOT_FOUND`
 
 #### `DELETE /api/v1/matches/:id/teams/mine`
 - **Auth**: `requireUser` (Team Leader)
@@ -733,12 +778,11 @@ List endpoints with pagination return cursor parameters:
   ```json
   {
     "data": {
-      "disbanded": true,
-      "refundedMembers": 2
+      "message": "Team disbanded and members refunded"
     }
   }
   ```
-- **Error Codes**: `MATCH_NOT_JOINABLE`, `FORBIDDEN`, `INVALID_TRANSITION`
+- **Error Codes**: `MATCH_NOT_JOINABLE`, `NOT_FOUND`
 
 #### `POST /api/v1/team-invites/:id/accept`
 - **Auth**: `requireUser`
@@ -747,8 +791,7 @@ List endpoints with pagination return cursor parameters:
   ```json
   {
     "data": {
-      "accepted": true,
-      "teamStatus": "confirmed"
+      "message": "Team invite accepted successfully"
     }
   }
   ```
@@ -761,11 +804,23 @@ List endpoints with pagination return cursor parameters:
   ```json
   {
     "data": {
-      "declined": true
+      "message": "Team invite declined"
+    }
+  }
+#### `GET /api/v1/support`
+- **Auth**: None (Public)
+- **Description**: Returns shared support contact details from system settings.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "supportName": "Booyah Win Support",
+      "supportPhone": "+91 9999999999",
+      "supportEmail": "support@booyahwin.com",
+      "supportHours": "10:00 AM - 10:00 PM IST"
     }
   }
   ```
-- **Error Codes**: `NOT_FOUND` (identical 404 for non-existent invite or another user's invite), `INVITE_EXPIRED`
 
 ---
 
@@ -1224,19 +1279,29 @@ List endpoints with pagination return cursor parameters:
 
 #### `GET /api/v1/admin/employees`
 - **Auth**: `requireAdmin`
+- **Query Parameters**:
+  - `q`: string (optional, search by name or email)
+  - `cursor`: string (optional)
+  - `limit`: number (optional, 1..100, default 20)
 - **Success Response (200)**:
   ```json
   {
-    "data": [
-      {
-        "id": "2",
-        "name": "Jane Employee",
-        "email": "jane@example.com",
-        "mobile": "9998887776",
-        "role": "employee",
-        "maskedAadhaar": "XXXX-XXXX-1234"
-      }
-    ]
+    "data": {
+      "items": [
+        {
+          "id": "4",
+          "role": "employee",
+          "name": "Contract Staff",
+          "email": "staff@booyah.win",
+          "mobile": "9999999999",
+          "pan": "XXXXXX234F",
+          "aadhaar": "XXXX XXXX 9012",
+          "createdBy": "1",
+          "createdAt": "2026-10-11T16:21:25.150Z"
+        }
+      ],
+      "nextCursor": null
+    }
   }
   ```
 
@@ -1256,9 +1321,17 @@ List endpoints with pagination return cursor parameters:
   ```json
   {
     "data": {
-      "id": "2",
-      "name": "Jane Employee",
-      "email": "jane@example.com"
+      "employee": {
+        "id": "4",
+        "role": "employee",
+        "name": "Contract Staff",
+        "email": "staff@booyah.win",
+        "mobile": "9999999999",
+        "pan": "XXXXXX234F",
+        "aadhaar": "XXXX XXXX 9012",
+        "createdBy": "1",
+        "createdAt": "2026-10-11T16:21:25.150Z"
+      }
     }
   }
   ```
@@ -1277,11 +1350,21 @@ List endpoints with pagination return cursor parameters:
   ```json
   {
     "data": {
-      "id": "2",
-      "name": "Jane Updated"
+      "employee": {
+        "id": "4",
+        "role": "employee",
+        "name": "Contract Staff",
+        "email": "staff@booyah.win",
+        "mobile": "9999999999",
+        "pan": "XXXXXX234F",
+        "aadhaar": "XXXX XXXX 9012",
+        "createdBy": "1",
+        "createdAt": "2026-10-11T16:21:25.150Z"
+      }
     }
   }
   ```
+- **Error Codes**: `NOT_FOUND`, `EMAIL_EXISTS`, `VALIDATION_ERROR`
 
 #### `DELETE /api/v1/admin/employees/:id`
 - **Auth**: `requireAdmin`
@@ -1289,7 +1372,7 @@ List endpoints with pagination return cursor parameters:
   ```json
   {
     "data": {
-      "deleted": true
+      "message": "Employee deleted successfully"
     }
   }
   ```
@@ -1300,20 +1383,26 @@ List endpoints with pagination return cursor parameters:
 - **Success Response (200)**:
   ```json
   {
-    "data": [
-      {
-        "id": "1",
-        "name": "BR Bronze",
-        "gameMode": "battle_royale",
-        "entryFee": "10.00",
-        "perKillReward": "5.00",
-        "minPlayers": 24,
-        "maxPlayers": 48,
-        "prizes": [
-          { "position": 1, "label": "Booyah", "amount": "200.00" }
-        ]
-      }
-    ]
+    "data": {
+      "tiers": [
+        {
+          "id": "1",
+          "gameMode": "battle_royale",
+          "teamMode": "solo",
+          "entryFee": "10.00",
+          "killPrice": "5.00",
+          "minKillsForReward": 2,
+          "maxPlayers": 48,
+          "minPlayers": 24,
+          "positions": [
+            { "position": 1, "prize": "50.00" },
+            { "position": 2, "prize": "40.00" },
+            { "position": 3, "prize": "30.00" }
+          ],
+          "createdAt": "2026-10-11T16:21:24.492Z"
+        }
+      ]
+    }
   }
   ```
 
@@ -1323,31 +1412,66 @@ List endpoints with pagination return cursor parameters:
 - **Request Body**:
   ```json
   {
-    "name": "BR Silver",
     "gameMode": "battle_royale",
-    "entryFee": "20.00",
-    "perKillReward": "10.00",
-    "minPlayers": 24,
+    "teamMode": "squad",
+    "entryFee": "25.00",
+    "killPrice": "10.00",
+    "minKillsForReward": 2,
     "maxPlayers": 48,
-    "prizes": [
-      { "position": 1, "label": "Booyah", "amount": "400.00" }
+    "minPlayers": 24,
+    "positions": [
+      { "position": 1, "prize": "100.00" },
+      { "position": 2, "prize": "50.00" }
     ]
   }
   ```
 - **Success Response (201)**:
   ```json
   {
-    "data": { ... }
+    "data": {
+      "tier": {
+        "id": "5",
+        "gameMode": "battle_royale",
+        "teamMode": "squad",
+        "entryFee": "25.00",
+        "killPrice": "10.00",
+        "minKillsForReward": 2,
+        "maxPlayers": 48,
+        "minPlayers": 24,
+        "positions": [
+          { "position": 1, "prize": "100.00" },
+          { "position": 2, "prize": "50.00" }
+        ],
+        "createdAt": "2026-10-11T16:21:25.174Z"
+      },
+      "warning": "Profit guard warning: Max possible payout (₹620.00) exceeds minimum collected fees (₹600.00)."
+    }
   }
   ```
-- **Error Codes**: `VALIDATION_ERROR`
+- **Error Codes**: `VALIDATION_ERROR`, `409 VALIDATION_ERROR` (active tier duplicate)
 
 #### `GET /api/v1/admin/tiers/:id`
 - **Auth**: `requireAdmin`
 - **Success Response (200)**:
   ```json
   {
-    "data": { ... }
+    "data": {
+      "tier": {
+        "id": "5",
+        "gameMode": "battle_royale",
+        "teamMode": "squad",
+        "entryFee": "25.00",
+        "killPrice": "10.00",
+        "minKillsForReward": 2,
+        "maxPlayers": 48,
+        "minPlayers": 24,
+        "positions": [
+          { "position": 1, "prize": "100.00" },
+          { "position": 2, "prize": "50.00" }
+        ],
+        "createdAt": "2026-10-11T16:21:25.174Z"
+      }
+    }
   }
   ```
 - **Error Codes**: `NOT_FOUND`
@@ -1358,9 +1482,27 @@ List endpoints with pagination return cursor parameters:
 - **Success Response (200)**:
   ```json
   {
-    "data": { ... }
+    "data": {
+      "tier": {
+        "id": "5",
+        "gameMode": "battle_royale",
+        "teamMode": "squad",
+        "entryFee": "25.00",
+        "killPrice": "12.00",
+        "minKillsForReward": 2,
+        "maxPlayers": 48,
+        "minPlayers": 24,
+        "positions": [
+          { "position": 1, "prize": "100.00" },
+          { "position": 2, "prize": "50.00" }
+        ],
+        "createdAt": "2026-10-11T16:21:25.174Z"
+      },
+      "warning": "Profit guard warning: Max possible payout (₹714.00) exceeds minimum collected fees (₹600.00)."
+    }
   }
   ```
+- **Error Codes**: `NOT_FOUND`, `VALIDATION_ERROR`
 
 #### `DELETE /api/v1/admin/tiers/:id`
 - **Auth**: `requireAdmin`
@@ -1368,10 +1510,11 @@ List endpoints with pagination return cursor parameters:
   ```json
   {
     "data": {
-      "deleted": true
+      "message": "Entry tier deleted successfully"
     }
   }
   ```
+- **Error Codes**: `NOT_FOUND`
 
 #### `GET /api/v1/admin/users`
 - **Auth**: `requireAdmin`
@@ -1383,7 +1526,20 @@ List endpoints with pagination return cursor parameters:
   ```json
   {
     "data": {
-      "items": [ ... ],
+      "items": [
+        {
+          "id": "4",
+          "name": "New Player",
+          "email": "user@example.com",
+          "mobile": "9999999999",
+          "ffId": "99887766",
+          "ffName": "ProPlayerUpdated",
+          "upiId": "user@upi",
+          "isDeleted": false,
+          "deletedAt": null,
+          "createdAt": "2026-10-11T16:21:24.738Z"
+        }
+      ],
       "nextCursor": null,
       "hasMore": false
     }
@@ -1396,15 +1552,61 @@ List endpoints with pagination return cursor parameters:
   ```json
   {
     "data": {
-      "profile": { ... },
-      "wallets": { ... },
-      "depositCount": 5,
-      "totalDeposited": "500.00",
-      "withdrawalCount": 2,
-      "totalWithdrawn": "300.00"
+      "profile": {
+        "id": "1",
+        "name": "Player One",
+        "email": "user@example.com",
+        "mobile": "9999999999",
+        "ffId": "12345678",
+        "ffName": "ProPlayer1",
+        "upiId": "user@upi",
+        "dateOfBirth": "2000-01-01",
+        "referralCode": "L32BS9MW",
+        "referredBy": null,
+        "isDeleted": false,
+        "deletedAt": null,
+        "deletedReason": null,
+        "deletedBy": null,
+        "createdAt": "2026-10-11T16:21:24.504Z"
+      },
+      "wallets": {
+        "addMoney": "130.00",
+        "cashback": "0.00",
+        "winning": "0.00",
+        "total": "130.00"
+      },
+      "recentLedger": [
+        {
+          "id": 22,
+          "wallet": "winning",
+          "type": "winning",
+          "amount": "310.00",
+          "balanceAfter": "410.00",
+          "totalAfter": "540.00",
+          "refType": null,
+          "refId": "11",
+          "createdAt": "2026-10-11T16:21:25.135Z"
+        }
+      ],
+      "matchHistory": [
+        {
+          "matchId": "11",
+          "gameMode": "battle_royale",
+          "teamMode": "solo",
+          "entryFee": "20.00",
+          "startTime": "2026-12-03T10:00:00.000Z",
+          "matchStatus": "completed",
+          "kills": 1,
+          "position": 1,
+          "payout": "310.00",
+          "displayStatus": "Booyah",
+          "joinedAt": "2026-10-11T16:21:25.105Z"
+        }
+      ]
     }
   }
   ```
+- **Error Codes**: `NOT_FOUND`
 
 #### `DELETE /api/v1/admin/users/:id`
 - **Auth**: `requireAdmin`
@@ -1418,11 +1620,12 @@ List endpoints with pagination return cursor parameters:
   ```json
   {
     "data": {
-      "deleted": true
+      "id": "5",
+      "message": "User deleted successfully"
     }
   }
   ```
-- **Error Codes**: `NOT_FOUND`, `409 INVALID_TRANSITION` (already deleted)
+- **Error Codes**: `NOT_FOUND`, `VALIDATION_ERROR` (reason < 5 chars), `409 INVALID_TRANSITION` (already deleted)
 
 #### `POST /api/v1/admin/users/:id/adjust`
 - **Auth**: `requireAdmin`
@@ -1430,19 +1633,25 @@ List endpoints with pagination return cursor parameters:
 - **Request Body**:
   ```json
   {
-    "walletKind": "winning",
-    "amount": "50.00",
-    "operation": "credit",
-    "reason": "Compensation for platform glitch"
+    "wallet": "winning",
+    "amount": "20.00",
+    "reason": "Tournament bonus reward"
   }
   ```
-- **Validation**: Reason $\ge 5$ characters; amount $> 0.00$; debit cannot exceed available balance.
+- **Validation**: `wallet` must be `'add_money' | 'cashback' | 'winning'`. Reason $\ge 5$ characters; signed 2-decimal amount string (e.g. `"-20.00"` for debit); zero amount rejected; debit cannot make balance negative.
 - **Success Response (200)**:
   ```json
   {
     "data": {
-      "adjusted": true,
-      "wallets": { ... }
+      "userId": "1",
+      "wallet": "winning",
+      "amount": "20.00",
+      "balances": {
+        "addMoney": "130.00",
+        "cashback": "0.00",
+        "winning": "20.00",
+        "total": "150.00"
+      }
     }
   }
   ```
@@ -1586,13 +1795,18 @@ List endpoints with pagination return cursor parameters:
   ```json
   {
     "data": {
-      "min_deposit": "10.00",
-      "max_deposit": "5000.00",
-      "admin_approval_threshold": "2000.00",
-      "support_email": "support@booyahwin.com",
-      "support_whatsapp": "+919876543210",
-      "payment_upi_id": "merchant@upi",
-      "payment_qr_key": "payment-qr/abc.png"
+      "settings": {
+        "min_deposit": "10.00",
+        "max_deposit": "5000.00",
+        "admin_approval_threshold": "2000.00",
+        "support_name": "",
+        "support_phone": "",
+        "support_email": "",
+        "support_hours": "10:00 AM - 10:00 PM IST",
+        "payment_upi_id": "",
+        "payment_qr_url": "",
+        "payment_qr_key": ""
+      }
     }
   }
   ```
@@ -1603,7 +1817,13 @@ List endpoints with pagination return cursor parameters:
 - **Success Response (200)**:
   ```json
   {
-    "data": { ... }
+    "data": {
+      "settings": {
+        "min_deposit": "15.00",
+        "max_deposit": "6000.00",
+        "support_name": "Booyah Support Team"
+      }
+    }
   }
   ```
 - **Error Codes**: `VALIDATION_ERROR`
@@ -1612,13 +1832,13 @@ List endpoints with pagination return cursor parameters:
 - **Auth**: `requireAdmin`
 - **Content-Type**: `multipart/form-data`
 - **Form Fields**:
-  - `file`: image file (max 2 MB)
+  - `file`: image file (max 2 MB, JPEG/PNG/WebP)
 - **Success Response (200)**:
   ```json
   {
     "data": {
-      "qrUrl": "https://storage.../qr.png?token=...",
-      "key": "payment-qr/12345.png"
+      "paymentQrKey": "https://storage.example.com/placeholder.jpg",
+      "qrUrl": "https://storage.example.com/placeholder.jpg"
     }
   }
   ```
@@ -1627,26 +1847,31 @@ List endpoints with pagination return cursor parameters:
 #### `GET /api/v1/admin/audit-logs`
 - **Auth**: `requireAdmin`
 - **Query Parameters**:
-  - `cursor`: string
-  - `limit`: number
+  - `staffId`: string (optional)
+  - `action`: string (optional)
+  - `from`: string (optional, ISO date)
+  - `to`: string (optional, ISO date)
+  - `cursor`: string (optional)
+  - `limit`: number (optional, default 20)
 - **Success Response (200)**:
   ```json
   {
     "data": {
       "items": [
         {
-          "id": "1",
-          "action": "deposit_approved",
-          "actorType": "staff",
-          "actorId": "1",
-          "targetType": "deposit_request",
-          "targetId": "10",
-          "details": { "amount": "500.00" },
-          "createdAt": "2026-10-10T12:00:00.000Z"
+          "id": "43",
+          "staffId": "1",
+          "action": "settings_payment_qr_updated",
+          "targetType": "app_settings",
+          "targetId": null,
+          "details": {
+            "newKey": "https://storage.example.com/placeholder.jpg",
+            "oldKey": null
+          },
+          "createdAt": "2026-10-11T16:21:25.279Z"
         }
       ],
-      "nextCursor": null,
-      "hasMore": false
+      "nextCursor": "34"
     }
   }
   ```

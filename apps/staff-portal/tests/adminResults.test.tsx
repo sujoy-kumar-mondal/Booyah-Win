@@ -29,42 +29,6 @@ function createTestQueryClient() {
   });
 }
 
-const mockQueue: matchesApi.AdminQueueItemDto[] = [
-  {
-    id: '1',
-    matchId: '501',
-    status: 'pending_approval',
-    submittedBy: '2',
-    createdAt: '2026-10-11T12:00:00.000Z',
-    screenshotUrl: 'results/501.jpg',
-    gameMode: 'battle_royale',
-    teamMode: 'solo',
-    matchStatus: 'live',
-  },
-];
-
-const mockPreview: matchesApi.ResultPayoutPreviewDto = {
-  entries: [
-    {
-      userId: '10',
-      kills: 3,
-      position: 1,
-      killReward: '15.00',
-      positionPrize: '50.00',
-      payout: '65.00',
-      payoutPaise: 6500,
-      isDeleted: false,
-    },
-  ],
-  totalCollected: '40.00',
-  totalCollectedPaise: 4000,
-  totalPayout: '65.00',
-  totalPayoutPaise: 6500,
-  difference: '-25.00',
-  differencePaise: -2500,
-  warning: 'Payout exceeds total entry fees collected',
-};
-
 import { loadContractFixture } from './contractFixtures.js';
 import {
   staffMeGuard,
@@ -86,21 +50,15 @@ describe('Admin Result Approvals Page', () => {
 
     vi.spyOn(matchesApi, 'getAdminResultsQueue').mockResolvedValue(
       loadContractFixture('GET_admin_results__pending.json', adminQueueResponseGuard, 'GET /staff/admin/results/queue', (d) => {
-        d.results = mockQueue;
+        d.results = [d.results[0]];
+        d.results[0].matchId = '501';
         d.count = 1;
       })
     );
 
     vi.spyOn(matchesApi, 'getAdminResultPreview').mockResolvedValue(
       loadContractFixture('GET_admin_results_preview__normal.json', resultPayoutPreviewGuard, 'GET /staff/admin/results/:id/preview', (d) => {
-        d.entries = mockPreview.entries;
-        d.totalCollected = mockPreview.totalCollected;
-        d.totalCollectedPaise = mockPreview.totalCollectedPaise;
-        d.totalPayout = mockPreview.totalPayout;
-        d.totalPayoutPaise = mockPreview.totalPayoutPaise;
-        d.difference = mockPreview.difference;
-        d.differencePaise = mockPreview.differencePaise;
-        d.warning = mockPreview.warning;
+        d.totalPayout = '65.00';
       })
     );
 

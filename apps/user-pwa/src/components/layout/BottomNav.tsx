@@ -1,13 +1,28 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
 import { Home, Swords, Wallet, User } from 'lucide-react';
+import { useInvites } from '../../context/InvitesContext.js';
 
 export const BottomNav: React.FC = () => {
+  let pendingCount = 0;
+  try {
+    const invitesCtx = useInvites();
+    pendingCount = invitesCtx.pendingCount;
+  } catch {
+    // If rendered outside InvitesProvider
+  }
+
   const navItems = [
-    { to: '/', label: 'Home', icon: Home },
-    { to: '/matches', label: 'Matches', icon: Swords, badge: 'Soon' },
-    { to: '/wallet', label: 'Wallet', icon: Wallet, badge: 'Soon' },
-    { to: '/profile', label: 'Profile', icon: User },
+    { to: '/', label: 'Home', icon: Home, badge: null },
+    {
+      to: '/matches',
+      label: 'Matches',
+      icon: Swords,
+      badge: pendingCount > 0 ? String(pendingCount) : null,
+      isAlertBadge: pendingCount > 0,
+    },
+    { to: '/wallet', label: 'Wallet', icon: Wallet, badge: null },
+    { to: '/profile', label: 'Profile', icon: User, badge: null },
   ];
 
   return (
@@ -33,7 +48,14 @@ export const BottomNav: React.FC = () => {
                   <div className="relative">
                     <Icon className={`h-5 w-5 ${isActive ? 'stroke-[2.5]' : 'stroke-2'}`} />
                     {item.badge && (
-                      <span className="absolute -top-1.5 -right-3 rounded-full bg-slate-800 px-1 text-[9px] font-semibold text-slate-400 border border-slate-700">
+                      <span
+                        data-testid={`nav-badge-${item.label.toLowerCase()}`}
+                        className={`absolute -top-1.5 -right-3 rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
+                          item.isAlertBadge
+                            ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                            : 'bg-slate-800 text-slate-400 border border-slate-700'
+                        }`}
+                      >
                         {item.badge}
                       </span>
                     )}

@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "MATCH_NOT_JOINABLE",
+    "message": "Cannot join match with status cancelled",
+    "details": {}
+  }
+}

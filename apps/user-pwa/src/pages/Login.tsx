@@ -78,7 +78,7 @@ export const Login: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-[85vh] flex-col justify-center px-2 py-6">
+    <div className="flex min-h-[85vh] flex-col justify-center py-6 w-full max-w-md mx-auto">
       {/* Brand Header */}
       <div className="mb-8 text-center">
         <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-lg shadow-emerald-500/10">

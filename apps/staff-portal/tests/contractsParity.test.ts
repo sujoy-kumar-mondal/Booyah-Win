@@ -181,6 +181,58 @@ describe('Requirement 1, 2, 4: Staff Portal Strict Contract Parity & Guard Cover
         guard: z.object({ match: staffGuards.matchStaffDtoGuard }),
         contracts: ['POST_staff_matches.json'],
       },
+      employeeListResponseGuard: {
+        guard: staffGuards.employeeListResponseGuard,
+        contracts: ['GET_admin_employees.json'],
+      },
+      employeeSingleResponseGuard: {
+        guard: staffGuards.employeeSingleResponseGuard,
+        contracts: ['POST_admin_employees.json', 'PATCH_admin_employees_id.json'],
+      },
+      employeeDeleteResponseGuard: {
+        guard: staffGuards.employeeDeleteResponseGuard,
+        contracts: ['DELETE_admin_employees_id.json'],
+      },
+      createTierResponseGuard: {
+        guard: staffGuards.createTierResponseGuard,
+        contracts: ['POST_admin_tiers.json'],
+      },
+      updateTierResponseGuard: {
+        guard: staffGuards.updateTierResponseGuard,
+        contracts: ['PATCH_admin_tiers_id.json'],
+      },
+      deleteTierResponseGuard: {
+        guard: staffGuards.deleteTierResponseGuard,
+        contracts: ['DELETE_admin_tiers_id.json'],
+      },
+      adminUserListResponseGuard: {
+        guard: staffGuards.adminUserListResponseGuard,
+        contracts: ['GET_admin_users.json'],
+      },
+      adminUserDetailResponseGuard: {
+        guard: staffGuards.adminUserDetailResponseGuard,
+        contracts: ['GET_admin_users_id.json'],
+      },
+      adminUserDeleteResponseGuard: {
+        guard: staffGuards.adminUserDeleteResponseGuard,
+        contracts: ['DELETE_admin_users_id.json'],
+      },
+      adminUserAdjustResponseGuard: {
+        guard: staffGuards.adminUserAdjustResponseGuard,
+        contracts: ['POST_admin_users_id_adjust.json'],
+      },
+      adminSettingsResponseGuard: {
+        guard: staffGuards.adminSettingsResponseGuard,
+        contracts: ['GET_admin_settings.json', 'PATCH_admin_settings.json'],
+      },
+      adminUploadPaymentQrResponseGuard: {
+        guard: staffGuards.adminUploadPaymentQrResponseGuard,
+        contracts: ['POST_admin_settings_payment-qr.json'],
+      },
+      adminAuditLogsResponseGuard: {
+        guard: staffGuards.adminAuditLogsResponseGuard,
+        contracts: ['GET_admin_audit-logs.json'],
+      },
     };
 
     it('Requirement 4: fails when a guard has no contract', () => {
@@ -237,9 +289,10 @@ describe('Requirement 1, 2, 4: Staff Portal Strict Contract Parity & Guard Cover
         }
       }
 
-      // 2. Scan frontend API code in staff.ts and matches.ts to ensure every called endpoint with an API-shaped payload has a guard
+      // 2. Scan frontend API code in staff.ts, matches.ts, and admin.ts to ensure every called endpoint with an API-shaped payload has a guard
       const staffCode = fs.readFileSync(path.resolve(__dirname, '../src/api/staff.ts'), 'utf-8');
       const matchesCode = fs.readFileSync(path.resolve(__dirname, '../src/api/matches.ts'), 'utf-8');
+      const adminCode = fs.readFileSync(path.resolve(__dirname, '../src/api/admin.ts'), 'utf-8');
 
       // List of guarded endpoints in code
       expect(staffCode).toContain('staffMeGuard');
@@ -253,6 +306,19 @@ describe('Requirement 1, 2, 4: Staff Portal Strict Contract Parity & Guard Cover
       expect(matchesCode).toContain('matchResultStaffGuard');
       expect(matchesCode).toContain('adminQueueResponseGuard');
       expect(matchesCode).toContain('resultPayoutPreviewGuard');
+      expect(adminCode).toContain('employeeListResponseGuard');
+      expect(adminCode).toContain('employeeSingleResponseGuard');
+      expect(adminCode).toContain('employeeDeleteResponseGuard');
+      expect(adminCode).toContain('createTierResponseGuard');
+      expect(adminCode).toContain('updateTierResponseGuard');
+      expect(adminCode).toContain('deleteTierResponseGuard');
+      expect(adminCode).toContain('adminUserListResponseGuard');
+      expect(adminCode).toContain('adminUserDetailResponseGuard');
+      expect(adminCode).toContain('adminUserDeleteResponseGuard');
+      expect(adminCode).toContain('adminUserAdjustResponseGuard');
+      expect(adminCode).toContain('adminSettingsResponseGuard');
+      expect(adminCode).toContain('adminUploadPaymentQrResponseGuard');
+      expect(adminCode).toContain('adminAuditLogsResponseGuard');
     });
 
     // Test each guard against every contract variant

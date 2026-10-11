@@ -1,0 +1,25 @@
+{
+  "data": {
+    "invites": [
+      {
+        "id": "1",
+        "teamId": "3",
+        "teamName": "Bravo Team",
+        "teamSize": 2,
+        "leaderId": "1",
+        "leaderName": "Player One",
+        "leaderFfId": "12345678",
+        "matchId": "13",
+        "gameMode": "battle_royale",
+        "teamMode": "duo",
+        "entryFee": "20.00",
+        "startTime": "2026-12-11T12:00:00.000Z",
+        "matchStatus": "upcoming",
+        "invitedUserId": "2",
+        "status": "pending",
+        "createdAt": "2026-10-11T17:36:34.805Z",
+        "respondedAt": null
+      }
+    ]
+  }
+}

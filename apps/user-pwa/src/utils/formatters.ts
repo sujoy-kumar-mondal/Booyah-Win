@@ -123,3 +123,34 @@ export function formatSignedRupees(amountStr: string | null | undefined): {
   };
 }
 
+/**
+ * Safely parses a 2-decimal money string into integer paise using BigInt.
+ * Strictly avoids Number(), parseFloat(), and floating point arithmetic.
+ */
+export function parseRupeesToPaiseBigInt(val: string | null | undefined): bigint {
+  if (!val || typeof val !== 'string') return 0n;
+  const trimmed = val.trim();
+  if (!trimmed || !/^-?\d+(\.\d{1,2})?$/.test(trimmed)) return 0n;
+
+  const isNeg = trimmed.startsWith('-');
+  const clean = isNeg ? trimmed.slice(1) : trimmed;
+  const [intPart, decPart = ''] = clean.split('.');
+  const decPadded = (decPart + '00').slice(0, 2);
+  const paise = BigInt(intPart || '0') * 100n + BigInt(decPadded);
+  return isNeg ? -paise : paise;
+}
+
+/**
+ * Checks if total balance is strictly less than the entry fee.
+ * Compares integer paise via BigInt, never Number().
+ */
+export function isTotalBelowFee(
+  totalRupees: string | null | undefined,
+  feeRupees: string | null | undefined
+): boolean {
+  if (!feeRupees) return false;
+  const totalPaise = parseRupeesToPaiseBigInt(totalRupees);
+  const feePaise = parseRupeesToPaiseBigInt(feeRupees);
+  return totalPaise < feePaise;
+}
+

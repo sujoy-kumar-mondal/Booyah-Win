@@ -61,6 +61,9 @@ function loadContract(filename: string): any {
     throw new Error(`Contract file not found: ${filename}`);
   }
   const content = JSON.parse(fs.readFileSync(filepath, 'utf-8'));
+  if (content.error !== undefined) {
+    return content;
+  }
   return content.data;
 }
 
@@ -157,6 +160,82 @@ describe('Requirement 1, 2, 4: User PWA Strict Contract Parity & Guard Coverage'
         guard: userGuards.transactionListResponseGuard,
         contracts: ['GET_api_v1_wallet_transactions.json'],
       },
+      userMatchListResponseGuard: {
+        guard: userGuards.userMatchListResponseGuard,
+        contracts: ['GET_api_v1_matches.json'],
+      },
+      userMatchDetailResponseGuard: {
+        guard: userGuards.userMatchDetailResponseGuard,
+        contracts: [
+          'GET_api_v1_matches_id.json',
+          'GET_api_v1_matches_id__live.json',
+          'GET_api_v1_matches_id__joined.json',
+          'GET_api_v1_matches_id__room_open.json',
+          'GET_api_v1_matches_id__upcoming.json',
+          'GET_api_v1_matches_id__full.json',
+        ],
+      },
+      userMatchJoinResponseGuard: {
+        guard: userGuards.userMatchJoinResponseGuard,
+        contracts: ['POST_api_v1_matches_id_join.json'],
+      },
+      userTeamCreateResponseGuard: {
+        guard: userGuards.userTeamCreateResponseGuard,
+        contracts: [
+          'POST_api_v1_matches_id_teams.json',
+          'POST_api_v1_matches_id_teams__forming.json',
+        ],
+      },
+      userTeamReplaceResponseGuard: {
+        guard: userGuards.userTeamReplaceResponseGuard,
+        contracts: ['POST_api_v1_matches_id_teams_mine_replace.json'],
+      },
+      userTeamDisbandResponseGuard: {
+        guard: userGuards.userTeamDisbandResponseGuard,
+        contracts: ['DELETE_api_v1_matches_id_teams_mine.json'],
+      },
+      userTeamInvitesResponseGuard: {
+        guard: userGuards.userTeamInvitesResponseGuard,
+        contracts: [
+          'GET_api_v1_me_team-invites.json',
+          'GET_api_v1_me_team-invites__empty.json',
+          'GET_api_v1_me_team-invites__pending.json',
+        ],
+      },
+      userInviteActionResponseGuard: {
+        guard: userGuards.userInviteActionResponseGuard,
+        contracts: [
+          'POST_api_v1_team-invites_id_accept.json',
+          'POST_api_v1_team-invites_id_decline.json',
+        ],
+      },
+      userMatchHistoryResponseGuard: {
+        guard: userGuards.userMatchHistoryResponseGuard,
+        contracts: ['GET_api_v1_me_match-history.json'],
+      },
+      userSupportInfoResponseGuard: {
+        guard: userGuards.userSupportInfoResponseGuard,
+        contracts: [
+          'GET_api_v1_support.json',
+          'GET_api_v1_support__configured.json',
+          'GET_api_v1_support__not_configured.json',
+        ],
+      },
+      apiErrorEnvelopeGuard: {
+        guard: userGuards.apiErrorEnvelopeGuard,
+        contracts: [
+          'ERROR_LOW_BALANCE.json',
+          'ERROR_MATCH_FULL.json',
+          'ERROR_ALREADY_JOINED.json',
+          'ERROR_MATCH_NOT_JOINABLE.json',
+          'ERROR_TEAM_INVALID.json',
+          'ERROR_FORBIDDEN.json',
+          'ERROR_NOT_FOUND.json',
+          'ERROR_UNAUTHENTICATED.json',
+          'ERROR_VALIDATION_ERROR.json',
+          'ERROR_INVALID_TRANSITION.json',
+        ],
+      },
     };
 
     it('Requirement 4: fails when a guard has no contract', () => {
@@ -211,6 +290,8 @@ describe('Requirement 1, 2, 4: User PWA Strict Contract Parity & Guard Coverage'
       const authCode = fs.readFileSync(path.resolve(__dirname, '../src/api/auth.ts'), 'utf-8');
       const userCode = fs.readFileSync(path.resolve(__dirname, '../src/api/user.ts'), 'utf-8');
       const walletCode = fs.readFileSync(path.resolve(__dirname, '../src/api/wallet.ts'), 'utf-8');
+      const matchesCode = fs.readFileSync(path.resolve(__dirname, '../src/api/matches.ts'), 'utf-8');
+      const supportCode = fs.readFileSync(path.resolve(__dirname, '../src/api/support.ts'), 'utf-8');
 
       expect(authCode).toContain('loginVerifyResponseGuard');
       expect(authCode).toContain('registerVerifyResponseGuard');
@@ -222,6 +303,16 @@ describe('Requirement 1, 2, 4: User PWA Strict Contract Parity & Guard Coverage'
       expect(walletCode).toContain('withdrawalDtoGuard');
       expect(walletCode).toContain('withdrawalListResponseGuard');
       expect(walletCode).toContain('transactionListResponseGuard');
+      expect(matchesCode).toContain('userMatchListResponseGuard');
+      expect(matchesCode).toContain('userMatchDetailResponseGuard');
+      expect(matchesCode).toContain('userMatchJoinResponseGuard');
+      expect(matchesCode).toContain('userTeamCreateResponseGuard');
+      expect(matchesCode).toContain('userTeamReplaceResponseGuard');
+      expect(matchesCode).toContain('userTeamDisbandResponseGuard');
+      expect(matchesCode).toContain('userTeamInvitesResponseGuard');
+      expect(matchesCode).toContain('userInviteActionResponseGuard');
+      expect(matchesCode).toContain('userMatchHistoryResponseGuard');
+      expect(supportCode).toContain('userSupportInfoResponseGuard');
     });
 
     for (const [guardName, entry] of Object.entries(guardToContractsMap)) {

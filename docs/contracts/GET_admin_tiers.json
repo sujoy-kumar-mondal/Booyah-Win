@@ -1,0 +1,86 @@
+{
+  "data": {
+    "tiers": [
+      {
+        "id": "1",
+        "gameMode": "battle_royale",
+        "teamMode": "solo",
+        "entryFee": "20.00",
+        "killPrice": "10.00",
+        "minKillsForReward": 1,
+        "maxPlayers": 48,
+        "minPlayers": 2,
+        "positions": [
+          {
+            "position": 1,
+            "prize": "300.00"
+          },
+          {
+            "position": 2,
+            "prize": "150.00"
+          },
+          {
+            "position": 3,
+            "prize": "50.00"
+          }
+        ],
+        "createdAt": "2026-10-11T17:36:34.161Z"
+      },
+      {
+        "id": "2",
+        "gameMode": "clash_squad",
+        "teamMode": "squad",
+        "entryFee": "25.00",
+        "killPrice": "0.00",
+        "minKillsForReward": 0,
+        "maxPlayers": 8,
+        "minPlayers": 8,
+        "positions": [
+          {
+            "position": 1,
+            "prize": "200.00"
+          }
+        ],
+        "createdAt": "2026-10-11T17:36:34.164Z"
+      },
+      {
+        "id": "3",
+        "gameMode": "battle_royale",
+        "teamMode": "duo",
+        "entryFee": "20.00",
+        "killPrice": "10.00",
+        "minKillsForReward": 1,
+        "maxPlayers": 48,
+        "minPlayers": 2,
+        "positions": [
+          {
+            "position": 1,
+            "prize": "300.00"
+          }
+        ],
+        "createdAt": "2026-10-11T17:36:34.189Z"
+      },
+      {
+        "id": "7",
+        "gameMode": "battle_royale",
+        "teamMode": "squad",
+        "entryFee": "25.00",
+        "killPrice": "10.00",
+        "minKillsForReward": 2,
+        "maxPlayers": 48,
+        "minPlayers": 24,
+        "positions": [
+          {
+            "position": 1,
+            "prize": "100.00"
+          },
+          {
+            "position": 2,
+            "prize": "50.00"
+          }
+        ],
+        "createdAt": "2026-10-11T17:36:34.971Z"
+      }
+    ]
+  }
+}

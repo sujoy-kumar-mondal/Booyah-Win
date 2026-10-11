@@ -301,3 +301,166 @@ export const withdrawalListResponseGuard = z.object({
   items: z.array(staffWithdrawalDtoGuard),
   nextCursor: z.string().nullable().optional(),
 }).passthrough();
+
+// ─── 6. Admin Management Response Guards ──────────────────────────────────────
+
+// Employees
+export const employeeDtoGuard = z.object({
+  id: z.string(),
+  role: z.enum(['employee', 'admin']),
+  name: z.string(),
+  email: z.string(),
+  mobile: z.string(),
+  pan: z.string().nullable(),
+  aadhaar: z.string().nullable(),
+  createdBy: z.string().nullable(),
+  createdAt: z.string(),
+}).passthrough();
+
+export const employeeListResponseGuard = z.object({
+  items: z.array(employeeDtoGuard),
+  nextCursor: z.string().nullable(),
+}).passthrough();
+
+export const employeeSingleResponseGuard = z.object({
+  employee: employeeDtoGuard,
+}).passthrough();
+
+export const employeeDeleteResponseGuard = z.object({
+  message: z.string(),
+}).passthrough();
+
+// Tiers
+export const createTierResponseGuard = z.object({
+  tier: entryTierGuard,
+  warning: z.string().nullable().optional(),
+}).passthrough();
+
+export const updateTierResponseGuard = z.object({
+  tier: entryTierGuard,
+  warning: z.string().nullable().optional(),
+}).passthrough();
+
+export const deleteTierResponseGuard = z.object({
+  message: z.string(),
+}).passthrough();
+
+// Users
+export const adminUserListItemGuard = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  mobile: z.string(),
+  ffId: z.string(),
+  ffName: z.string(),
+  upiId: z.string(),
+  isDeleted: z.boolean(),
+  deletedAt: z.string().nullable(),
+  createdAt: z.string(),
+}).passthrough();
+
+export const adminUserListResponseGuard = z.object({
+  items: z.array(adminUserListItemGuard),
+  nextCursor: z.string().nullable(),
+  hasMore: z.boolean(),
+}).passthrough();
+
+export const adminUserDetailProfileGuard = z.object({
+  id: z.string(),
+  name: z.string(),
+  email: z.string(),
+  mobile: z.string(),
+  ffId: z.string(),
+  ffName: z.string(),
+  upiId: z.string(),
+  dateOfBirth: z.string(),
+  referralCode: z.string(),
+  referredBy: z.string().nullable(),
+  isDeleted: z.boolean(),
+  deletedAt: z.string().nullable(),
+  deletedReason: z.string().nullable(),
+  deletedBy: z.string().nullable(),
+  createdAt: z.string(),
+}).passthrough();
+
+export const adminUserLedgerItemGuard = z.object({
+  id: z.number(),
+  wallet: z.string(),
+  type: z.string(),
+  amount: signedMoneyStringSchema,
+  balanceAfter: moneyStringSchema,
+  totalAfter: moneyStringSchema,
+  refType: z.string().nullable(),
+  refId: z.string().nullable(),
+  createdAt: z.string(),
+}).passthrough();
+
+export const adminUserMatchHistoryItemGuard = z.object({
+  matchId: z.string(),
+  gameMode: z.string(),
+  teamMode: z.string(),
+  entryFee: moneyStringSchema,
+  startTime: z.string(),
+  matchStatus: z.string(),
+  kills: z.number(),
+  position: z.number().nullable(),
+  payout: moneyStringSchema,
+  displayStatus: z.string(),
+  joinedAt: z.string(),
+}).passthrough();
+
+export const adminUserDetailResponseGuard = z.object({
+  profile: adminUserDetailProfileGuard,
+  wallets: z.object({
+    addMoney: moneyStringSchema,
+    cashback: moneyStringSchema,
+    winning: moneyStringSchema,
+    total: moneyStringSchema,
+  }).passthrough(),
+  recentLedger: z.array(adminUserLedgerItemGuard),
+  matchHistory: z.array(adminUserMatchHistoryItemGuard),
+}).passthrough();
+
+export const adminUserDeleteResponseGuard = z.object({
+  id: z.string(),
+  message: z.string(),
+}).passthrough();
+
+export const adminUserAdjustResponseGuard = z.object({
+  userId: z.string(),
+  wallet: z.enum(['add_money', 'cashback', 'winning']),
+  amount: signedMoneyStringSchema,
+  balances: z.object({
+    addMoney: moneyStringSchema,
+    cashback: moneyStringSchema,
+    winning: moneyStringSchema,
+    total: moneyStringSchema,
+  }).passthrough(),
+}).passthrough();
+
+// Settings
+export const adminSettingsResponseGuard = z.object({
+  settings: z.record(z.string(), z.string()),
+}).passthrough();
+
+export const adminUploadPaymentQrResponseGuard = z.object({
+  paymentQrKey: z.string(),
+  qrUrl: z.string(),
+}).passthrough();
+
+// Audit Logs
+export const adminAuditLogItemGuard = z.object({
+  id: z.string(),
+  staffId: z.string().nullable(),
+  action: z.string(),
+  targetType: z.string(),
+  targetId: z.string().nullable(),
+  details: z.any().nullable().optional(),
+  createdAt: z.string(),
+}).passthrough();
+
+export const adminAuditLogsResponseGuard = z.object({
+  items: z.array(adminAuditLogItemGuard),
+  nextCursor: z.string().nullable(),
+}).passthrough();
+

@@ -41,6 +41,16 @@ export class SettingsService {
     for (const row of res.rows) {
       settings[row.key] = row.value;
     }
+    if (settings.payment_qr_key && settings.payment_qr_key.trim()) {
+      try {
+        const qrUrl = await getSignedUrl(settings.payment_qr_key.trim(), 3600);
+        if (qrUrl) {
+          settings.payment_qr_url = qrUrl;
+        }
+      } catch {
+        // ignore storage/signing error
+      }
+    }
     return settings;
   }
 
@@ -188,6 +198,16 @@ export class SettingsService {
       const updatedMap: Record<string, string> = { ...DEFAULT_SETTINGS };
       for (const row of res.rows) {
         updatedMap[row.key] = row.value;
+      }
+      if (updatedMap.payment_qr_key && updatedMap.payment_qr_key.trim()) {
+        try {
+          const qrUrl = await getSignedUrl(updatedMap.payment_qr_key.trim(), 3600);
+          if (qrUrl) {
+            updatedMap.payment_qr_url = qrUrl;
+          }
+        } catch {
+          // ignore storage/signing error
+        }
       }
       return updatedMap;
     });

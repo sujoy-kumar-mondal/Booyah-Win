@@ -32,7 +32,8 @@ export const ERROR_CODE_MESSAGES: Record<string, string> = {
   [ErrorCodes.INVALID_TRANSITION]: 'This action cannot be performed for the match in its current state.',
   [ErrorCodes.MATCH_NOT_JOINABLE]: 'The match is no longer open for joining.',
   [ErrorCodes.MATCH_FULL]: 'The match has reached maximum player capacity.',
-  [ErrorCodes.LOW_BALANCE]: 'Cannot reverse result: one or more players have insufficient winning balance.',
+  [ErrorCodes.LOW_BALANCE]: 'Insufficient wallet balance for this operation.',
+  [ErrorCodes.EMAIL_EXISTS]: 'An account with this email address already exists.',
   NETWORK_ERROR: DEV_NETWORK_MESSAGE,
   NON_JSON_RESPONSE: DEV_NON_JSON_MESSAGE,
   TIMEOUT_ERROR: 'Request timed out. Please try again.',
@@ -45,7 +46,7 @@ export const ERROR_CODE_MESSAGES: Record<string, string> = {
  */
 export function getFriendlyErrorMessage(
   err: unknown,
-  context?: 'deposit' | 'withdrawal' | 'result' | 'cancel' | 'live',
+  context?: 'deposit' | 'withdrawal' | 'result' | 'cancel' | 'live' | 'employee' | 'tier' | 'user' | 'settings' | 'audit',
   isDev: boolean = typeof import.meta !== 'undefined' && Boolean(import.meta.env?.DEV)
 ): string {
   if (err instanceof ApiError) {
@@ -61,8 +62,18 @@ export function getFriendlyErrorMessage(
       return 'unexpected response, please refresh';
     }
 
-    // 409 conflict: Requirement 3 explicit text
+    if (err.code === ErrorCodes.EMAIL_EXISTS) {
+      return 'An account with this email address already exists.';
+    }
+
+    // 409 conflict
     if (err.status === 409) {
+      if (context === 'tier') {
+        return 'An active entry tier with this mode, team mode, and fee already exists.';
+      }
+      if (context === 'user' && err.code === ErrorCodes.INVALID_TRANSITION) {
+        return 'This user account is already deleted.';
+      }
       return 'This request was already processed';
     }
 
@@ -83,7 +94,17 @@ export function getFriendlyErrorMessage(
       if (context === 'live') {
         return 'Match is underfilled. Only administrators can force an underfilled match live.';
       }
+      if (context === 'employee') {
+        return 'Administrators cannot delete their own account.';
+      }
       return 'Action not permitted.';
+    }
+
+    if (err.code === ErrorCodes.LOW_BALANCE) {
+      if (context === 'user') {
+        return 'Adjustment rejected: insufficient wallet balance.';
+      }
+      return 'Cannot reverse result: one or more players have insufficient winning balance.';
     }
 
     if (err.code === ErrorCodes.ADMIN_APPROVAL_REQUIRED) {

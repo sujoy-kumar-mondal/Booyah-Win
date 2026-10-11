@@ -14,6 +14,9 @@ import fs from 'fs';
 import path from 'path';
 import { execSync } from 'child_process';
 import { fileURLToPath } from 'url';
+import dotenv from 'dotenv';
+
+dotenv.config();
 
 // ─── Safety Pre-Checks ────────────────────────────────────────────────────────
 const nodeEnv = process.env.NODE_ENV;
@@ -152,6 +155,102 @@ const smokeCalls: SmokeCall[] = [
     fixture: 'GET_staff_withdrawals.json',
     guard: staffGuards.withdrawalListResponseGuard,
   },
+  {
+    app: 'staff-portal',
+    endpoint: '/admin/employees',
+    fixture: 'GET_admin_employees.json',
+    guard: staffGuards.employeeListResponseGuard,
+  },
+  {
+    app: 'staff-portal',
+    endpoint: '/admin/employees',
+    fixture: 'POST_admin_employees.json',
+    guard: staffGuards.employeeSingleResponseGuard,
+  },
+  {
+    app: 'staff-portal',
+    endpoint: '/admin/employees/:id',
+    fixture: 'PATCH_admin_employees_id.json',
+    guard: staffGuards.employeeSingleResponseGuard,
+  },
+  {
+    app: 'staff-portal',
+    endpoint: '/admin/employees/:id',
+    fixture: 'DELETE_admin_employees_id.json',
+    guard: staffGuards.employeeDeleteResponseGuard,
+  },
+  {
+    app: 'staff-portal',
+    endpoint: '/admin/tiers',
+    fixture: 'GET_admin_tiers.json',
+    guard: staffGuards.entryTiersResponseGuard,
+  },
+  {
+    app: 'staff-portal',
+    endpoint: '/admin/tiers',
+    fixture: 'POST_admin_tiers.json',
+    guard: staffGuards.createTierResponseGuard,
+  },
+  {
+    app: 'staff-portal',
+    endpoint: '/admin/tiers/:id',
+    fixture: 'PATCH_admin_tiers_id.json',
+    guard: staffGuards.updateTierResponseGuard,
+  },
+  {
+    app: 'staff-portal',
+    endpoint: '/admin/tiers/:id',
+    fixture: 'DELETE_admin_tiers_id.json',
+    guard: staffGuards.deleteTierResponseGuard,
+  },
+  {
+    app: 'staff-portal',
+    endpoint: '/admin/users',
+    fixture: 'GET_admin_users.json',
+    guard: staffGuards.adminUserListResponseGuard,
+  },
+  {
+    app: 'staff-portal',
+    endpoint: '/admin/users/:id',
+    fixture: 'GET_admin_users_id.json',
+    guard: staffGuards.adminUserDetailResponseGuard,
+  },
+  {
+    app: 'staff-portal',
+    endpoint: '/admin/users/:id',
+    fixture: 'DELETE_admin_users_id.json',
+    guard: staffGuards.adminUserDeleteResponseGuard,
+  },
+  {
+    app: 'staff-portal',
+    endpoint: '/admin/users/:id/adjust',
+    fixture: 'POST_admin_users_id_adjust.json',
+    guard: staffGuards.adminUserAdjustResponseGuard,
+  },
+  {
+    app: 'staff-portal',
+    endpoint: '/admin/settings',
+    fixture: 'GET_admin_settings.json',
+    guard: staffGuards.adminSettingsResponseGuard,
+  },
+  {
+    app: 'staff-portal',
+    endpoint: '/admin/settings',
+    fixture: 'PATCH_admin_settings.json',
+    guard: staffGuards.adminSettingsResponseGuard,
+  },
+  {
+    app: 'staff-portal',
+    endpoint: '/admin/settings/payment-qr',
+    fixture: 'POST_admin_settings_payment-qr.json',
+    guard: staffGuards.adminUploadPaymentQrResponseGuard,
+  },
+  {
+    app: 'staff-portal',
+    endpoint: '/admin/audit-logs',
+    fixture: 'GET_admin_audit-logs.json',
+    guard: staffGuards.adminAuditLogsResponseGuard,
+  },
 
   // User PWA Endpoints
   {
@@ -213,6 +312,72 @@ const smokeCalls: SmokeCall[] = [
     endpoint: '/api/v1/wallet/transactions',
     fixture: 'GET_api_v1_wallet_transactions.json',
     guard: pwaGuards.transactionListResponseGuard,
+  },
+  {
+    app: 'user-pwa',
+    endpoint: '/api/v1/matches',
+    fixture: 'GET_api_v1_matches.json',
+    guard: pwaGuards.userMatchListResponseGuard,
+  },
+  {
+    app: 'user-pwa',
+    endpoint: '/api/v1/matches/:id',
+    fixture: 'GET_api_v1_matches_id.json',
+    guard: pwaGuards.userMatchDetailResponseGuard,
+  },
+  {
+    app: 'user-pwa',
+    endpoint: '/api/v1/matches/:id/join',
+    fixture: 'POST_api_v1_matches_id_join.json',
+    guard: pwaGuards.userMatchJoinResponseGuard,
+  },
+  {
+    app: 'user-pwa',
+    endpoint: '/api/v1/matches/:id/teams',
+    fixture: 'POST_api_v1_matches_id_teams.json',
+    guard: pwaGuards.userTeamCreateResponseGuard,
+  },
+  {
+    app: 'user-pwa',
+    endpoint: '/api/v1/matches/:id/teams/mine/replace',
+    fixture: 'POST_api_v1_matches_id_teams_mine_replace.json',
+    guard: pwaGuards.userTeamReplaceResponseGuard,
+  },
+  {
+    app: 'user-pwa',
+    endpoint: '/api/v1/matches/:id/teams/mine',
+    fixture: 'DELETE_api_v1_matches_id_teams_mine.json',
+    guard: pwaGuards.userTeamDisbandResponseGuard,
+  },
+  {
+    app: 'user-pwa',
+    endpoint: '/api/v1/me/team-invites',
+    fixture: 'GET_api_v1_me_team-invites.json',
+    guard: pwaGuards.userTeamInvitesResponseGuard,
+  },
+  {
+    app: 'user-pwa',
+    endpoint: '/api/v1/team-invites/:id/accept',
+    fixture: 'POST_api_v1_team-invites_id_accept.json',
+    guard: pwaGuards.userInviteActionResponseGuard,
+  },
+  {
+    app: 'user-pwa',
+    endpoint: '/api/v1/team-invites/:id/decline',
+    fixture: 'POST_api_v1_team-invites_id_decline.json',
+    guard: pwaGuards.userInviteActionResponseGuard,
+  },
+  {
+    app: 'user-pwa',
+    endpoint: '/api/v1/me/match-history',
+    fixture: 'GET_api_v1_me_match-history.json',
+    guard: pwaGuards.userMatchHistoryResponseGuard,
+  },
+  {
+    app: 'user-pwa',
+    endpoint: '/api/v1/support',
+    fixture: 'GET_api_v1_support.json',
+    guard: pwaGuards.userSupportInfoResponseGuard,
   },
 ];
 

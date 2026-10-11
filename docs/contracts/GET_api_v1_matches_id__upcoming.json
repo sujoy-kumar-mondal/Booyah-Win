@@ -1,0 +1,27 @@
+{
+  "data": {
+    "match": {
+      "id": "9",
+      "gameMode": "battle_royale",
+      "teamMode": "solo",
+      "entryFee": "20.00",
+      "prizes": {
+        "positions": {
+          "1": "300.00",
+          "2": "150.00",
+          "3": "50.00"
+        },
+        "killPrice": "10.00",
+        "minKillsForReward": 1
+      },
+      "joinedPlayers": 0,
+      "seatsTaken": 0,
+      "maxPlayers": 48,
+      "minPlayers": 2,
+      "startTime": "2026-12-09T12:00:00.000Z",
+      "status": "upcoming",
+      "hasJoined": false,
+      "isInTeam": false
+    }
+  }
+}

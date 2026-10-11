@@ -21,7 +21,7 @@
       "status": "room_open",
       "cancelReason": null,
       "createdBy": "2",
-      "createdAt": "2026-10-11T10:32:32.710Z",
+      "createdAt": "2026-10-11T17:36:34.170Z",
       "joinedCount": 1,
       "players": [
         {
@@ -34,7 +34,7 @@
           "paidCashback": "0.00",
           "paidWinning": "0.00",
           "refundedAt": null,
-          "joinedAt": "2026-10-11T10:32:32.720Z"
+          "joinedAt": "2026-10-11T17:36:34.181Z"
         }
       ],
       "teams": []

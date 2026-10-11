@@ -335,6 +335,12 @@ describe('Real API Contracts Generator & Strict Parity Verifier', () => {
     await query(`UPDATE wallets SET add_money = 200.00, winning = 200.00 WHERE user_id = $1`, [userId]);
     await query(`UPDATE wallets SET add_money = 200.00, winning = 200.00 WHERE user_id = $1`, [user2Id]);
 
+    // Seed player3 for replace teammate tests
+    await query(
+      `INSERT INTO users (email, name, mobile, ff_id, ff_name, upi_id, date_of_birth, referral_code)
+       VALUES ('player3@example.com', 'Player Three', '9876543212', '55667788', 'ProPlayer3', 'player3@upi', '2000-01-01', 'REF_P3')`
+    );
+
     // Dedicated dummy accounts for logout contracts (so employeeToken and userToken are never invalidated)
     const logoutStaffRes = await query(
       `INSERT INTO staff (email, name, mobile, role)
@@ -535,10 +541,28 @@ describe('Real API Contracts Generator & Strict Parity Verifier', () => {
   });
 
   // ─── 1. Public Endpoints Contracts ──────────────────────────────────────────
-  it('captures GET /api/v1/support', async () => {
+  it('captures GET /api/v1/support variants', async () => {
+    // 1. Not configured variant (phone/email empty by default)
     const res = await request(app).get('/api/v1/support');
     expect(res.status).toBe(200);
     saveOrVerifyContract('GET_api_v1_support.json', res.body);
+    saveOrVerifyContract('GET_api_v1_support__not_configured.json', res.body);
+
+    // 2. Configured variant
+    await query(
+      `INSERT INTO app_settings (key, value) VALUES
+       ('support_name', 'Booyah Win Support'),
+       ('support_phone', '+91 9999999999'),
+       ('support_email', 'support@booyahwin.com'),
+       ('support_hours', '10:00 AM - 10:00 PM IST')
+       ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value`
+    );
+    const confRes = await request(app).get('/api/v1/support');
+    expect(confRes.status).toBe(200);
+    saveOrVerifyContract('GET_api_v1_support__configured.json', confRes.body);
+
+    // Revert settings to avoid side effects
+    await query(`UPDATE app_settings SET value = '' WHERE key IN ('support_phone', 'support_email')`);
   });
 
   it('captures GET /api/v1/payment-info', async () => {
@@ -979,16 +1003,82 @@ describe('Real API Contracts Generator & Strict Parity Verifier', () => {
     saveOrVerifyContract('GET_api_v1_matches.json', res.body);
   });
 
-  it('captures GET /api/v1/matches/:id', async () => {
-    const res = await request(app)
+  it('captures GET /api/v1/matches/:id variants', async () => {
+    // 1. Standard / Live / Joined variant with credentials (duoMatchId)
+    const duoRes = await request(app)
       .get(`/api/v1/matches/${duoMatchId}`)
       .set('Authorization', `Bearer ${userToken}`);
-    expect(res.status).toBe(200);
-    saveOrVerifyContract('GET_api_v1_matches_id.json', res.body);
+    expect(duoRes.status).toBe(200);
+    saveOrVerifyContract('GET_api_v1_matches_id.json', duoRes.body);
+    saveOrVerifyContract('GET_api_v1_matches_id__live.json', duoRes.body);
+    saveOrVerifyContract('GET_api_v1_matches_id__joined.json', duoRes.body);
+
+    // 2. Room open variant (create a match with open room, joined by user)
+    const roomMatchRes = await request(app)
+      .post('/api/v1/staff/matches')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({ tierId, startTime: '2026-12-08T12:00:00.000Z' });
+    const roomMatchId = roomMatchRes.body.data.match.id;
+    await request(app)
+      .post(`/api/v1/matches/${roomMatchId}/join`)
+      .set('Authorization', `Bearer ${userToken}`);
+    await request(app)
+      .post(`/api/v1/staff/matches/${roomMatchId}/open-room`)
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({ roomId: '776655', roomPassword: 'roomSecret123' });
+
+    const openRoomRes = await request(app)
+      .get(`/api/v1/matches/${roomMatchId}`)
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(openRoomRes.status).toBe(200);
+    saveOrVerifyContract('GET_api_v1_matches_id__room_open.json', openRoomRes.body);
+
+    // 3. Upcoming variant (unjoined match)
+    const upMatchRes = await request(app)
+      .post('/api/v1/staff/matches')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({ tierId, startTime: '2026-12-09T12:00:00.000Z' });
+    const upMatchId = upMatchRes.body.data.match.id;
+    const upRes = await request(app)
+      .get(`/api/v1/matches/${upMatchId}`)
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(upRes.status).toBe(200);
+    saveOrVerifyContract('GET_api_v1_matches_id__upcoming.json', upRes.body);
+
+    // 4. Cancelled match returns 404 on getMatchUser because only active matches are queryable
+    const cancelRes = await request(app)
+      .get(`/api/v1/matches/${cancelledMatchId}`)
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(cancelRes.status).toBe(404);
+
+    // 5. Full match variant (capacity 2, both seats taken)
+    const fullTierRes = await query(
+      `INSERT INTO entry_tiers (game_mode, team_mode, entry_fee, kill_price, min_kills_for_reward, max_players, min_players)
+       VALUES ('battle_royale', 'solo', '10.00', '5.00', 1, 2, 2)
+       RETURNING id`
+    );
+    const fullMatchRes = await request(app)
+      .post('/api/v1/staff/matches')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({ tierId: fullTierRes.rows[0].id.toString(), startTime: '2026-12-10T15:00:00.000Z' });
+    const fullMatchId = fullMatchRes.body.data.match.id;
+    await request(app)
+      .post(`/api/v1/matches/${fullMatchId}/join`)
+      .set('Authorization', `Bearer ${userToken}`);
+    await request(app)
+      .post(`/api/v1/matches/${fullMatchId}/join`)
+      .set('Authorization', `Bearer ${user2Token}`);
+
+    const fullRes = await request(app)
+      .get(`/api/v1/matches/${fullMatchId}`)
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(fullRes.status).toBe(200);
+    expect(fullRes.body.data.match.seatsTaken).toBe(fullRes.body.data.match.maxPlayers);
+    saveOrVerifyContract('GET_api_v1_matches_id__full.json', fullRes.body);
   });
 
-  it('captures POST /api/v1/matches/:id/join', async () => {
-    // Create new match for join contract
+  it('captures POST /api/v1/matches/:id/join and error codes', async () => {
+    // 1. Success join
     const match = await request(app)
       .post('/api/v1/staff/matches')
       .set('Authorization', `Bearer ${employeeToken}`)
@@ -1000,26 +1090,64 @@ describe('Real API Contracts Generator & Strict Parity Verifier', () => {
       .set('Authorization', `Bearer ${userToken}`);
     expect(res.status).toBe(200);
     saveOrVerifyContract('POST_api_v1_matches_id_join.json', res.body);
-  });
 
-  it('captures GET /api/v1/me/match-history', async () => {
-    const res = await request(app)
-      .get('/api/v1/me/match-history')
+    // 2. ERROR_ALREADY_JOINED
+    const dupJoinRes = await request(app)
+      .post(`/api/v1/matches/${jMatchId}/join`)
       .set('Authorization', `Bearer ${userToken}`);
-    expect(res.status).toBe(200);
-    saveOrVerifyContract('GET_api_v1_me_match-history.json', res.body);
+    expect(dupJoinRes.status).toBe(409);
+    expect(dupJoinRes.body.error.code).toBe('ALREADY_JOINED');
+    saveOrVerifyContract('ERROR_ALREADY_JOINED.json', dupJoinRes.body);
+
+    // 3. ERROR_MATCH_NOT_JOINABLE (on cancelled match)
+    const closedJoinRes = await request(app)
+      .post(`/api/v1/matches/${cancelledMatchId}/join`)
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(closedJoinRes.status).toBe(409);
+    expect(closedJoinRes.body.error.code).toBe('MATCH_NOT_JOINABLE');
+    saveOrVerifyContract('ERROR_MATCH_NOT_JOINABLE.json', closedJoinRes.body);
+
+    // 4. ERROR_MATCH_FULL (on match with 1 max player)
+    const singleTierRes = await query(
+      `INSERT INTO entry_tiers (game_mode, team_mode, entry_fee, kill_price, min_kills_for_reward, max_players, min_players)
+       VALUES ('battle_royale', 'solo', '10.00', '5.00', 1, 1, 1)
+       RETURNING id`
+    );
+    const fullMRes = await request(app)
+      .post('/api/v1/staff/matches')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({ tierId: singleTierRes.rows[0].id.toString(), startTime: '2026-12-10T18:00:00.000Z' });
+    const fullMId = fullMRes.body.data.match.id;
+    await request(app)
+      .post(`/api/v1/matches/${fullMId}/join`)
+      .set('Authorization', `Bearer ${userToken}`);
+
+    const fullJoinRes = await request(app)
+      .post(`/api/v1/matches/${fullMId}/join`)
+      .set('Authorization', `Bearer ${user2Token}`);
+    expect(fullJoinRes.status).toBe(409);
+    expect(fullJoinRes.body.error.code).toBe('MATCH_FULL');
+    saveOrVerifyContract('ERROR_MATCH_FULL.json', fullJoinRes.body);
+
+    // 5. ERROR_TEAM_INVALID (trying to create team on solo match)
+    const teamInvRes = await request(app)
+      .post(`/api/v1/matches/${fullMId}/teams`)
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ memberFfIds: ['87654321'] });
+    expect(teamInvRes.status).toBe(400);
+    expect(teamInvRes.body.error.code).toBe('TEAM_INVALID');
+    saveOrVerifyContract('ERROR_TEAM_INVALID.json', teamInvRes.body);
   });
 
-  it('captures GET /api/v1/me/team-invites', async () => {
-    const res = await request(app)
+  it('captures team and invite endpoints with forming, confirmed, empty, pending variants', async () => {
+    // 1. Empty invites variant (userToken has no pending invites)
+    const emptyInvRes = await request(app)
       .get('/api/v1/me/team-invites')
       .set('Authorization', `Bearer ${userToken}`);
-    expect(res.status).toBe(200);
-    saveOrVerifyContract('GET_api_v1_me_team-invites.json', res.body);
-  });
+    expect(emptyInvRes.status).toBe(200);
+    saveOrVerifyContract('GET_api_v1_me_team-invites__empty.json', emptyInvRes.body);
 
-  it('captures POST /api/v1/matches/:id/teams', async () => {
-    // Create new duo match for team creation
+    // 2. Team creation (forming variant)
     const duoTierRes = await query(
       `INSERT INTO entry_tiers (game_mode, team_mode, entry_fee, kill_price, min_kills_for_reward, max_players, min_players)
        VALUES ('battle_royale', 'duo', '20.00', '10.00', 1, 48, 2)
@@ -1037,43 +1165,116 @@ describe('Real API Contracts Generator & Strict Parity Verifier', () => {
       .send({ teamName: 'Bravo Team', memberFfIds: ['87654321'] });
     expect(res.status).toBe(201);
     saveOrVerifyContract('POST_api_v1_matches_id_teams.json', res.body);
+    saveOrVerifyContract('POST_api_v1_matches_id_teams__forming.json', res.body);
 
-    const invites = await query(`SELECT id FROM team_invites WHERE invited_user_id = $1 ORDER BY id DESC LIMIT 1`, [user2Id]);
-    if (invites.rowCount) {
-      inviteId = invites.rows[0].id.toString();
-    }
-  });
-
-  it('captures POST /api/v1/team-invites/:id/decline', async () => {
-    expect(inviteId).toBeDefined();
-    const res = await request(app)
-      .post(`/api/v1/team-invites/${inviteId}/decline`)
+    // 3. Pending invites variant (for user2)
+    const pendingInvRes = await request(app)
+      .get('/api/v1/me/team-invites')
       .set('Authorization', `Bearer ${user2Token}`);
-    expect(res.status).toBe(200);
-    saveOrVerifyContract('POST_api_v1_team-invites_id_decline.json', res.body);
-  });
+    expect(pendingInvRes.status).toBe(200);
+    expect(pendingInvRes.body.data.invites.length).toBeGreaterThan(0);
+    saveOrVerifyContract('GET_api_v1_me_team-invites.json', pendingInvRes.body);
+    saveOrVerifyContract('GET_api_v1_me_team-invites__pending.json', pendingInvRes.body);
 
-  it('captures POST /api/v1/team-invites/:id/accept', async () => {
-    // Create another duo match and team for accept contract
-    const mDuo2Res = await request(app)
+    // 4. Replace teammate invite
+    const replaceRes = await request(app)
+      .post(`/api/v1/matches/${mDuoId}/teams/mine/replace`)
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ oldFfId: '87654321', newFfId: '55667788' });
+    expect(replaceRes.status).toBe(200);
+    saveOrVerifyContract('POST_api_v1_matches_id_teams_mine_replace.json', replaceRes.body);
+
+    // 5. Disband team
+    const disbandRes = await request(app)
+      .delete(`/api/v1/matches/${mDuoId}/teams/mine`)
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(disbandRes.status).toBe(200);
+    saveOrVerifyContract('DELETE_api_v1_matches_id_teams_mine.json', disbandRes.body);
+
+    // 6. Decline invite
+    const mDuoDecRes = await request(app)
+      .post('/api/v1/staff/matches')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({ tierId: duoTierId, startTime: '2026-12-11T16:00:00.000Z' });
+    const mDuoDecId = mDuoDecRes.body.data.match.id;
+
+    await request(app)
+      .post(`/api/v1/matches/${mDuoDecId}/teams`)
+      .set('Authorization', `Bearer ${userToken}`)
+      .send({ teamName: 'Delta Team', memberFfIds: ['87654321'] });
+
+    const decInvQuery = await query(`SELECT id FROM team_invites WHERE invited_user_id = $1 ORDER BY id DESC LIMIT 1`, [user2Id]);
+    const decInviteId = decInvQuery.rows[0].id.toString();
+
+    const decRes = await request(app)
+      .post(`/api/v1/team-invites/${decInviteId}/decline`)
+      .set('Authorization', `Bearer ${user2Token}`);
+    expect(decRes.status).toBe(200);
+    saveOrVerifyContract('POST_api_v1_team-invites_id_decline.json', decRes.body);
+
+    // 7. Accept invite and confirm team
+    const mDuoAccRes = await request(app)
       .post('/api/v1/staff/matches')
       .set('Authorization', `Bearer ${employeeToken}`)
       .send({ tierId: duoTierId, startTime: '2026-12-12T12:00:00.000Z' });
-    const mDuo2Id = mDuo2Res.body.data.match.id;
+    const mDuoAccId = mDuoAccRes.body.data.match.id;
 
     await request(app)
-      .post(`/api/v1/matches/${mDuo2Id}/teams`)
+      .post(`/api/v1/matches/${mDuoAccId}/teams`)
       .set('Authorization', `Bearer ${userToken}`)
       .send({ teamName: 'Charlie Team', memberFfIds: ['87654321'] });
 
-    const accInv = await query(`SELECT id FROM team_invites WHERE invited_user_id = $1 ORDER BY id DESC LIMIT 1`, [user2Id]);
-    const accInviteId = accInv.rows[0].id.toString();
+    const accInvQuery = await query(`SELECT id FROM team_invites WHERE invited_user_id = $1 ORDER BY id DESC LIMIT 1`, [user2Id]);
+    const accInviteId = accInvQuery.rows[0].id.toString();
 
-    const res = await request(app)
+    const accRes = await request(app)
       .post(`/api/v1/team-invites/${accInviteId}/accept`)
       .set('Authorization', `Bearer ${user2Token}`);
+    expect(accRes.status).toBe(200);
+    saveOrVerifyContract('POST_api_v1_team-invites_id_accept.json', accRes.body);
+  });
+
+  it('captures GET /api/v1/me/match-history with all status labels', async () => {
+    // Seed completed matches with positions 1 (Booyah), 2 (Second), 3 (Third), 4 (4th), null (Lost)
+    const labels = [
+      { pos: 1, kills: 5, payout: '150.00' },
+      { pos: 2, kills: 3, payout: '80.00' },
+      { pos: 3, kills: 2, payout: '50.00' },
+      { pos: 4, kills: 1, payout: '0.00' },
+      { pos: null, kills: 0, payout: '0.00' },
+    ];
+
+    for (let i = 0; i < labels.length; i++) {
+      const { pos, kills, payout } = labels[i];
+      const mRes = await query(
+        `INSERT INTO matches (tier_id, game_mode, team_mode, entry_fee, kill_price, min_kills_for_reward, position_prizes, max_players, min_players, start_time, status, created_by)
+         VALUES ($1, 'battle_royale', 'solo', 20.00, 10.00, 1, '{"1":"300.00"}'::jsonb, 48, 2, '2026-11-0${i + 1}T12:00:00.000Z', 'completed', $2)
+         RETURNING id`,
+        [tierId, adminId]
+      );
+      const mId = mRes.rows[0].id;
+      await query(
+        `INSERT INTO match_players (match_id, user_id, paid_add_money, paid_cashback, paid_winning, position, kills, payout, joined_at)
+         VALUES ($1, $2, 20.00, 0.00, 0.00, $3, $4, $5, NOW())`,
+        [mId, userId, pos, kills, payout]
+      );
+    }
+
+    const res = await request(app)
+      .get('/api/v1/me/match-history')
+      .set('Authorization', `Bearer ${userToken}`);
     expect(res.status).toBe(200);
-    saveOrVerifyContract('POST_api_v1_team-invites_id_accept.json', res.body);
+
+    const posLabels = res.body.data.items.map((it: any) => it.positionLabel);
+    expect(posLabels).toContain('Booyah');
+    expect(posLabels).toContain('Second');
+    expect(posLabels).toContain('Third');
+    expect(posLabels).toContain('4th');
+    expect(posLabels).toContain('Lost');
+    expect(posLabels).toContain('Result pending');
+    expect(posLabels).toContain('Cancelled (refunded)');
+
+    saveOrVerifyContract('GET_api_v1_me_match-history.json', res.body);
   });
 
   // ─── 6. Error Envelopes Contracts ───────────────────────────────────────────
@@ -1128,6 +1329,191 @@ describe('Real API Contracts Generator & Strict Parity Verifier', () => {
     expect(res.status).toBe(400);
     expect(res.body.error.code).toBe('LOW_BALANCE');
     saveOrVerifyContract('ERROR_LOW_BALANCE.json', res.body);
+  });
+
+  // ─── 5.5 Admin Management Endpoints Contracts ──────────────────────────
+  let adminCreatedEmployeeId: string;
+  let adminCreatedTierId: string;
+  let dummyDeleteUserId: string;
+
+  it('captures POST /api/v1/admin/employees', async () => {
+    const res = await request(app)
+      .post('/api/v1/admin/employees')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: 'Contract Staff',
+        email: 'contract_staff@booyah.win',
+        mobile: '9998881234',
+        pan: 'ABCDE1234F',
+        aadhaar: '123456789012',
+      });
+    expect(res.status).toBe(201);
+    adminCreatedEmployeeId = res.body.data.employee.id;
+    saveOrVerifyContract('POST_admin_employees.json', res.body);
+  });
+
+  it('captures GET /api/v1/admin/employees', async () => {
+    const res = await request(app)
+      .get('/api/v1/admin/employees?q=Contract')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('GET_admin_employees.json', res.body);
+  });
+
+  it('captures PATCH /api/v1/admin/employees/:id', async () => {
+    const res = await request(app)
+      .patch(`/api/v1/admin/employees/${adminCreatedEmployeeId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        name: 'Contract Staff Updated',
+      });
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('PATCH_admin_employees_id.json', res.body);
+  });
+
+  it('captures DELETE /api/v1/admin/employees/:id', async () => {
+    const res = await request(app)
+      .delete(`/api/v1/admin/employees/${adminCreatedEmployeeId}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('DELETE_admin_employees_id.json', res.body);
+  });
+
+  it('captures POST /api/v1/admin/tiers', async () => {
+    const res = await request(app)
+      .post('/api/v1/admin/tiers')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        gameMode: 'battle_royale',
+        teamMode: 'squad',
+        entryFee: '25.00',
+        killPrice: '10.00',
+        minKillsForReward: 2,
+        maxPlayers: 48,
+        minPlayers: 24,
+        positions: [
+          { position: 1, prize: '100.00' },
+          { position: 2, prize: '50.00' },
+        ],
+      });
+    expect(res.status).toBe(201);
+    adminCreatedTierId = res.body.data.tier.id;
+    saveOrVerifyContract('POST_admin_tiers.json', res.body);
+  });
+
+  it('captures GET /api/v1/admin/tiers', async () => {
+    const res = await request(app)
+      .get('/api/v1/admin/tiers')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('GET_admin_tiers.json', res.body);
+  });
+
+  it('captures PATCH /api/v1/admin/tiers/:id', async () => {
+    const res = await request(app)
+      .patch(`/api/v1/admin/tiers/${adminCreatedTierId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        killPrice: '12.00',
+      });
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('PATCH_admin_tiers_id.json', res.body);
+  });
+
+  it('captures DELETE /api/v1/admin/tiers/:id', async () => {
+    const res = await request(app)
+      .delete(`/api/v1/admin/tiers/${adminCreatedTierId}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('DELETE_admin_tiers_id.json', res.body);
+  });
+
+  it('captures GET /api/v1/admin/users', async () => {
+    const res = await request(app)
+      .get('/api/v1/admin/users?q=Player')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('GET_admin_users.json', res.body);
+  });
+
+  it('captures GET /api/v1/admin/users/:id', async () => {
+    const res = await request(app)
+      .get(`/api/v1/admin/users/${userId}`)
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('GET_admin_users_id.json', res.body);
+  });
+
+  it('captures POST /api/v1/admin/users/:id/adjust', async () => {
+    const res = await request(app)
+      .post(`/api/v1/admin/users/${userId}/adjust`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        wallet: 'winning',
+        amount: '20.00',
+        reason: 'Tournament bonus reward',
+      });
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('POST_admin_users_id_adjust.json', res.body);
+  });
+
+  it('captures DELETE /api/v1/admin/users/:id', async () => {
+    const rand = Math.floor(1000 + Math.random() * 9000);
+    const dummyUserRes = await query(
+      `INSERT INTO users (name, email, mobile, ff_id, ff_name, upi_id, date_of_birth, referral_code)
+       VALUES ('Dummy Delete User', $1, $2, $3, 'DummyDel', 'dummy@upi', '2000-01-01', $4)
+       RETURNING id`,
+      [`dummy_del_${rand}@example.com`, `98765${rand}1`, `FF_DEL_${rand}`, `REFD${rand}`]
+    );
+    dummyDeleteUserId = dummyUserRes.rows[0].id.toString();
+    await query(`INSERT INTO wallets (user_id) VALUES ($1)`, [dummyDeleteUserId]);
+
+    const res = await request(app)
+      .delete(`/api/v1/admin/users/${dummyDeleteUserId}`)
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        reason: 'Terms of service violation',
+      });
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('DELETE_admin_users_id.json', res.body);
+  });
+
+  it('captures GET /api/v1/admin/settings', async () => {
+    const res = await request(app)
+      .get('/api/v1/admin/settings')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('GET_admin_settings.json', res.body);
+  });
+
+  it('captures PATCH /api/v1/admin/settings', async () => {
+    const res = await request(app)
+      .patch('/api/v1/admin/settings')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .send({
+        min_deposit: '15.00',
+        max_deposit: '6000.00',
+        support_name: 'Booyah Support Team',
+      });
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('PATCH_admin_settings.json', res.body);
+  });
+
+  it('captures POST /api/v1/admin/settings/payment-qr', async () => {
+    const res = await request(app)
+      .post('/api/v1/admin/settings/payment-qr')
+      .set('Authorization', `Bearer ${adminToken}`)
+      .attach('file', validPngBuffer, 'qr.png');
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('POST_admin_settings_payment-qr.json', res.body);
+  });
+
+  it('captures GET /api/v1/admin/audit-logs', async () => {
+    const res = await request(app)
+      .get('/api/v1/admin/audit-logs?limit=10')
+      .set('Authorization', `Bearer ${adminToken}`);
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('GET_admin_audit-logs.json', res.body);
   });
 
   it('captures ERROR_FORBIDDEN', async () => {

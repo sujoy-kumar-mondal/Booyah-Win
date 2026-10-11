@@ -1,0 +1,56 @@
+{
+  "data": {
+    "items": [
+      {
+        "id": "5",
+        "name": "New Player",
+        "email": "user@example.com",
+        "mobile": "9999999999",
+        "ffId": "99887766",
+        "ffName": "ProPlayerUpdated",
+        "upiId": "user@upi",
+        "isDeleted": false,
+        "deletedAt": null,
+        "createdAt": "2026-10-11T17:36:34.377Z"
+      },
+      {
+        "id": "3",
+        "name": "Player Three",
+        "email": "user@example.com",
+        "mobile": "9999999999",
+        "ffId": "55667788",
+        "ffName": "ProPlayer3",
+        "upiId": "user@upi",
+        "isDeleted": false,
+        "deletedAt": null,
+        "createdAt": "2026-10-11T17:36:34.159Z"
+      },
+      {
+        "id": "2",
+        "name": "Player Two",
+        "email": "user@example.com",
+        "mobile": "9999999999",
+        "ffId": "87654321",
+        "ffName": "ProPlayer2",
+        "upiId": "user@upi",
+        "isDeleted": false,
+        "deletedAt": null,
+        "createdAt": "2026-10-11T17:36:34.151Z"
+      },
+      {
+        "id": "1",
+        "name": "Player One",
+        "email": "user@example.com",
+        "mobile": "9999999999",
+        "ffId": "12345678",
+        "ffName": "ProPlayer1",
+        "upiId": "user@upi",
+        "isDeleted": false,
+        "deletedAt": null,
+        "createdAt": "2026-10-11T17:36:34.129Z"
+      }
+    ],
+    "nextCursor": null,
+    "hasMore": false
+  }
+}

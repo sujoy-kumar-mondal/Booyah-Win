@@ -117,7 +117,9 @@ describe('Requirements 2 & 8: Staff Auth, sessionStorage, and Role Guarding', ()
       expect(screen.getByTestId('nav-matches')).toBeInTheDocument();
       expect(screen.getByTestId('nav-results')).toBeInTheDocument();
       expect(screen.getByTestId('nav-employees')).toBeInTheDocument();
-      expect(screen.getAllByTestId('coming-soon-badge').length).toBeGreaterThan(0);
+      expect(screen.getByTestId('nav-settings')).toBeInTheDocument();
+      expect(screen.getByTestId('nav-audit-logs')).toBeInTheDocument();
+      expect(screen.queryByTestId('coming-soon-badge')).not.toBeInTheDocument();
       expect(screen.getByTestId('sidebar-role-badge')).toHaveTextContent('admin');
     });
 

@@ -1,0 +1,16 @@
+{
+  "data": {
+    "settings": {
+      "min_deposit": "10.00",
+      "max_deposit": "5000.00",
+      "admin_approval_threshold": "2000.00",
+      "support_name": "Booyah Win Support",
+      "support_phone": "",
+      "support_email": "",
+      "support_hours": "10:00 AM - 10:00 PM IST",
+      "payment_upi_id": "",
+      "payment_qr_url": "",
+      "payment_qr_key": ""
+    }
+  }
+}
