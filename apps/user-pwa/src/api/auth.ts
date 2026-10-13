@@ -12,8 +12,8 @@ import type {
   RegisterCompletePayload,
 } from './types.js';
 
-export async function requestLoginOtp(email: string): Promise<{ message: string }> {
-  return apiClient<{ message: string }>('/api/v1/auth/login/request-otp', {
+export async function requestLoginOtp(email: string): Promise<{ message: string; registered?: boolean }> {
+  return apiClient<{ message: string; registered?: boolean }>('/api/v1/auth/login/request-otp', {
     method: 'POST',
     body: JSON.stringify({ email }),
   });

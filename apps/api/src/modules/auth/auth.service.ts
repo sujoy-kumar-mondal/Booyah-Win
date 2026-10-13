@@ -307,7 +307,7 @@ export class AuthService {
 
   // ================= USER LOGIN =================
 
-  static async requestUserLoginOtp(email: string): Promise<{ message: string }> {
+  static async requestUserLoginOtp(email: string): Promise<{ message: string; registered?: boolean }> {
     const normalizedEmail = email.toLowerCase().trim();
 
     // 1. Rate limits apply to all emails, whether registered or not
@@ -334,8 +334,11 @@ export class AuthService {
       await sendOtpEmail(normalizedEmail, otp);
     }
 
-    // Generic response to prevent email enumeration
-    return { message: 'If this email is registered, an OTP has been sent' };
+    // Generic response to prevent email enumeration, plus registered status for client UX
+    return {
+      message: 'If this email is registered, an OTP has been sent',
+      registered: exists,
+    };
   }
 
   static async verifyUserLoginOtp(
@@ -407,7 +410,7 @@ export class AuthService {
 
   // ================= STAFF LOGIN =================
 
-  static async requestStaffLoginOtp(email: string): Promise<{ message: string }> {
+  static async requestStaffLoginOtp(email: string): Promise<{ message: string; registered?: boolean }> {
     const normalizedEmail = email.toLowerCase().trim();
 
     // 1. Rate limits apply to all emails
@@ -433,7 +436,10 @@ export class AuthService {
       await sendOtpEmail(normalizedEmail, otp);
     }
 
-    return { message: 'If this email is registered, an OTP has been sent' };
+    return {
+      message: 'If this email is registered, an OTP has been sent',
+      registered: exists,
+    };
   }
 
   static async verifyStaffLoginOtp(

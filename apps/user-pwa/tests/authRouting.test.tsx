@@ -1,9 +1,10 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { MemoryRouter } from 'react-router-dom';
 import { App } from '../src/App.js';
 import { AuthProvider } from '../src/context/AuthContext.js';
 import * as userApi from '../src/api/user.js';
+import * as authApi from '../src/api/auth.js';
 import { setStoredToken, clearStoredToken } from '../src/api/client.js';
 import { getMeGuard } from '../src/api/guards.js';
 import { loadContractFixture } from './contractFixtures.js';
@@ -151,5 +152,35 @@ describe('Requirement 7: Landing vs Home & Route Protection', () => {
 
     expect(screen.queryByTestId('session-replaced-modal')).not.toBeInTheDocument();
     expect(screen.queryByTestId('home-screen')).not.toBeInTheDocument();
+  });
+
+  it('shows proper error message when an unregistered user attempts to log in', async () => {
+    vi.spyOn(authApi, 'requestLoginOtp').mockResolvedValue({
+      message: 'If this email is registered, an OTP has been sent',
+      registered: false,
+    });
+
+    render(
+      <MemoryRouter initialEntries={['/login']}>
+        <AuthProvider>
+          <App />
+        </AuthProvider>
+      </MemoryRouter>
+    );
+
+    const emailInput = screen.getByLabelText(/Email Address/i);
+    fireEvent.change(emailInput, { target: { value: 'notfound@example.com' } });
+
+    const submitBtn = screen.getByRole('button', { name: /Continue with OTP/i });
+    fireEvent.click(submitBtn);
+
+    await waitFor(() => {
+      expect(
+        screen.getByText('No account found with this email. Please create an account first.')
+      ).toBeInTheDocument();
+    });
+
+    // Should NOT transition to OTP step
+    expect(screen.queryByText(/Security Code \(OTP\)/i)).not.toBeInTheDocument();
   });
 });

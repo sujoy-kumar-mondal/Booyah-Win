@@ -59,6 +59,37 @@ describe('Requirement 2 & 3: Login Error Specificity & Dev vs Prod Messaging', (
       );
     });
 
+    it('shows staff account not found error message when registered is false', async () => {
+      const user = userEvent.setup();
+      vi.spyOn(staffApi, 'requestStaffOtp').mockResolvedValue({
+        message: 'If this email is registered, an OTP has been sent',
+        registered: false,
+      });
+
+      render(
+        <QueryClientProvider client={createTestQueryClient()}>
+          <MemoryRouter>
+            <StaffAuthProvider>
+              <Login />
+            </StaffAuthProvider>
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+
+      const emailInput = screen.getByTestId('staff-email-input');
+      await user.type(emailInput, 'unknown@booyah.win');
+      await user.click(screen.getByTestId('request-otp-btn'));
+
+      await waitFor(() => {
+        expect(screen.getByTestId('login-error-message')).toBeInTheDocument();
+      });
+
+      expect(screen.getByTestId('login-error-message')).toHaveTextContent(
+        'Staff account not found. Please contact an administrator.'
+      );
+      expect(screen.queryByTestId('staff-login-step2')).not.toBeInTheDocument();
+    });
+
     it('shows developer non-JSON error message when server returns non-JSON / HTML response', async () => {
       const user = userEvent.setup();
       vi.spyOn(staffApi, 'requestStaffOtp').mockRejectedValue(

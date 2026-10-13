@@ -16,6 +16,7 @@ export interface StaffDto {
 
 export interface StaffLoginOtpRequestResponse {
   message: string;
+  registered?: boolean;
 }
 
 export interface StaffLoginOtpVerifyResponse {

@@ -32,7 +32,11 @@ export const Login: React.FC = () => {
 
     setIsSubmitting(true);
     try {
-      await requestLoginOtp(email.trim().toLowerCase());
+      const res = await requestLoginOtp(email.trim().toLowerCase());
+      if (res.registered === false) {
+        setError('No account found with this email. Please create an account first.');
+        return;
+      }
       setStep('otp');
       startCountdown(60);
     } catch (err: any) {
@@ -68,7 +72,12 @@ export const Login: React.FC = () => {
     setError(null);
     setIsSubmitting(true);
     try {
-      await requestLoginOtp(email.trim().toLowerCase());
+      const res = await requestLoginOtp(email.trim().toLowerCase());
+      if (res.registered === false) {
+        setError('No account found with this email. Please create an account first.');
+        setStep('email');
+        return;
+      }
       startCountdown(60);
     } catch (err: any) {
       setError(err instanceof ApiError ? err.message : 'Unable to resend OTP. Please try again.');

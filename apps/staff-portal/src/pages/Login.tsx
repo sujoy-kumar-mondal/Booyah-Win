@@ -41,6 +41,10 @@ export const Login: React.FC = () => {
     setError(null);
     try {
       const res = await requestStaffOtp(cleanEmail);
+      if (res.registered === false) {
+        setError('Staff account not found. Please contact an administrator.');
+        return;
+      }
       setInfoMessage(res.message || 'If this email is registered, an OTP has been sent');
       setStep(2);
     } catch (err) {
