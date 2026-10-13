@@ -88,4 +88,36 @@ describe('OTP Email Delivery Rules', () => {
 
     process.env.NODE_ENV = 'test';
   });
+
+  it('sends email via Brevo HTTPS API when BREVO_API_KEY is provided in production', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ messageId: '<test-message-id>' }),
+      text: async () => JSON.stringify({ messageId: '<test-message-id>' }),
+    } as any);
+
+    process.env.NODE_ENV = 'production';
+    process.env.GMAIL_USER = 'sujoy721642@gmail.com';
+    process.env.GMAIL_APP_PASSWORD = 'dummy_app_password';
+    process.env.BREVO_API_KEY = 'test_brevo_api_key_123';
+
+    await sendOtpEmail('recipient@example.com', '777888');
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://api.brevo.com/v3/smtp/email',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'api-key': 'test_brevo_api_key_123',
+          'Content-Type': 'application/json',
+        }),
+        body: expect.stringContaining('777888'),
+      })
+    );
+
+    fetchSpy.mockRestore();
+    delete process.env.BREVO_API_KEY;
+    process.env.NODE_ENV = 'test';
+  });
 });

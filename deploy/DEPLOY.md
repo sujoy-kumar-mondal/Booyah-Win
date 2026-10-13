@@ -42,8 +42,9 @@ Never hardcode or commit real credentials. Add these variables in the Render das
 | `OTP_HMAC_SECRET` | Cryptographically random string (min 32 characters, no placeholders). |
 | `FIELD_ENCRYPTION_KEY` | Exactly 32 bytes base64-encoded (used for AES-256-GCM encryption of PAN/Aadhaar). |
 | `FILE_URL_SECRET` | Cryptographically random string (min 32 characters, no placeholders). |
-| `GMAIL_USER` | Gmail address used for sending OTP emails. |
+| `GMAIL_USER` | Gmail address used for sending OTP emails (also used as sender in Brevo). |
 | `GMAIL_APP_PASSWORD` | 16-character Google Account App Password. |
+| `BREVO_API_KEY` | **Recommended on Render**: Brevo HTTPS API key (`xkeysib-...`) to bypass Render SMTP port blocking. |
 | `SUPABASE_URL` | Base URL of Supabase project (e.g. `https://<ref>.supabase.co`). |
 | `SUPABASE_SERVICE_KEY` | Supabase secret `service_role` key (bypasses RLS for backend operations). |
 | `STORAGE_BUCKET` | Name of private storage bucket (`booyah-private`). |

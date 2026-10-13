@@ -338,4 +338,7 @@ export const config = {
       'test_file_url_secret_must_be_at_least_32_characters_long'
     );
   },
+  get BREVO_API_KEY() {
+    return process.env.BREVO_API_KEY || '';
+  },
 };

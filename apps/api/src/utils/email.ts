@@ -40,7 +40,48 @@ export async function sendOtpEmail(email: string, otp: string): Promise<void> {
     return;
   }
 
-  // In every other case send real email via Gmail SMTP
+  // 2. If BREVO_API_KEY is set, send via Brevo HTTPS REST API (bypasses Render SMTP port blocking)
+  const brevoKey = (config.BREVO_API_KEY || process.env.BREVO_API_KEY || '').trim();
+  if (brevoKey) {
+    const senderEmail = config.GMAIL_USER || 'noreply@booyah.win';
+    try {
+      const response = await fetch('https://api.brevo.com/v3/smtp/email', {
+        method: 'POST',
+        headers: {
+          'api-key': brevoKey,
+          'Content-Type': 'application/json',
+          Accept: 'application/json',
+        },
+        body: JSON.stringify({
+          sender: {
+            name: 'Booyah Win',
+            email: senderEmail,
+          },
+          to: [
+            {
+              email: normalizedEmail,
+            },
+          ],
+          subject: 'Your Booyah Win login code',
+          textContent: `Your Booyah Win login code is ${otp}. It will expire in 10 minutes.`,
+        }),
+      });
+
+      if (!response.ok) {
+        const errText = await response.text();
+        logger.error({ status: response.status, err: errText, email: normalizedEmail }, 'Failed to send OTP email via Brevo API');
+        throw new Error(`Failed to send email via Brevo API (HTTP ${response.status}): ${errText}`);
+      }
+
+      logger.info({ email: normalizedEmail }, 'Successfully sent OTP email via Brevo API');
+      return;
+    } catch (err: any) {
+      logger.error({ err: err.message, email: normalizedEmail }, 'Failed to send OTP email via Brevo HTTPS API');
+      throw err;
+    }
+  }
+
+  // 3. Otherwise fall back to Gmail SMTP
   const mailer = getTransporter();
   const mailOptions = {
     from: `"Booyah Win" <${config.GMAIL_USER}>`,
