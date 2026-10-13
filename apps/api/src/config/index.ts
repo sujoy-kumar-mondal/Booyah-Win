@@ -229,13 +229,16 @@ export function validateProductionEnv(env: Record<string, string | undefined> = 
     throw new Error('Missing required environment variable: SUPABASE_SERVICE_KEY');
   }
 
-  // 7. Gmail settings
+  // 7. Email settings (Brevo HTTPS or Gmail SMTP)
+  const hasBrevo = env.BREVO_API_KEY && env.BREVO_API_KEY.trim() !== '';
   if (!env.GMAIL_USER || env.GMAIL_USER.trim() === '') {
-    throw new Error('Missing required environment variable: GMAIL_USER');
+    throw new Error('Missing required environment variable: GMAIL_USER (your email address used as the sender)');
   }
-  assertNotPlaceholder('GMAIL_APP_PASSWORD', env.GMAIL_APP_PASSWORD);
-  if (!env.GMAIL_APP_PASSWORD || env.GMAIL_APP_PASSWORD.trim() === '') {
-    throw new Error('Missing required environment variable: GMAIL_APP_PASSWORD');
+  if (!hasBrevo) {
+    assertNotPlaceholder('GMAIL_APP_PASSWORD', env.GMAIL_APP_PASSWORD);
+    if (!env.GMAIL_APP_PASSWORD || env.GMAIL_APP_PASSWORD.trim() === '') {
+      throw new Error('Missing required environment variable: GMAIL_APP_PASSWORD (required when not using BREVO_API_KEY)');
+    }
   }
 
   // 8. CRON_SECRET
