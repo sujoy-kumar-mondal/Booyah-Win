@@ -189,10 +189,27 @@ Ensure all services print `[PASS]`.
    `Booyah Win API server running on port 10000 (0.0.0.0) [NODE_ENV=production]`
 
 ### Step 7: Deploy Frontends (Static Host)
-Deploy `apps/staff-portal` and `apps/user-pwa` to Cloudflare Pages or Netlify:
+Deploy `apps/staff-portal` and `apps/user-pwa` to Vercel, Cloudflare Pages, or Netlify:
+
+#### Cloudflare Pages / Netlify:
 - **Build Command**: `npm run build:frontends` (or individual `npm run build --workspace=apps/staff-portal`)
 - **Output Directory**: `dist`
 - **Environment Variables**: `VITE_API_ORIGIN`, `VITE_STORAGE_ORIGIN`, `VITE_API_URL`
+
+#### Vercel:
+Create two separate projects in Vercel:
+1. **Player PWA**:
+   - **Root Directory**: `apps/user-pwa`
+   - **Framework Preset**: `Vite`
+   - **Build Command**: Leave default (`npm run build`) — *automatically builds `@booyah/shared` via `prebuild`*
+   - **Output Directory**: `dist`
+   - **Environment Variables**: `VITE_API_ORIGIN`, `VITE_STORAGE_ORIGIN`, `VITE_API_URL`
+2. **Staff Portal**:
+   - **Root Directory**: `apps/staff-portal`
+   - **Framework Preset**: `Vite`
+   - **Build Command**: Leave default (`npm run build`) — *automatically builds `@booyah/shared` via `prebuild`*
+   - **Output Directory**: `dist`
+   - **Environment Variables**: `VITE_API_ORIGIN`, `VITE_STORAGE_ORIGIN`, `VITE_API_URL`
 
 ### Step 8: Update CORS_ORIGINS on Render
 Once the frontend URLs are known (e.g. `https://booyah-staff.pages.dev,https://booyah-play.pages.dev`):
