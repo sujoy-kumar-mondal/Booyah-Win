@@ -32,7 +32,7 @@
     "contracts": "npm run contracts --workspace=apps/api",
     "smoke": "tsx scripts/smoke.ts"
   },
-  "devDependencies": {
+  "dependencies": {
     "typescript": "^5.4.5"
   },
   "overrides": {

@@ -181,7 +181,7 @@ Ensure all services print `[PASS]`.
 3. Configure settings:
    - **Runtime**: Node
    - **Node Version**: 20 LTS (pinned via `.nvmrc` and `engines`)
-   - **Build Command**: `npm install && npm run build:api`
+   - **Build Command**: `npm install --include=dev && npm run build:api`
    - **Start Command**: `npm run start:api`
    - **Health Check Path**: `/health`
 4. Add all environment variables listed in Section 2.1.
