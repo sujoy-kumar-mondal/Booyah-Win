@@ -1,9 +1,9 @@
 import React from 'react';
-import { Outlet } from 'react-router-dom';
+import { Outlet, Link } from 'react-router-dom';
 import { BottomNav } from './BottomNav.js';
 import { SlowServerBanner } from '../common/SlowServerBanner.js';
 import { MaintenanceBanner } from '../common/MaintenanceBanner.js';
-import { Flame } from 'lucide-react';
+import { Flame, Headphones } from 'lucide-react';
 
 export const AppLayout: React.FC = () => {
   return (
@@ -14,15 +14,24 @@ export const AppLayout: React.FC = () => {
       {/* Top Header */}
       <header className="sticky top-0 z-20 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md px-4 py-3">
         <div className="mx-auto flex max-w-md items-center justify-between">
-          <div className="flex items-center gap-2">
+          <Link to="/" className="flex items-center gap-2">
             <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               <Flame className="h-5 w-5" />
             </div>
             <span className="font-extrabold text-base tracking-wider text-slate-100">
               BOOYAH<span className="text-emerald-400">WIN</span>
             </span>
-          </div>
+          </Link>
 
+          <Link
+            to="/support"
+            data-testid="header-support-btn"
+            className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/80 px-2.5 py-1.5 text-xs font-semibold text-slate-300 hover:text-emerald-400 hover:border-emerald-500/30 transition-all active:scale-95"
+            aria-label="Help & Support"
+          >
+            <Headphones className="h-4 w-4 text-emerald-400" />
+            <span>Support</span>
+          </Link>
         </div>
       </header>
 

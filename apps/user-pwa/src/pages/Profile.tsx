@@ -23,6 +23,7 @@ import {
   Clock,
   Gift,
   ChevronRight,
+  Headphones,
 } from 'lucide-react';
 
 export const Profile: React.FC = () => {
@@ -460,6 +461,21 @@ export const Profile: React.FC = () => {
           {isSubmitting ? 'Saving Changes...' : 'Save Profile Changes'}
         </button>
       </form>
+
+      {/* Customer Support Section */}
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/60 p-4 shadow-sm">
+        <Link
+          to="/support"
+          data-testid="profile-support-link"
+          className="flex items-center justify-between text-xs font-bold text-slate-200 hover:text-emerald-400 transition"
+        >
+          <span className="flex items-center gap-2.5">
+            <Headphones className="h-4 w-4 text-emerald-400" />
+            <span>Need Help? Contact Customer Support</span>
+          </span>
+          <ChevronRight className="h-4 w-4 text-slate-500" />
+        </Link>
+      </div>
     </div>
   );
 };
