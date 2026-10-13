@@ -16,15 +16,52 @@ describe('Milestone 8.5 Deployment Readiness', () => {
       FIELD_ENCRYPTION_KEY: Buffer.alloc(32, 7).toString('base64'),
       CORS_ORIGINS: 'https://booyahwin.com,https://staff.booyahwin.com',
       SUPABASE_URL: 'https://xyzcompany.supabase.co',
-      SUPABASE_SERVICE_KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.dummy_secret_service_key',
+      SUPABASE_SERVICE_KEY: 'sb_secret_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9_valid_token_signature_1234567890',
       GMAIL_USER: 'service-mailer@booyahwin.com',
       GMAIL_APP_PASSWORD: 'abcdefghijklmnop',
-      CRON_SECRET: 'cron_super_secret_token_1234567890_abcdefg',
+      CRON_SECRET: 'production_cron_secret_token_1234567890_abcdefg',
       FILE_URL_SECRET: 'a_very_secure_file_url_secret_that_has_more_than_32_characters_123',
     };
 
-    it('passes when all environment variables are present and valid', () => {
-      expect(() => validateProductionEnv(validEnv)).not.toThrow();
+    it('passes when all environment variables are present and valid (does not require PORT)', () => {
+      const envWithoutPort = { ...validEnv };
+      delete envWithoutPort.PORT;
+      expect(() => validateProductionEnv(envWithoutPort)).not.toThrow();
+    });
+
+    it('passes when realistic Supabase key (sb_secret_...) and base64 key are provided', () => {
+      const customEnv = {
+        ...validEnv,
+        SUPABASE_SERVICE_KEY: 'sb_secret_eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9_valid_token_signature_1234567890',
+        FIELD_ENCRYPTION_KEY: Buffer.alloc(32, 9).toString('base64'),
+      };
+      expect(() => validateProductionEnv(customEnv)).not.toThrow();
+    });
+
+    it('fails when a secret equals a known development placeholder and never prints the placeholder', () => {
+      const placeholder = 'changeme';
+      const env = { ...validEnv, JWT_SECRET: placeholder };
+      let thrownMessage = '';
+      try {
+        validateProductionEnv(env);
+      } catch (err: any) {
+        thrownMessage = err.message;
+      }
+      expect(thrownMessage).toMatch(/development placeholder/);
+      expect(thrownMessage).not.toContain(placeholder);
+    });
+
+    it('fails when SUPABASE_SERVICE_KEY equals a placeholder without printing it', () => {
+      const placeholder = 'dummy_secret_service_key';
+      const env = { ...validEnv, SUPABASE_SERVICE_KEY: placeholder };
+      let thrownMessage = '';
+      try {
+        validateProductionEnv(env);
+      } catch (err: any) {
+        thrownMessage = err.message;
+      }
+      expect(thrownMessage).toMatch(/development placeholder/);
+      expect(thrownMessage).not.toContain(placeholder);
     });
 
     it('fails when DATABASE_URL is missing', () => {
@@ -43,7 +80,7 @@ describe('Milestone 8.5 Deployment Readiness', () => {
     });
 
     it('fails when JWT_SECRET is shorter than 32 characters and never prints the secret', () => {
-      const shortSecret = 'too_short_jwt';
+      const shortSecret = 'too_short';
       const env = { ...validEnv, JWT_SECRET: shortSecret };
       let thrownMessage = '';
       try {
@@ -56,7 +93,7 @@ describe('Milestone 8.5 Deployment Readiness', () => {
     });
 
     it('fails when OTP_HMAC_SECRET is shorter than 32 characters and never prints the secret', () => {
-      const shortSecret = 'short_otp_secret';
+      const shortSecret = 'short_otp';
       const env = { ...validEnv, OTP_HMAC_SECRET: shortSecret };
       let thrownMessage = '';
       try {
@@ -69,7 +106,7 @@ describe('Milestone 8.5 Deployment Readiness', () => {
     });
 
     it('fails when FILE_URL_SECRET is shorter than 32 characters and never prints the secret', () => {
-      const shortSecret = 'short_file_secret';
+      const shortSecret = 'short_file';
       const env = { ...validEnv, FILE_URL_SECRET: shortSecret };
       let thrownMessage = '';
       try {
@@ -100,6 +137,27 @@ describe('Milestone 8.5 Deployment Readiness', () => {
       expect(() => validateProductionEnv(envAll)).toThrowError(/CORS_ORIGINS/);
     });
 
+    it('fails when CORS_ORIGINS contains insecure http:// origins in production', () => {
+      const envHttp = { ...validEnv, CORS_ORIGINS: 'http://insecure-site.com,https://booyahwin.com' };
+      expect(() => validateProductionEnv(envHttp)).toThrowError(/insecure http:\/\/ origins/);
+
+      const envLocalhost = { ...validEnv, CORS_ORIGINS: 'http://localhost:5173' };
+      expect(() => validateProductionEnv(envLocalhost)).toThrowError(/insecure http:\/\/ origins/);
+    });
+
+    it('fails when RENDER is true and NODE_ENV is not production', () => {
+      const envRenderDev = { ...validEnv, RENDER: 'true', NODE_ENV: 'development' };
+      expect(() => validateProductionEnv(envRenderDev)).toThrowError(/NODE_ENV must be set to "production" on Render/);
+
+      const envRenderMissing = { ...validEnv, RENDER: 'true', NODE_ENV: '' };
+      expect(() => validateProductionEnv(envRenderMissing)).toThrowError(/NODE_ENV must be set to "production" on Render/);
+    });
+
+    it('passes when RENDER is true and NODE_ENV is production', () => {
+      const envRenderProd = { ...validEnv, RENDER: 'true', NODE_ENV: 'production' };
+      expect(() => validateProductionEnv(envRenderProd)).not.toThrow();
+    });
+
     it('fails when SUPABASE_URL or SUPABASE_SERVICE_KEY is missing', () => {
       expect(() => validateProductionEnv({ ...validEnv, SUPABASE_URL: '' })).toThrowError(/SUPABASE_URL/);
       expect(() => validateProductionEnv({ ...validEnv, SUPABASE_SERVICE_KEY: '' })).toThrowError(
@@ -114,8 +172,9 @@ describe('Milestone 8.5 Deployment Readiness', () => {
       );
     });
 
-    it('fails when CRON_SECRET is missing', () => {
+    it('fails when CRON_SECRET is missing or too short', () => {
       expect(() => validateProductionEnv({ ...validEnv, CRON_SECRET: '' })).toThrowError(/CRON_SECRET/);
+      expect(() => validateProductionEnv({ ...validEnv, CRON_SECRET: 'short' })).toThrowError(/CRON_SECRET/);
     });
   });
 

@@ -8,7 +8,7 @@ import {
   AlertCircle,
 } from 'lucide-react';
 import { fetchMatches, type MatchUserDto } from '../../api/matches.js';
-import { formatIndianRupees, formatISTDateTime } from '../../utils/formatters.js';
+import { formatIndianRupees, formatISTDateTime, formatGameMode } from '../../utils/formatters.js';
 import { MatchDetailModal } from './MatchDetailModal.js';
 
 export const MatchesList: React.FC = () => {
@@ -21,16 +21,19 @@ export const MatchesList: React.FC = () => {
   const [teamModeFilter, setTeamModeFilter] = useState<'all' | 'solo' | 'duo' | 'squad'>('all');
 
   // Selected Match for modal
-  const [selectedMatch, setSelectedMatch] = useState<MatchUserDto | null>(null);
+  const [selectedMatchId, setSelectedMatchId] = useState<string | null>(null);
+  const selectedMatch = matches.find((m) => m.id === selectedMatchId) || null;
 
-  const loadMatches = async () => {
+  const loadMatches = async (): Promise<MatchUserDto[]> => {
     setIsLoading(true);
     setError(null);
     try {
       const data = await fetchMatches();
       setMatches(data);
+      return data;
     } catch (err: any) {
       setError(err?.message || 'Failed to load matches. Please tap refresh.');
+      return [];
     } finally {
       setIsLoading(false);
     }
@@ -196,14 +199,14 @@ export const MatchesList: React.FC = () => {
             <div
               key={m.id}
               data-testid={`match-card-${m.id}`}
-              onClick={() => setSelectedMatch(m)}
+              onClick={() => setSelectedMatchId(m.id)}
               className="group cursor-pointer rounded-2xl border border-slate-800 bg-slate-900/90 p-4 transition-all hover:border-slate-700 hover:bg-slate-900 shadow-md"
             >
               <div className="flex items-start justify-between">
                 <div>
                   <div className="flex items-center gap-2">
                     <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-300">
-                      {m.gameMode}
+                      {formatGameMode(m.gameMode)}
                     </span>
                     <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-300">
                       {m.teamMode}
@@ -276,11 +279,9 @@ export const MatchesList: React.FC = () => {
         <MatchDetailModal
           match={selectedMatch}
           isOpen={!!selectedMatch}
-          onClose={() => setSelectedMatch(null)}
+          onClose={() => setSelectedMatchId(null)}
           onRefreshMatch={async () => {
             await loadMatches();
-            const updated = matches.find((x) => x.id === selectedMatch.id);
-            if (updated) setSelectedMatch(updated);
           }}
         />
       )}

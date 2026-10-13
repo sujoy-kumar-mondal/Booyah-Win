@@ -61,6 +61,7 @@ export const App: React.FC = () => {
               <Route path="matches/create" element={<CreateMatch />} />
               <Route path="matches/:id" element={<MatchDetail />} />
               <Route path="matches/:id/result" element={<AddResult />} />
+              <Route path="users" element={<Users />} />
 
               {/* Administration Pages (Admin only - Milestone 10c) */}
               <Route
@@ -84,14 +85,6 @@ export const App: React.FC = () => {
                 element={
                   <RequireAdminRole>
                     <EntryTiers />
-                  </RequireAdminRole>
-                }
-              />
-              <Route
-                path="users"
-                element={
-                  <RequireAdminRole>
-                    <Users />
                   </RequireAdminRole>
                 }
               />

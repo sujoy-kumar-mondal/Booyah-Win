@@ -6,6 +6,7 @@ import React, { useState } from 'react';
 import { Outlet, useNavigate } from 'react-router-dom';
 import { Sidebar } from './Sidebar.js';
 import { TopBar } from './TopBar.js';
+import { StaffMaintenanceBanner } from './StaffMaintenanceBanner.js';
 import { useStaffAuth } from '../../context/StaffAuthContext.js';
 import { useStaffSessionWatcher } from '../../hooks/useStaffSessionWatcher.js';
 import { SessionReplacedModal } from '../common/SessionReplacedModal.js';
@@ -48,6 +49,7 @@ export const StaffLayout: React.FC = () => {
 
       {/* Main Content Area */}
       <div className="flex-1 flex flex-col min-w-0 md:pl-64">
+        <StaffMaintenanceBanner />
         <TopBar onToggleSidebar={() => setSidebarOpen((prev) => !prev)} />
         <main className="flex-1 p-4 md:p-8 overflow-y-auto">
           <div className="max-w-7xl mx-auto space-y-6">

@@ -7,6 +7,7 @@ import {
   UserDto,
   WalletSummaryDto,
   UserCooldownsDto,
+  ReferralSummaryResponse,
 } from '@booyah/shared';
 import { query, withTransaction } from '../../db/index.js';
 import { AppError } from '../../middleware/errorHandler.js';
@@ -444,5 +445,50 @@ export class UsersService {
     });
 
     return { items, nextCursor, hasMore };
+  }
+
+  /**
+   * Get referral summary (counts and total credited bonus from ledger).
+   * Strict privacy: zero personal details (names, emails, mobiles) of referred users.
+   */
+  static async getReferralSummary(userId: string): Promise<ReferralSummaryResponse> {
+    const userRes = await query<{ referral_code: string }>(
+      'SELECT referral_code FROM users WHERE id = $1',
+      [userId]
+    );
+    if (!userRes.rows.length) {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'User not found', 404);
+    }
+    const referralCode = userRes.rows[0].referral_code;
+
+    const countsRes = await query<{
+      referred_count: string;
+      bonus_earned_count: string;
+    }>(
+      `SELECT
+         COUNT(*) AS referred_count,
+         COUNT(credited_at) AS bonus_earned_count
+       FROM referrals
+       WHERE referrer_id = $1`,
+      [userId]
+    );
+
+    const ledgerRes = await query<{ total_bonus: string }>(
+      `SELECT COALESCE(SUM(amount), 0) AS total_bonus
+       FROM wallet_ledger
+       WHERE user_id = $1 AND type = 'referral'`,
+      [userId]
+    );
+
+    const referredCount = parseInt(countsRes.rows[0].referred_count, 10);
+    const bonusEarnedCount = parseInt(countsRes.rows[0].bonus_earned_count, 10);
+    const totalBonusEarned = paiseToString(stringToPaise(String(ledgerRes.rows[0].total_bonus)));
+
+    return {
+      referralCode,
+      referredCount,
+      bonusEarnedCount,
+      totalBonusEarned,
+    };
   }
 }

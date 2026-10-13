@@ -10,8 +10,8 @@ CREATE TYPE wallet_kind    AS ENUM ('add_money', 'cashback', 'winning');
 CREATE TYPE ledger_type    AS ENUM ('add_money', 'referral', 'join_fee', 'refund',
                                     'winning', 'withdrawal_hold', 'withdrawal_paid',
                                     'withdrawal_refund', 'admin_adjustment', 'reversal');
-CREATE TYPE request_status AS ENUM ('pending', 'approved', 'rejected');
-CREATE TYPE withdraw_status AS ENUM ('pending', 'paid', 'rejected');
+CREATE TYPE request_status AS ENUM ('pending', 'employee_approved', 'approved', 'rejected');
+CREATE TYPE withdraw_status AS ENUM ('pending', 'employee_approved', 'paid', 'rejected');
 CREATE TYPE match_status   AS ENUM ('upcoming', 'room_open', 'live', 'completed', 'cancelled');
 CREATE TYPE result_status  AS ENUM ('pending_approval', 'approved', 'rejected');
 CREATE TYPE staff_role     AS ENUM ('admin', 'employee');
@@ -106,6 +106,7 @@ CREATE TABLE wallet_ledger (
 );
 CREATE INDEX ON wallet_ledger (user_id, created_at DESC);
 CREATE INDEX ON wallet_ledger (user_id, type);       -- history filters
+CREATE INDEX ON wallet_ledger (type, created_at);     -- weekly leaderboard optimization
 
 -- ---------- DEPOSITS (manual QR) ----------
 CREATE TABLE deposit_requests (
@@ -118,6 +119,8 @@ CREATE TABLE deposit_requests (
   reject_reason  TEXT,
   reviewed_by    BIGINT REFERENCES staff(id),
   needs_admin    BOOLEAN NOT NULL DEFAULT false,    -- true above your threshold
+  employee_reviewed_by BIGINT REFERENCES staff(id),
+  employee_reviewed_at TIMESTAMPTZ,
   created_at     TIMESTAMPTZ NOT NULL DEFAULT now(),
   reviewed_at    TIMESTAMPTZ
 );
@@ -132,6 +135,8 @@ CREATE TABLE withdrawal_requests (
   reject_reason TEXT,
   payout_ref    TEXT,                               -- UPI reference after paying
   processed_by  BIGINT REFERENCES staff(id),
+  employee_reviewed_by BIGINT REFERENCES staff(id),
+  employee_reviewed_at TIMESTAMPTZ,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
   processed_at  TIMESTAMPTZ
 );
@@ -276,7 +281,8 @@ CREATE TABLE audit_logs (
 CREATE TABLE app_settings (
   key        TEXT PRIMARY KEY,      -- support_name, support_phone, support_email,
                                     -- payment_qr_url, payment_upi_id, min_deposit,
-                                    -- max_deposit, admin_approval_threshold
+                                    -- max_deposit, admin_approval_threshold,
+                                    -- maintenance_enabled, maintenance_message, maintenance_until
   value      TEXT NOT NULL,
   updated_by BIGINT REFERENCES staff(id),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()
@@ -293,6 +299,6 @@ CREATE UNIQUE INDEX deposit_requests_utr_active_unique
 -- One pending withdrawal per user (enforced at DB level; 23505 maps to WITHDRAWAL_PENDING).
 CREATE UNIQUE INDEX withdrawal_requests_user_pending_unique
   ON withdrawal_requests (user_id)
-  WHERE status = 'pending';
+  WHERE status IN ('pending', 'employee_approved');
 
 -- uploads/ folder (local dev only) is listed in .gitignore.

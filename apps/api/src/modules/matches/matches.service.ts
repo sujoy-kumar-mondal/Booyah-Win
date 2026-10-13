@@ -14,7 +14,7 @@ import type { MatchUserDto } from './matches.types.js';
  * List matches for users (upcoming, room_open, live) without N+1 queries.
  * Room credentials are included ONLY if user has joined AND match is room_open or live.
  */
-export async function listMatchesUser(userId: string): Promise<MatchUserDto[]> {
+export async function listMatchesUser(userId?: string | null): Promise<MatchUserDto[]> {
   const sql = `
     SELECT m.id, m.game_mode, m.team_mode, m.entry_fee, m.kill_price,
            m.min_kills_for_reward, m.position_prizes, m.max_players, m.min_players,
@@ -39,7 +39,7 @@ export async function listMatchesUser(userId: string): Promise<MatchUserDto[]> {
     ORDER BY m.start_time ASC
   `;
 
-  const res = await query(sql, [userId]);
+  const res = await query(sql, [userId || null]);
 
   return res.rows.map((row) => {
     const hasJoined = Boolean(row.has_joined);
@@ -77,7 +77,7 @@ export async function listMatchesUser(userId: string): Promise<MatchUserDto[]> {
  * Get single match detail for a user.
  * Never exposes other players' personal data or player rosters.
  */
-export async function getMatchUser(userId: string, matchId: string): Promise<MatchUserDto> {
+export async function getMatchUser(userId: string | null | undefined, matchId: string): Promise<MatchUserDto> {
   const sql = `
     SELECT m.id, m.game_mode, m.team_mode, m.entry_fee, m.kill_price,
            m.min_kills_for_reward, m.position_prizes, m.max_players, m.min_players,
@@ -101,7 +101,7 @@ export async function getMatchUser(userId: string, matchId: string): Promise<Mat
     GROUP BY m.id
   `;
 
-  const res = await query(sql, [userId, matchId]);
+  const res = await query(sql, [userId || null, matchId]);
   if (!res.rowCount) {
     throw new AppError(ErrorCodes.NOT_FOUND, 'Match not found', 404);
   }

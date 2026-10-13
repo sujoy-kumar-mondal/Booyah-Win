@@ -53,4 +53,29 @@ export class UsersController {
       next(err);
     }
   }
+
+  static async getLeaderboardRank(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        return;
+      }
+      const { getUserLeaderboardRank } = await import('../leaderboard/leaderboard.service.js');
+      const data = await getUserLeaderboardRank(req.user.id);
+      res.status(200).json({ data });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async getReferralSummary(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      if (!req.user) {
+        return;
+      }
+      const data = await UsersService.getReferralSummary(req.user.id);
+      res.status(200).json({ data });
+    } catch (err) {
+      next(err);
+    }
+  }
 }

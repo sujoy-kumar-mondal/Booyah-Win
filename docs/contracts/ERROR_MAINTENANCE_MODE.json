@@ -1,0 +1,9 @@
+{
+  "error": {
+    "code": "MAINTENANCE_MODE",
+    "message": "Scheduled maintenance in progress",
+    "details": {
+      "until": null
+    }
+  }
+}

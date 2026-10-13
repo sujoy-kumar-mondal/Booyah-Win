@@ -9,6 +9,7 @@ import { query, withTransaction } from '../../db/index.js';
 import { AppError } from '../../middleware/errorHandler.js';
 import { writeAuditLog } from '../../utils/audit.js';
 import { refundEntryFee } from '../wallet/wallet.service.js';
+import { runSchedulerTick } from './scheduler.service.js';
 import type {
   CreateMatchDto,
   MatchDetailStaffDto,
@@ -150,6 +151,9 @@ export async function listMatchesStaff(params: {
   limit?: number;
   cursor?: string;
 }): Promise<{ items: MatchStaffDto[]; nextCursor: string | null }> {
+  // Proactively run scheduler tick to cancel any expired underfilled/unstarted matches
+  await runSchedulerTick();
+
   const limit = Math.min(Math.max(params.limit || 20, 1), 100);
 
   let sql = `
@@ -157,8 +161,12 @@ export async function listMatchesStaff(params: {
            m.min_kills_for_reward, m.position_prizes, m.max_players, m.min_players,
            m.start_time, m.room_id, m.room_password, m.status, m.cancel_reason,
            m.created_by, m.created_at,
-           COUNT(DISTINCT mp.id) FILTER (WHERE mp.refunded_at IS NULL)::int AS joined_count,
            CASE
+             WHEN m.status = 'cancelled' THEN COUNT(DISTINCT mp.id)::int
+             ELSE COUNT(DISTINCT mp.id) FILTER (WHERE mp.refunded_at IS NULL)::int
+           END AS joined_count,
+           CASE
+             WHEN m.status = 'cancelled' THEN COUNT(DISTINCT mp.id)::int
              WHEN m.team_mode = 'solo' THEN COUNT(DISTINCT mp.id) FILTER (WHERE mp.refunded_at IS NULL)::int
              ELSE COALESCE(
                (SELECT SUM(t.size)::int FROM teams t WHERE t.match_id = m.id AND t.status IN ('forming', 'confirmed')),
@@ -374,7 +382,7 @@ export async function openRoomStaff(
 
   await withTransaction(async (client: PoolClient) => {
     const res = await client.query(
-      `SELECT status FROM matches WHERE id = $1 FOR UPDATE`,
+      `SELECT status, start_time FROM matches WHERE id = $1 FOR UPDATE`,
       [matchId]
     );
 
@@ -382,12 +390,20 @@ export async function openRoomStaff(
       throw new AppError(ErrorCodes.NOT_FOUND, 'Match not found', 404);
     }
 
-    const { status } = res.rows[0];
+    const { status, start_time } = res.rows[0];
     if (status !== 'upcoming') {
       throw new AppError(
         ErrorCodes.INVALID_TRANSITION,
         `Cannot open room for match with status ${status}`,
         409
+      );
+    }
+
+    if (new Date(start_time).getTime() <= Date.now()) {
+      throw new AppError(
+        ErrorCodes.INVALID_TRANSITION,
+        'Cannot open room: match start time has passed and match is expired',
+        400
       );
     }
 
@@ -435,39 +451,44 @@ export async function goLiveStaff(
       );
     }
 
-    // Change #6: go-live rejects an underfilled match unless caller is admin
-    if (staffRole && staffRole !== 'admin') {
-      let isUnderfilled = false;
-      if (match.team_mode === 'solo') {
-        const cRes = await client.query<{ count: string }>(
-          `SELECT count(*)::int AS count FROM match_players WHERE match_id = $1 AND refunded_at IS NULL`,
-          [matchId]
-        );
-        isUnderfilled = Number(cRes.rows[0].count) < match.min_players;
-      } else if (match.game_mode === 'clash_squad') {
-        const cRes = await client.query<{ count: string }>(
-          `SELECT count(*)::int AS count FROM teams WHERE match_id = $1 AND status = 'confirmed'`,
-          [matchId]
-        );
-        isUnderfilled = Number(cRes.rows[0].count) < 2;
-      } else {
-        const cRes = await client.query<{ count: string }>(
-          `SELECT count(mp.id)::int AS count
-           FROM match_players mp
-           JOIN teams t ON t.id = mp.team_id
-           WHERE mp.match_id = $1 AND t.status = 'confirmed' AND mp.refunded_at IS NULL`,
-          [matchId]
-        );
-        isUnderfilled = Number(cRes.rows[0].count) < match.min_players;
-      }
+    // Match cannot go live until minimum players requirement is fulfilled
+    let isUnderfilled = false;
+    let enrolledCount = 0;
+    if (match.team_mode === 'solo') {
+      const cRes = await client.query<{ count: string }>(
+        `SELECT count(*)::int AS count FROM match_players WHERE match_id = $1 AND refunded_at IS NULL`,
+        [matchId]
+      );
+      enrolledCount = Number(cRes.rows[0].count);
+      isUnderfilled = enrolledCount < match.min_players;
+    } else if (match.game_mode === 'clash_squad') {
+      const cRes = await client.query<{ count: string }>(
+        `SELECT count(*)::int AS count FROM teams WHERE match_id = $1 AND status = 'confirmed'`,
+        [matchId]
+      );
+      enrolledCount = Number(cRes.rows[0].count);
+      isUnderfilled = enrolledCount < 2;
+    } else {
+      const cRes = await client.query<{ count: string }>(
+        `SELECT count(mp.id)::int AS count
+         FROM match_players mp
+         JOIN teams t ON t.id = mp.team_id
+         WHERE mp.match_id = $1 AND t.status = 'confirmed' AND mp.refunded_at IS NULL`,
+        [matchId]
+      );
+      enrolledCount = Number(cRes.rows[0].count);
+      isUnderfilled = enrolledCount < match.min_players;
+    }
 
-      if (isUnderfilled) {
-        throw new AppError(
-          ErrorCodes.FORBIDDEN,
-          'Match is underfilled; only admin can force live',
-          403
-        );
-      }
+    if (isUnderfilled) {
+      const reqText = match.game_mode === 'clash_squad'
+        ? `Requires at least 2 confirmed teams to go live (currently ${enrolledCount})`
+        : `Match requires at least ${match.min_players} players to go live (currently ${enrolledCount}/${match.min_players})`;
+      throw new AppError(
+        ErrorCodes.INVALID_TRANSITION,
+        reqText,
+        400
+      );
     }
 
     await client.query(

@@ -478,7 +478,7 @@ export const AddResult: React.FC = () => {
               : 'bg-slate-800 text-slate-400 border-slate-700'
           }`}
         >
-          {match.status}
+          {match.status.replace('_', ' ')}
         </span>
       </div>
 

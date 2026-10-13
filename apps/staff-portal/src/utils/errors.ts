@@ -34,6 +34,8 @@ export const ERROR_CODE_MESSAGES: Record<string, string> = {
   [ErrorCodes.MATCH_FULL]: 'The match has reached maximum player capacity.',
   [ErrorCodes.LOW_BALANCE]: 'Insufficient wallet balance for this operation.',
   [ErrorCodes.EMAIL_EXISTS]: 'An account with this email address already exists.',
+  [ErrorCodes.ADMINS_APPROVE_DIRECTLY]: 'Admins approve directly',
+  [ErrorCodes.MAINTENANCE_MODE]: 'System is currently in maintenance mode. Mutating actions are temporarily restricted.',
   NETWORK_ERROR: DEV_NETWORK_MESSAGE,
   NON_JSON_RESPONSE: DEV_NON_JSON_MESSAGE,
   TIMEOUT_ERROR: 'Request timed out. Please try again.',
@@ -92,12 +94,18 @@ export function getFriendlyErrorMessage(
         return 'Only administrators can cancel a live match.';
       }
       if (context === 'live') {
-        return 'Match is underfilled. Only administrators can force an underfilled match live.';
+        return 'Match is underfilled. Matches cannot go live until minimum players requirement is fulfilled.';
       }
       if (context === 'employee') {
         return 'Administrators cannot delete their own account.';
       }
       return 'Action not permitted.';
+    }
+
+    if (context === 'live' && err.code === ErrorCodes.INVALID_TRANSITION) {
+      return err.message && err.message.toLowerCase().includes('requires')
+        ? err.message
+        : 'Match cannot go live until the minimum player requirement is fulfilled.';
     }
 
     if (err.code === ErrorCodes.LOW_BALANCE) {
@@ -112,6 +120,10 @@ export function getFriendlyErrorMessage(
         return 'This withdrawal requires admin approval to mark as paid';
       }
       return 'This deposit requires admin approval';
+    }
+
+    if (err.code === ErrorCodes.RATE_LIMITED && context === 'user') {
+      return 'Daily user detail view limit reached (300 views/day). Contact administrator if you need an increase.';
     }
 
     if (ERROR_CODE_MESSAGES[err.code]) {

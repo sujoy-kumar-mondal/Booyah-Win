@@ -30,6 +30,8 @@ export const ErrorCodes = {
   INTERNAL_ERROR: 'INTERNAL_ERROR',
   INVALID_TRANSITION: 'INVALID_TRANSITION',
   DATABASE_BUSY: 'DATABASE_BUSY',
+  ADMINS_APPROVE_DIRECTLY: 'ADMINS_APPROVE_DIRECTLY',
+  MAINTENANCE_MODE: 'MAINTENANCE_MODE',
 } as const;
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];

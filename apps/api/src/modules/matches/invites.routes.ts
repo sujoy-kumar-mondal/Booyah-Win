@@ -21,8 +21,11 @@ export const inviteActionRateLimit = rateLimit({
   },
 });
 
+import { maintenanceGuard } from '../../middleware/maintenance.js';
+
 teamInvitesRouter.use(authenticateUser, requireUser);
 teamInvitesRouter.param('id', idParamHandler);
 
-teamInvitesRouter.post('/:id/accept', inviteActionRateLimit, TeamsController.acceptInvite);
-teamInvitesRouter.post('/:id/decline', inviteActionRateLimit, TeamsController.declineInvite);
+teamInvitesRouter.post('/:id/accept', maintenanceGuard, inviteActionRateLimit, TeamsController.acceptInvite);
+teamInvitesRouter.post('/:id/decline', maintenanceGuard, inviteActionRateLimit, TeamsController.declineInvite);
+

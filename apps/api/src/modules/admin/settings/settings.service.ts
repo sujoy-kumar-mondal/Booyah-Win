@@ -1,6 +1,7 @@
-import { paiseToString, stringToPaise } from '@booyah/shared';
+import { paiseToString, stringToPaise, ErrorCodes } from '@booyah/shared';
 import { query, withTransaction } from '../../../db/index.js';
 import { AppError } from '../../../middleware/errorHandler.js';
+import { invalidateMaintenanceCache } from '../../../middleware/maintenance.js';
 import { writeAuditLog } from '../../../utils/audit.js';
 import { uploadScreenshot, getSignedUrl, deleteFile } from '../../../utils/storage.js';
 
@@ -15,6 +16,9 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   payment_upi_id: '',
   payment_qr_url: '',
   payment_qr_key: '',
+  maintenance_enabled: 'false',
+  maintenance_message: 'Under scheduled maintenance. Please check back shortly.',
+  maintenance_until: '',
 };
 
 export class SettingsService {
@@ -128,7 +132,7 @@ export class SettingsService {
    */
   static async updateSettings(
     adminId: string,
-    updates: Record<string, string | undefined>
+    updates: Record<string, string | null | undefined>
   ): Promise<Record<string, string>> {
     if ('payment_qr_key' in updates && updates.payment_qr_key !== undefined) {
       throw new AppError(
@@ -138,38 +142,37 @@ export class SettingsService {
       );
     }
 
-    const current = await this.getAllSettings();
-
-    // Check money limits logic if provided
-    const newMin = updates.min_deposit ?? current.min_deposit;
-    const newMax = updates.max_deposit ?? current.max_deposit;
-
-    const minPaise = stringToPaise(newMin);
-    const maxPaise = stringToPaise(newMax);
-
-    if (minPaise <= 0) {
-      throw new AppError('VALIDATION_ERROR', 'Minimum deposit must be greater than zero', 400);
-    }
-    if (maxPaise < minPaise) {
+    if (updates.admin_approval_threshold !== undefined) {
       throw new AppError(
-        'VALIDATION_ERROR',
-        'Maximum deposit cannot be less than minimum deposit',
+        ErrorCodes.VALIDATION_ERROR,
+        'admin_approval_threshold is no longer configurable (all requests require admin approval)',
         400
       );
     }
 
-    if (updates.admin_approval_threshold) {
-      const thresholdPaise = stringToPaise(updates.admin_approval_threshold);
-      if (thresholdPaise <= 0) {
+    const current = await this.getAllSettings();
+
+    // Check money limits logic if provided
+    if (updates.min_deposit !== undefined || updates.max_deposit !== undefined) {
+      const newMin = updates.min_deposit ?? current.min_deposit ?? '10.00';
+      const newMax = updates.max_deposit ?? current.max_deposit ?? '5000.00';
+
+      const minPaise = stringToPaise(newMin);
+      const maxPaise = stringToPaise(newMax);
+
+      if (minPaise <= 0) {
+        throw new AppError(ErrorCodes.VALIDATION_ERROR, 'Minimum deposit must be greater than zero', 400);
+      }
+      if (maxPaise < minPaise) {
         throw new AppError(
-          'VALIDATION_ERROR',
-          'Admin approval threshold must be greater than zero',
+          ErrorCodes.VALIDATION_ERROR,
+          'Maximum deposit cannot be less than minimum deposit',
           400
         );
       }
     }
 
-    return await withTransaction(async (client) => {
+    const result = await withTransaction(async (client) => {
       const keysToUpdate: string[] = [];
 
       for (const [key, val] of Object.entries(updates)) {
@@ -180,7 +183,7 @@ export class SettingsService {
              VALUES ($1, $2, $3, now())
              ON CONFLICT (key)
              DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = now()`,
-            [key, val, adminId]
+            [key, val === null ? '' : val, adminId]
           );
         }
       }
@@ -211,6 +214,9 @@ export class SettingsService {
       }
       return updatedMap;
     });
+
+    invalidateMaintenanceCache();
+    return result;
   }
 
   /**

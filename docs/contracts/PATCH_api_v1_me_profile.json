@@ -9,9 +9,9 @@
       "ffName": "ProPlayerUpdated",
       "upiId": "user@upi",
       "dateOfBirth": "2000-01-01",
-      "referralCode": "S5WNQDEN",
+      "referralCode": "V2KPTH95",
       "referredBy": null,
-      "createdAt": "2026-10-11T17:36:34.377Z"
+      "createdAt": "2026-10-13T13:39:20.067Z"
     },
     "wallets": {
       "addMoney": "0.00",
@@ -22,7 +22,7 @@
     "cooldowns": {
       "mobileAvailableAt": null,
       "ffIdAvailableAt": null,
-      "ffNameAvailableAt": "2026-11-10T17:36:34.624Z",
+      "ffNameAvailableAt": "2026-11-12T13:39:20.364Z",
       "upiIdAvailableAt": null
     }
   }

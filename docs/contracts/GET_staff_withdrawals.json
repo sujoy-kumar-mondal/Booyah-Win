@@ -10,9 +10,11 @@
         "status": "pending",
         "rejectReason": null,
         "payoutRef": null,
-        "createdAt": "2026-10-11T17:36:34.334Z",
+        "createdAt": "2026-10-13T13:39:20.007Z",
         "processedAt": null,
-        "processedBy": null
+        "processedBy": null,
+        "employeeReviewedAt": null,
+        "employeeReviewedBy": null
       }
     ],
     "nextCursor": null

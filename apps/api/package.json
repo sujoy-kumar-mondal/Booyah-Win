@@ -2,6 +2,9 @@
   "name": "@booyah/api",
   "version": "1.0.0",
   "private": true,
+  "engines": {
+    "node": ">=20.0.0 <21.0.0"
+  },
   "type": "module",
   "main": "dist/server.js",
   "scripts": {
@@ -12,7 +15,8 @@
     "seed:admin": "tsx src/scripts/seedAdmin.ts",
     "seed:settings": "tsx src/scripts/seedSettings.ts",
     "seed:tiers": "tsx src/scripts/seedTiers.ts",
-    "migrate:dev": "node-pg-migrate -m migrations up",
+    "seed:leaderboard": "tsx src/scripts/seedLeaderboard.ts",
+    "migrate:dev": "tsx src/scripts/runDevMigrations.ts",
     "migrate:test": "tsx src/scripts/runTestMigrations.ts",
     "check:env": "tsx src/scripts/checkEnv.ts",
     "contracts": "tsx src/scripts/generateContracts.ts"

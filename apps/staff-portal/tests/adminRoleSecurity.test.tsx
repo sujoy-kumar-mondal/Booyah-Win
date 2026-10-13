@@ -59,12 +59,12 @@ describe('Admin Role Security and Navigation Protection', () => {
     // Operations links are visible
     expect(screen.getByTestId('nav-dashboard')).toBeInTheDocument();
     expect(screen.getByTestId('nav-matches')).toBeInTheDocument();
+    expect(screen.getByTestId('nav-users')).toBeInTheDocument();
 
     // Admin section is completely omitted from DOM
     expect(screen.queryByTestId('admin-sidebar-section')).not.toBeInTheDocument();
     expect(screen.queryByTestId('nav-employees')).not.toBeInTheDocument();
     expect(screen.queryByTestId('nav-tiers')).not.toBeInTheDocument();
-    expect(screen.queryByTestId('nav-users')).not.toBeInTheDocument();
     expect(screen.queryByTestId('nav-settings')).not.toBeInTheDocument();
     expect(screen.queryByTestId('nav-audit-logs')).not.toBeInTheDocument();
   });

@@ -1,13 +1,17 @@
-import React from 'react';
-import { useSearchParams } from 'react-router-dom';
+import React, { useEffect } from 'react';
+import { useSearchParams, useNavigate } from 'react-router-dom';
 import { Swords, Mail, History } from 'lucide-react';
 import { MatchesList } from '../components/matches/MatchesList.js';
 import { TeamInvites } from '../components/matches/TeamInvites.js';
 import { MatchHistory } from '../components/matches/MatchHistory.js';
 import { useInvites } from '../context/InvitesContext.js';
+import { useAuth } from '../context/AuthContext.js';
 
 export const Matches: React.FC = () => {
   const [searchParams, setSearchParams] = useSearchParams();
+  const navigate = useNavigate();
+  const auth = useAuth();
+  const isAuth = Boolean(auth.isAuthenticated ?? auth.user);
   const currentTab = searchParams.get('tab') || 'matches';
 
   let pendingCount = 0;
@@ -18,7 +22,17 @@ export const Matches: React.FC = () => {
     // If rendered outside InvitesProvider
   }
 
+  useEffect(() => {
+    if ((currentTab === 'invites' || currentTab === 'history') && !isAuth) {
+      navigate('/login', { replace: true });
+    }
+  }, [currentTab, isAuth, navigate]);
+
   const handleTabChange = (tab: 'matches' | 'invites' | 'history') => {
+    if ((tab === 'invites' || tab === 'history') && !isAuth) {
+      navigate('/login');
+      return;
+    }
     setSearchParams({ tab });
   };
 

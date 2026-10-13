@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink } from 'react-router-dom';
-import { Home, Swords, Wallet, User } from 'lucide-react';
+import { Home, Swords, Trophy, Wallet, User } from 'lucide-react';
 import { useInvites } from '../../context/InvitesContext.js';
 
 export const BottomNav: React.FC = () => {
@@ -21,6 +21,7 @@ export const BottomNav: React.FC = () => {
       badge: pendingCount > 0 ? String(pendingCount) : null,
       isAlertBadge: pendingCount > 0,
     },
+    { to: '/leaderboard', label: 'Rankings', icon: Trophy, badge: null },
     { to: '/wallet', label: 'Wallet', icon: Wallet, badge: null },
     { to: '/profile', label: 'Profile', icon: User, badge: null },
   ];

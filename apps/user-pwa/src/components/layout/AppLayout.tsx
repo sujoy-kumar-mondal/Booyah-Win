@@ -2,12 +2,14 @@ import React from 'react';
 import { Outlet } from 'react-router-dom';
 import { BottomNav } from './BottomNav.js';
 import { SlowServerBanner } from '../common/SlowServerBanner.js';
+import { MaintenanceBanner } from '../common/MaintenanceBanner.js';
 import { Flame } from 'lucide-react';
 
 export const AppLayout: React.FC = () => {
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
       <SlowServerBanner />
+      <MaintenanceBanner />
 
       {/* Top Header */}
       <header className="sticky top-0 z-20 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md px-4 py-3">
@@ -20,9 +22,7 @@ export const AppLayout: React.FC = () => {
               BOOYAH<span className="text-emerald-400">WIN</span>
             </span>
           </div>
-          <div className="rounded-full bg-slate-900 px-2.5 py-1 text-[11px] font-semibold text-emerald-400 border border-emerald-500/20">
-            PWA LIVE
-          </div>
+
         </div>
       </header>
 

@@ -27,6 +27,10 @@ const FORBIDDEN_KEYS = new Set(['pan', 'aadhaar', 'token', 'password']);
 
 // Strict allowlist per action
 const ACTION_ALLOWLIST: Record<string, string[]> = {
+  deposit_approved: ['amount', 'userId'],
+  deposit_rejected: ['amount', 'userId', 'reason'],
+  withdrawal_approved: ['amount', 'userId'],
+  withdrawal_rejected: ['amount', 'userId', 'reason'],
   balance_adjusted: ['wallet', 'amount', 'reason', 'adminId', 'amountPaise'],
   user_deleted: ['reason', 'deletedBy'],
   tier_created: ['entryFee', 'gameMode', 'teamMode', 'positionsCount'],
@@ -35,10 +39,71 @@ const ACTION_ALLOWLIST: Record<string, string[]> = {
   employee_created: ['name', 'email', 'mobile'],
   employee_updated: ['updatedFields'],
   employee_deleted: [],
+  match_created: ['tierId', 'gameMode', 'teamMode', 'startTime'],
+  match_room_opened: ['roomId'],
+  match_went_live: [],
+  match_cancelled: ['reason', 'refundedPlayersCount'],
+  match_result_submitted: ['resultId'],
+  match_result_approved: ['resultId', 'totalPayoutPaise', 'payeesCount'],
+  match_result_resubmitted: ['resultId'],
+  match_result_submitted_and_approved: ['resultId', 'totalPayoutPaise'],
+  result_rejected: ['reason', 'resultId'],
+  result_reversed: ['reason'],
   settings_updated: ['updatedKeys'],
   settings_payment_qr_updated: ['newKey', 'oldKey'],
   __fallback: ['wallet', 'amount', 'reason', 'adminId', 'staffId', 'userId', 'targetId', 'id'],
 };
+
+/**
+ * Converts snake_case audit actions to human-readable Title Case labels.
+ * e.g. "deposit_approved" -> "Deposit Approved", "settings_payment_qr_updated" -> "Settings Payment QR Updated"
+ */
+export function formatActionLabel(action: string | null | undefined): string {
+  if (!action) return '';
+  return action
+    .split('_')
+    .map((word) => {
+      const lower = word.toLowerCase();
+      if (lower === 'qr') return 'QR';
+      if (lower === 'id') return 'ID';
+      return word.charAt(0).toUpperCase() + word.slice(1).toLowerCase();
+    })
+    .join(' ');
+}
+
+export const AUDIT_ACTION_OPTIONS: Array<{ value: string; label: string }> = [
+  // Financial & Wallet
+  { value: 'deposit_approved', label: 'Deposit Approved' },
+  { value: 'deposit_rejected', label: 'Deposit Rejected' },
+  { value: 'withdrawal_approved', label: 'Withdrawal Approved' },
+  { value: 'withdrawal_rejected', label: 'Withdrawal Rejected' },
+  { value: 'balance_adjusted', label: 'Balance Adjusted' },
+  // Users
+  { value: 'user_deleted', label: 'User Deleted' },
+  // Match Management
+  { value: 'match_created', label: 'Match Created' },
+  { value: 'match_room_opened', label: 'Match Room Opened' },
+  { value: 'match_went_live', label: 'Match Went Live' },
+  { value: 'match_cancelled', label: 'Match Cancelled' },
+  // Results & Approvals
+  { value: 'match_result_submitted', label: 'Match Result Submitted' },
+  { value: 'match_result_approved', label: 'Match Result Approved' },
+  { value: 'match_result_resubmitted', label: 'Match Result Resubmitted' },
+  { value: 'match_result_submitted_and_approved', label: 'Match Result Submitted & Approved' },
+  { value: 'result_rejected', label: 'Result Rejected' },
+  { value: 'result_reversed', label: 'Result Reversed' },
+  // Tiers
+  { value: 'tier_created', label: 'Tier Created' },
+  { value: 'tier_updated', label: 'Tier Updated' },
+  { value: 'tier_deleted', label: 'Tier Deleted' },
+  // Employees
+  { value: 'employee_created', label: 'Employee Created' },
+  { value: 'employee_updated', label: 'Employee Updated' },
+  { value: 'employee_deleted', label: 'Employee Deleted' },
+  // Settings
+  { value: 'settings_updated', label: 'Settings Updated' },
+  { value: 'settings_payment_qr_updated', label: 'Settings Payment QR Updated' },
+];
 
 /**
  * Renders ONLY allowlisted keys for an action.
@@ -168,6 +233,14 @@ export const AuditLogs: React.FC = () => {
     setFilterTo('');
   };
 
+  const knownActionValues = new Set(AUDIT_ACTION_OPTIONS.map((opt) => opt.value));
+  const dynamicActionOptions = logs
+    .map((l) => l.action)
+    .filter((act) => act && !knownActionValues.has(act))
+    .filter((act, idx, arr) => arr.indexOf(act) === idx)
+    .map((act) => ({ value: act, label: formatActionLabel(act) }));
+  const allActionOptions = [...AUDIT_ACTION_OPTIONS, ...dynamicActionOptions];
+
   return (
     <div className="space-y-6" data-testid="audit-logs-page">
       {/* Header */}
@@ -250,16 +323,11 @@ export const AuditLogs: React.FC = () => {
                 className="w-full rounded-xl border border-slate-800 bg-slate-950 pl-8 pr-3 py-2 text-xs text-slate-200 focus:border-emerald-500 focus:outline-none"
               >
                 <option value="">All Actions</option>
-                <option value="balance_adjusted">balance_adjusted</option>
-                <option value="user_deleted">user_deleted</option>
-                <option value="tier_created">tier_created</option>
-                <option value="tier_updated">tier_updated</option>
-                <option value="tier_deleted">tier_deleted</option>
-                <option value="employee_created">employee_created</option>
-                <option value="employee_updated">employee_updated</option>
-                <option value="employee_deleted">employee_deleted</option>
-                <option value="settings_updated">settings_updated</option>
-                <option value="settings_payment_qr_updated">settings_payment_qr_updated</option>
+                {allActionOptions.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
               </select>
             </div>
           </div>
@@ -301,7 +369,7 @@ export const AuditLogs: React.FC = () => {
             <thead className="border-b border-slate-800 bg-slate-900/80 text-[10px] font-bold uppercase tracking-wider text-slate-400">
               <tr>
                 <th className="px-4 py-3">Log ID</th>
-                <th className="px-4 py-3">Staff ID</th>
+                <th className="px-4 py-3">Staff</th>
                 <th className="px-4 py-3">Action</th>
                 <th className="px-4 py-3">Target</th>
                 <th className="px-4 py-3">Allowlisted Details</th>
@@ -327,13 +395,24 @@ export const AuditLogs: React.FC = () => {
                   <tr key={log.id} className="hover:bg-slate-800/20 transition-colors" data-testid={`audit-row-${log.id}`}>
                     <td className="px-4 py-3 font-mono text-slate-400">#{log.id}</td>
                     <td className="px-4 py-3">
-                      <span className="font-mono font-semibold text-slate-300">
-                        Staff #{log.staffId}
-                      </span>
+                      {log.staffName ? (
+                        <div>
+                          <div className="font-semibold text-slate-200">
+                            {log.staffName}
+                          </div>
+                          <div className="text-[10px] font-mono text-slate-400">
+                            ID: #{log.staffId}
+                          </div>
+                        </div>
+                      ) : (
+                        <span className="font-mono font-semibold text-slate-300">
+                          {log.staffId ? `Staff #${log.staffId}` : '—'}
+                        </span>
+                      )}
                     </td>
                     <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-1 rounded-md bg-slate-800 px-2 py-0.5 text-[10px] font-mono font-bold text-emerald-400 border border-slate-700">
-                        {log.action}
+                      <span className="inline-flex items-center gap-1 rounded-md bg-slate-800 px-2 py-0.5 text-[10px] font-semibold text-emerald-400 border border-slate-700 whitespace-nowrap">
+                        {formatActionLabel(log.action)}
                       </span>
                     </td>
                     <td className="px-4 py-3">

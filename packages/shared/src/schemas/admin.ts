@@ -89,6 +89,24 @@ export const updateSettingsSchema = z
       .regex(/^https:\/\/.+/, 'Payment QR URL must be a valid HTTPS URL')
       .optional()
       .or(z.literal('')),
+    maintenance_enabled: z
+      .union([z.boolean(), z.enum(['true', 'false'])])
+      .transform((val) => (typeof val === 'boolean' ? (val ? 'true' : 'false') : val))
+      .optional(),
+    maintenance_message: z
+      .string()
+      .trim()
+      .max(300, 'Maintenance message must be at most 300 characters')
+      .regex(/^[^\x00-\x1F\x7F]*$/, 'Maintenance message cannot contain control characters')
+      .optional()
+      .or(z.literal('')),
+    maintenance_until: z
+      .string()
+      .trim()
+      .regex(/^$|^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(:\d{2}(\.\d{1,3})?)?(\+05:30|Z|[+-]\d{2}:\d{2})$/, 'Invalid ISO datetime format')
+      .optional()
+      .or(z.literal(''))
+      .nullable(),
   })
   .strict();
 

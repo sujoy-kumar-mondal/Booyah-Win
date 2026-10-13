@@ -153,7 +153,7 @@ export const depositDtoGuard = z.object({
   amount: moneyStringSchema,
   utr: z.string(),
   screenshotUrl: z.string(),
-  status: z.enum(['pending', 'approved', 'rejected']),
+  status: z.enum(['pending', 'employee_approved', 'approved', 'rejected']),
   rejectReason: z.string().nullable().optional(),
   needsAdmin: z.boolean(),
   createdAt: z.string(),
@@ -169,7 +169,7 @@ export const withdrawalDtoGuard = z.object({
   id: z.string(),
   amount: moneyStringSchema,
   upiId: z.string(),
-  status: z.enum(['pending', 'paid', 'rejected']),
+  status: z.enum(['pending', 'employee_approved', 'paid', 'rejected']),
   rejectReason: z.string().nullable().optional(),
   payoutRef: z.string().nullable().optional(),
   createdAt: z.string(),
@@ -333,3 +333,48 @@ export const apiErrorEnvelopeGuard = z.object({
     details: z.any().optional(),
   }),
 }).passthrough();
+
+// ─── 8. Status & Maintenance Schema ───────────────────────────────────────────
+export const statusResponseGuard = z.object({
+  maintenance: z.object({
+    enabled: z.boolean(),
+    message: z.string(),
+    until: z.string().nullable(),
+    unknown: z.boolean().optional(),
+  }).passthrough(),
+}).passthrough();
+
+// ─── 9. Leaderboard Schemas ───────────────────────────────────────────────────
+export const leaderboardEntryGuard = z.object({
+  rank: z.number().int().positive(),
+  name: z.string(),
+  winnings: moneyStringSchema,
+}).passthrough();
+
+export const leaderboardResponseGuard = z.object({
+  weekStart: z.string(),
+  weekEnd: z.string(),
+  generatedAt: z.string(),
+  entries: z.array(leaderboardEntryGuard),
+}).passthrough();
+
+export const leaderboardRankResponseGuard = z.object({
+  rank: z.number().int().positive(),
+  winnings: moneyStringSchema,
+}).passthrough().nullable();
+
+// ─── 10. Rules & Referral Schemas ─────────────────────────────────────────────
+export const rulesResponseGuard = z.object({
+  referralReward: moneyStringSchema,
+  maxCashbackUsagePercent: z.number().int().positive(),
+  minWithdrawal: moneyStringSchema,
+}).passthrough();
+
+export const referralSummaryResponseGuard = z.object({
+  referralCode: z.string(),
+  referredCount: z.number().int().nonnegative(),
+  bonusEarnedCount: z.number().int().nonnegative(),
+  totalBonusEarned: moneyStringSchema,
+}).passthrough();
+
+

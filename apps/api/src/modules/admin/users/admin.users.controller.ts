@@ -28,7 +28,7 @@ export class AdminUsersController {
   static async getUserDetail(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const data = await AdminUsersService.getUserDetail(id);
+      const data = await AdminUsersService.getUserDetail(id, req.staff?.id);
       res.status(200).json({ data });
     } catch (err) {
       next(err);

@@ -2,8 +2,9 @@
   "data": {
     "items": [
       {
-        "id": "49",
+        "id": "53",
         "staffId": "1",
+        "staffName": "Admin User",
         "action": "settings_payment_qr_updated",
         "targetType": "app_settings",
         "targetId": null,
@@ -11,11 +12,12 @@
           "newKey": "https://storage.example.com/placeholder.jpg",
           "oldKey": null
         },
-        "createdAt": "2026-10-11T17:36:35.069Z"
+        "createdAt": "2026-10-13T13:39:20.790Z"
       },
       {
-        "id": "48",
+        "id": "52",
         "staffId": "1",
+        "staffName": "Admin User",
         "action": "settings_updated",
         "targetType": "app_settings",
         "targetId": null,
@@ -26,11 +28,12 @@
             "support_name"
           ]
         },
-        "createdAt": "2026-10-11T17:36:35.059Z"
+        "createdAt": "2026-10-13T13:39:20.782Z"
       },
       {
-        "id": "47",
+        "id": "51",
         "staffId": "1",
+        "staffName": "Admin User",
         "action": "user_deleted",
         "targetType": "user",
         "targetId": "6",
@@ -38,11 +41,12 @@
           "reason": "Terms of service violation",
           "deletedBy": "1"
         },
-        "createdAt": "2026-10-11T17:36:35.049Z"
+        "createdAt": "2026-10-13T13:39:20.772Z"
       },
       {
-        "id": "46",
+        "id": "50",
         "staffId": "1",
+        "staffName": "Admin User",
         "action": "balance_adjusted",
         "targetType": "user",
         "targetId": "1",
@@ -53,20 +57,34 @@
           "adminId": "1",
           "amountPaise": 2000
         },
-        "createdAt": "2026-10-11T17:36:35.042Z"
+        "createdAt": "2026-10-13T13:39:20.764Z"
       },
       {
-        "id": "45",
+        "id": "49",
         "staffId": "1",
+        "staffName": "Admin User",
+        "action": "user_viewed",
+        "targetType": "user",
+        "targetId": "1",
+        "details": {
+          "role": "admin"
+        },
+        "createdAt": "2026-10-13T13:39:20.759Z"
+      },
+      {
+        "id": "48",
+        "staffId": "1",
+        "staffName": "Admin User",
         "action": "tier_deleted",
         "targetType": "entry_tiers",
         "targetId": "7",
         "details": null,
-        "createdAt": "2026-10-11T17:36:35.025Z"
+        "createdAt": "2026-10-13T13:39:20.746Z"
       },
       {
-        "id": "44",
+        "id": "47",
         "staffId": "1",
+        "staffName": "Admin User",
         "action": "tier_updated",
         "targetType": "entry_tiers",
         "targetId": "7",
@@ -75,11 +93,12 @@
             "killPrice"
           ]
         },
-        "createdAt": "2026-10-11T17:36:34.983Z"
+        "createdAt": "2026-10-13T13:39:20.704Z"
       },
       {
-        "id": "43",
+        "id": "46",
         "staffId": "1",
+        "staffName": "Admin User",
         "action": "tier_created",
         "targetType": "entry_tiers",
         "targetId": "7",
@@ -89,20 +108,22 @@
           "teamMode": "squad",
           "positionsCount": 2
         },
-        "createdAt": "2026-10-11T17:36:34.971Z"
+        "createdAt": "2026-10-13T13:39:20.692Z"
       },
       {
-        "id": "42",
+        "id": "45",
         "staffId": "1",
+        "staffName": "Admin User",
         "action": "employee_deleted",
         "targetType": "staff",
         "targetId": "4",
         "details": null,
-        "createdAt": "2026-10-11T17:36:34.965Z"
+        "createdAt": "2026-10-13T13:39:20.686Z"
       },
       {
-        "id": "41",
+        "id": "44",
         "staffId": "1",
+        "staffName": "Admin User",
         "action": "employee_updated",
         "targetType": "staff",
         "targetId": "4",
@@ -111,24 +132,9 @@
             "name"
           ]
         },
-        "createdAt": "2026-10-11T17:36:34.959Z"
-      },
-      {
-        "id": "40",
-        "staffId": "1",
-        "action": "employee_created",
-        "targetType": "staff",
-        "targetId": "4",
-        "details": {
-          "name": "Contract Staff",
-          "email": "staff@booyah.win",
-          "hasPan": "[REDACTED]",
-          "mobile": "9999999999",
-          "hasAadhaar": "[REDACTED]"
-        },
-        "createdAt": "2026-10-11T17:36:34.948Z"
+        "createdAt": "2026-10-13T13:39:20.680Z"
       }
     ],
-    "nextCursor": "40"
+    "nextCursor": "44"
   }
 }

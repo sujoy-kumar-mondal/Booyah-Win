@@ -9,6 +9,7 @@ import { query, withTransaction } from '../../db/index.js';
 import { AppError } from '../../middleware/errorHandler.js';
 import { writeAuditLog } from '../../utils/audit.js';
 import { uploadScreenshot, deleteFile, getSignedUrl } from '../../utils/storage.js';
+import { invalidateLeaderboardCache } from '../leaderboard/leaderboard.service.js';
 
 export interface ResultEntry {
   userId: string;
@@ -1086,6 +1087,8 @@ export async function approveResultAdmin(
       },
     });
   });
+
+  invalidateLeaderboardCache();
 }
 
 /**
@@ -1363,6 +1366,8 @@ export async function reverseResultAdmin(
       },
     });
   });
+
+  invalidateLeaderboardCache();
 }
 
 /**

@@ -77,6 +77,10 @@ export async function getStaffDeposits(params?: {
   return runGuard(depositListResponseGuard, data, 'GET /staff/deposits');
 }
 
+export async function verifyDeposit(depositId: string): Promise<GenericMessageResponse> {
+  return apiClient.post<GenericMessageResponse>(`/staff/deposits/${depositId}/verify`);
+}
+
 export async function approveDeposit(depositId: string): Promise<GenericMessageResponse> {
   return apiClient.post<GenericMessageResponse>(`/staff/deposits/${depositId}/approve`);
 }
@@ -110,6 +114,10 @@ export async function getStaffWithdrawals(params?: {
   const endpoint = qs ? `/staff/withdrawals?${qs}` : '/staff/withdrawals';
   const data = await apiClient.get<WithdrawalListResponse>(endpoint);
   return runGuard(withdrawalListResponseGuard, data, 'GET /staff/withdrawals');
+}
+
+export async function verifyWithdrawal(withdrawalId: string): Promise<GenericMessageResponse> {
+  return apiClient.post<GenericMessageResponse>(`/staff/withdrawals/${withdrawalId}/verify`);
 }
 
 export async function markWithdrawalPaid(

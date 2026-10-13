@@ -94,7 +94,7 @@ export interface DepositDto {
   amount: string;
   utr: string;
   screenshotUrl: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'employee_approved' | 'approved' | 'rejected';
   rejectReason?: string | null;
   needsAdmin: boolean;
   createdAt: string;
@@ -110,7 +110,7 @@ export interface WithdrawalDto {
   id: string;
   amount: string;
   upiId: string;
-  status: 'pending' | 'paid' | 'rejected';
+  status: 'pending' | 'employee_approved' | 'paid' | 'rejected';
   rejectReason?: string | null;
   payoutRef?: string | null;
   createdAt: string;
@@ -137,3 +137,35 @@ export interface TransactionListResponse {
   items: TransactionDto[];
   nextCursor?: string | null;
 }
+
+export interface LeaderboardEntry {
+  rank: number;
+  name: string;
+  winnings: string;
+}
+
+export interface LeaderboardResponse {
+  weekStart: string;
+  weekEnd: string;
+  generatedAt: string;
+  entries: LeaderboardEntry[];
+}
+
+export type LeaderboardRankResponse = {
+  rank: number;
+  winnings: string;
+} | null;
+
+export interface RulesResponse {
+  referralReward: string;
+  maxCashbackUsagePercent: number;
+  minWithdrawal: string;
+}
+
+export interface ReferralSummaryResponse {
+  referralCode: string;
+  referredCount: number;
+  bonusEarnedCount: number;
+  totalBonusEarned: string;
+}
+

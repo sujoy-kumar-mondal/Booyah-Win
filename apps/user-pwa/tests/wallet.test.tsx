@@ -287,9 +287,11 @@ describe('Wallet Screens & Milestone 9b-1 Integration', () => {
         await Promise.resolve();
       });
 
-      // Renders pending confirmation screen with "Verified within 30 minutes"
+      // Renders pending confirmation screen with "Usually reviewed within 30 minutes, final approval can take a bit longer"
       expect(screen.getByTestId('deposit-success-view')).toBeInTheDocument();
-      expect(screen.getByText('Verified within 30 minutes')).toBeInTheDocument();
+      expect(
+        screen.getByText('Usually reviewed within 30 minutes, final approval can take a bit longer')
+      ).toBeInTheDocument();
     });
 
     it('shows friendly timeout/network error message and refetches lists without retrying (Requirement 5)', async () => {
@@ -668,6 +670,165 @@ describe('Wallet Screens & Milestone 9b-1 Integration', () => {
         vi.advanceTimersByTime(30000);
       });
       expect(onRefetch).toHaveBeenCalledTimes(2);
+    });
+
+    it('continues polling when a request is in employee_approved state', () => {
+      vi.useFakeTimers();
+      const onRefetch = vi.fn();
+
+      renderHook(() =>
+        usePendingWalletPoller({
+          deposits: [
+            {
+              id: '1',
+              amount: '50.00',
+              utr: 'UTR123',
+              status: 'employee_approved' as const,
+              screenshotUrl: 's.png',
+              rejectReason: null,
+              needsAdmin: false,
+              createdAt: new Date().toISOString(),
+              reviewedAt: null,
+            },
+          ],
+          withdrawals: [],
+          onRefetch,
+        })
+      );
+
+      act(() => {
+        vi.advanceTimersByTime(30000);
+      });
+      expect(onRefetch).toHaveBeenCalledTimes(1);
+    });
+
+    it('pauses polling when offline and resumes when back online', () => {
+      vi.useFakeTimers();
+      const onRefetch = vi.fn();
+
+      renderHook(() =>
+        usePendingWalletPoller({
+          deposits: [
+            {
+              id: '1',
+              amount: '50.00',
+              utr: 'UTR123',
+              status: 'pending' as const,
+              screenshotUrl: 's.png',
+              rejectReason: null,
+              needsAdmin: false,
+              createdAt: new Date().toISOString(),
+              reviewedAt: null,
+            },
+          ],
+          withdrawals: [],
+          onRefetch,
+        })
+      );
+
+      // Simulate going offline
+      Object.defineProperty(navigator, 'onLine', { value: false, configurable: true });
+      act(() => {
+        window.dispatchEvent(new Event('offline'));
+      });
+
+      act(() => {
+        vi.advanceTimersByTime(60000);
+      });
+      expect(onRefetch).not.toHaveBeenCalled();
+
+      // Back online
+      Object.defineProperty(navigator, 'onLine', { value: true, configurable: true });
+      act(() => {
+        window.dispatchEvent(new Event('online'));
+      });
+      expect(onRefetch).toHaveBeenCalledTimes(1);
+    });
+  });
+
+  describe('RequestsList Status Display', () => {
+    it('displays plain words for all statuses in deposit and withdrawal lists', async () => {
+      vi.spyOn(walletApi, 'getDeposits').mockResolvedValue({
+        items: [
+          {
+            id: '101',
+            amount: '100.00',
+            utr: 'UTR101',
+            status: 'pending' as const,
+            screenshotUrl: 's1.png',
+            rejectReason: null,
+            needsAdmin: false,
+            createdAt: new Date().toISOString(),
+            reviewedAt: null,
+          },
+          {
+            id: '102',
+            amount: '200.00',
+            utr: 'UTR102',
+            status: 'employee_approved' as const,
+            screenshotUrl: 's2.png',
+            rejectReason: null,
+            needsAdmin: false,
+            createdAt: new Date().toISOString(),
+            reviewedAt: null,
+          },
+          {
+            id: '103',
+            amount: '300.00',
+            utr: 'UTR103',
+            status: 'approved' as const,
+            screenshotUrl: 's3.png',
+            rejectReason: null,
+            needsAdmin: false,
+            createdAt: new Date().toISOString(),
+            reviewedAt: null,
+          },
+        ],
+        nextCursor: null,
+      });
+
+      vi.spyOn(walletApi, 'getWithdrawals').mockResolvedValue({
+        items: [
+          {
+            id: '201',
+            amount: '50.00',
+            upiId: 'user@upi',
+            status: 'paid' as const,
+            payoutRef: 'REF201',
+            rejectReason: null,
+            createdAt: new Date().toISOString(),
+            processedAt: null,
+          },
+          {
+            id: '202',
+            amount: '60.00',
+            upiId: 'user@upi',
+            status: 'rejected' as const,
+            payoutRef: null,
+            rejectReason: 'Bank declined',
+            createdAt: new Date().toISOString(),
+            processedAt: null,
+          },
+        ],
+        nextCursor: null,
+      });
+
+      await renderComponent(<RequestsList initialTab="deposits" />);
+
+      // Assert deposit statuses
+      expect(screen.getByText('Under review')).toBeInTheDocument();
+      expect(
+        screen.getByText('Verified by staff, waiting for final approval')
+      ).toBeInTheDocument();
+      expect(screen.getByText('Approved')).toBeInTheDocument();
+
+      // Switch to withdrawals tab
+      fireEvent.click(screen.getByTestId('tab-withdrawals'));
+
+      await waitFor(() => {
+        expect(screen.getByText('Paid')).toBeInTheDocument();
+        expect(screen.getByText('Rejected')).toBeInTheDocument();
+      });
     });
   });
 });

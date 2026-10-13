@@ -20,6 +20,8 @@ import { query } from '../src/db/index.js';
 import { truncateAllTables } from './setup.js';
 import { signSessionToken } from '../src/utils/crypto.js';
 import { testOtpStore } from '../src/utils/email.js';
+import { invalidateMaintenanceCache } from '../src/middleware/maintenance.js';
+import { getDbWeekWindow, invalidateLeaderboardCache } from '../src/modules/leaderboard/leaderboard.service.js';
 
 const app = createApp({ enableRateLimiting: false });
 const GENERATE_CONTRACTS = process.env.GENERATE_CONTRACTS === 'true';
@@ -571,6 +573,35 @@ describe('Real API Contracts Generator & Strict Parity Verifier', () => {
     saveOrVerifyContract('GET_api_v1_payment-info.json', res.body);
   });
 
+  it('captures GET /api/v1/status', async () => {
+    const res = await request(app).get('/api/v1/status');
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('GET_api_v1_status.json', res.body);
+  });
+
+  it('captures GET /api/v1/leaderboard variants', async () => {
+    const res = await request(app).get('/api/v1/leaderboard');
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('GET_api_v1_leaderboard.json', res.body);
+
+    const window = await getDbWeekWindow();
+    await query(
+      `INSERT INTO wallet_ledger (user_id, wallet, type, amount, balance_after, total_after, ref_id, created_at)
+       VALUES ($1, 'winning', 'winning', '250.00', '250.00', '250.00', $2, $3)`,
+      [userId, resultMatchId, new Date(window.weekStart.getTime() + 5000)]
+    );
+    invalidateLeaderboardCache();
+    const populatedRes = await request(app).get('/api/v1/leaderboard');
+    expect(populatedRes.status).toBe(200);
+    saveOrVerifyContract('GET_api_v1_leaderboard__populated.json', populatedRes.body);
+  });
+
+  it('captures GET /api/v1/rules', async () => {
+    const res = await request(app).get('/api/v1/rules');
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('GET_api_v1_rules.json', res.body);
+  });
+
   // ─── 2. User Auth Endpoints Contracts ───────────────────────────────────────
   it('captures POST /api/v1/auth/register/request-otp', async () => {
     await query(`UPDATE otp_requests SET created_at = NOW() - interval '2 minutes'`);
@@ -758,6 +789,13 @@ describe('Real API Contracts Generator & Strict Parity Verifier', () => {
   });
 
   it('captures POST /api/v1/staff/matches/:id/go-live', async () => {
+    // Add second player to duo match so minimum player requirement (2/2) is fulfilled before going live
+    await query(
+      `INSERT INTO match_players (match_id, user_id, team_id, paid_add_money, paid_cashback, paid_winning, joined_at)
+       VALUES ($1, $2, $3, 20.00, 0.00, 0.00, NOW())`,
+      [duoMatchId, user2Id, teamId]
+    );
+
     const res = await request(app)
       .post(`/api/v1/staff/matches/${duoMatchId}/go-live`)
       .set('Authorization', `Bearer ${adminToken}`);
@@ -874,10 +912,18 @@ describe('Real API Contracts Generator & Strict Parity Verifier', () => {
     saveOrVerifyContract('GET_staff_deposits.json', res.body);
   });
 
+  it('captures POST /api/v1/staff/deposits/:id/verify', async () => {
+    const res = await request(app)
+      .post(`/api/v1/staff/deposits/${depositId}/verify`)
+      .set('Authorization', `Bearer ${employeeToken}`);
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('POST_staff_deposits_id_verify.json', res.body);
+  });
+
   it('captures POST /api/v1/staff/deposits/:id/approve', async () => {
     const res = await request(app)
       .post(`/api/v1/staff/deposits/${depositId}/approve`)
-      .set('Authorization', `Bearer ${employeeToken}`);
+      .set('Authorization', `Bearer ${adminToken}`);
     expect(res.status).toBe(200);
     saveOrVerifyContract('POST_staff_deposits_id_approve.json', res.body);
   });
@@ -908,10 +954,18 @@ describe('Real API Contracts Generator & Strict Parity Verifier', () => {
     saveOrVerifyContract('GET_staff_withdrawals.json', res.body);
   });
 
+  it('captures POST /api/v1/staff/withdrawals/:id/verify', async () => {
+    const res = await request(app)
+      .post(`/api/v1/staff/withdrawals/${withdrawalId}/verify`)
+      .set('Authorization', `Bearer ${employeeToken}`);
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('POST_staff_withdrawals_id_verify.json', res.body);
+  });
+
   it('captures POST /api/v1/staff/withdrawals/:id/mark-paid', async () => {
     const res = await request(app)
       .post(`/api/v1/staff/withdrawals/${withdrawalId}/mark-paid`)
-      .set('Authorization', `Bearer ${employeeToken}`)
+      .set('Authorization', `Bearer ${adminToken}`)
       .send({ payoutRef: 'REF123456789' });
     expect(res.status).toBe(200);
     saveOrVerifyContract('POST_staff_withdrawals_id_mark-paid.json', res.body);
@@ -933,6 +987,22 @@ describe('Real API Contracts Generator & Strict Parity Verifier', () => {
     saveOrVerifyContract('POST_staff_withdrawals_id_reject.json', res.body);
   });
 
+  it('captures GET /api/v1/staff/users', async () => {
+    const res = await request(app)
+      .get('/api/v1/staff/users')
+      .set('Authorization', `Bearer ${employeeToken}`);
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('GET_staff_users.json', res.body);
+  });
+
+  it('captures GET /api/v1/staff/users/:id', async () => {
+    const res = await request(app)
+      .get(`/api/v1/staff/users/${userId}`)
+      .set('Authorization', `Bearer ${employeeToken}`);
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('GET_staff_users_id.json', res.body);
+  });
+
   // ─── 5. User Endpoints Contracts ────────────────────────────────────────────
   it('captures GET /api/v1/me', async () => {
     const res = await request(app)
@@ -940,6 +1010,23 @@ describe('Real API Contracts Generator & Strict Parity Verifier', () => {
       .set('Authorization', `Bearer ${userToken}`);
     expect(res.status).toBe(200);
     saveOrVerifyContract('GET_api_v1_me.json', res.body);
+  });
+
+  it('captures GET /api/v1/me/leaderboard-rank', async () => {
+    const res = await request(app)
+      .get('/api/v1/me/leaderboard-rank')
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('GET_api_v1_me_leaderboard-rank.json', res.body);
+    saveOrVerifyContract('GET_api_v1_me_leaderboard-rank__ranked.json', res.body);
+  });
+
+  it('captures GET /api/v1/me/referral-summary', async () => {
+    const res = await request(app)
+      .get('/api/v1/me/referral-summary')
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('GET_api_v1_me_referral-summary.json', res.body);
   });
 
   it('captures PATCH /api/v1/me/profile', async () => {
@@ -1554,6 +1641,30 @@ describe('Real API Contracts Generator & Strict Parity Verifier', () => {
       .send({ reason: 'Already cancelled match' });
     expect(res.status).toBe(409);
     saveOrVerifyContract('ERROR_INVALID_TRANSITION.json', res.body);
+  });
+
+  it('captures ERROR_MAINTENANCE_MODE', async () => {
+    await query(`
+      INSERT INTO app_settings (key, value) VALUES ('maintenance_enabled', 'true')
+      ON CONFLICT (key) DO UPDATE SET value = 'true'
+    `);
+    await query(`
+      INSERT INTO app_settings (key, value) VALUES ('maintenance_message', 'Scheduled maintenance in progress')
+      ON CONFLICT (key) DO UPDATE SET value = 'Scheduled maintenance in progress'
+    `);
+    invalidateMaintenanceCache();
+
+    const res = await request(app)
+      .post(`/api/v1/matches/${soloMatchId}/join`)
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(res.status).toBe(503);
+    saveOrVerifyContract('ERROR_MAINTENANCE_MODE.json', res.body);
+
+    await query(`
+      INSERT INTO app_settings (key, value) VALUES ('maintenance_enabled', 'false')
+      ON CONFLICT (key) DO UPDATE SET value = 'false'
+    `);
+    invalidateMaintenanceCache();
   });
 
   // ─── 7. Dynamic Manifest Audit ──────────────────────────────────────────────

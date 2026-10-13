@@ -19,6 +19,11 @@ import { auditAdminRouter } from './modules/admin/audit/audit.routes.js';
 import { adminResultsRouter } from './modules/admin/results/admin.results.routes.js';
 import { adminUsersRouter } from './modules/admin/users/admin.users.routes.js';
 import { SettingsController } from './modules/admin/settings/settings.controller.js';
+import { StatusController } from './modules/admin/settings/status.controller.js';
+import { statusRateLimit, leaderboardRateLimit } from './middleware/rateLimiters.js';
+import { leaderboardRouter } from './modules/leaderboard/leaderboard.routes.js';
+import { rulesRouter } from './modules/rules/rules.routes.js';
+import { staffUsersRouter } from './modules/staff/users/staff.users.routes.js';
 import { walletRouter } from './modules/wallet/wallet.routes.js';
 import { staffWalletRouter } from './modules/wallet/staff.wallet.routes.js';
 import { matchesRouter } from './modules/matches/matches.routes.js';
@@ -197,6 +202,17 @@ export function createApp(options?: AppOptions): Express {
   // Public endpoints
   v1Router.get('/support',      SettingsController.getSupportInfo);
   v1Router.get('/payment-info', SettingsController.getPaymentInfo);
+  v1Router.get(
+    '/status',
+    isRateLimitingEnabled ? statusRateLimit : (_req: Request, _res: Response, next: NextFunction) => next(),
+    StatusController.getStatus
+  );
+  v1Router.use(
+    '/leaderboard',
+    isRateLimitingEnabled ? leaderboardRateLimit : (_req: Request, _res: Response, next: NextFunction) => next(),
+    leaderboardRouter
+  );
+  v1Router.use('/rules', rulesRouter);
 
   // Auth
   v1Router.use('/auth', authRouter);
@@ -222,6 +238,7 @@ export function createApp(options?: AppOptions): Express {
   v1Router.use('/staff', staffRouter);        // /api/v1/staff/auth, /api/v1/staff/me
   v1Router.use('/staff', staffWalletRouter);  // /api/v1/staff/deposits, /api/v1/staff/withdrawals
   v1Router.use('/staff/matches', staffMatchesRouter);
+  v1Router.use('/staff/users', staffUsersRouter);
 
   // Admin
   v1Router.use('/admin', adminRouter);

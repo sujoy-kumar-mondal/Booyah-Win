@@ -2,6 +2,13 @@ import crypto from 'node:crypto';
 import pg from 'pg';
 import nodemailer from 'nodemailer';
 import { config } from '../config/index.js';
+import { assertDatabaseSafety } from './scriptUtils.js';
+
+import {
+  getDatabaseSslConfig,
+  isUntrustedCertificateError,
+  UNTRUSTED_CERT_SAFE_REASON,
+} from '../db/index.js';
 
 interface CheckResult {
   service: string;
@@ -11,12 +18,18 @@ interface CheckResult {
 
 const { Pool } = pg;
 
-export async function checkDatabase(overrideUrl?: string): Promise<CheckResult> {
+export async function checkDatabase(overrideUrl?: string, argv: string[] = process.argv): Promise<CheckResult> {
   const service = 'Database (PostgreSQL)';
   const dbUrl = overrideUrl !== undefined ? overrideUrl : config.DATABASE_URL;
 
   if (!dbUrl) {
     return { service, passed: false, message: 'DATABASE_URL is not set in environment.' };
+  }
+
+  try {
+    assertDatabaseSafety(dbUrl, argv);
+  } catch (err: any) {
+    return { service, passed: false, message: err.message };
   }
 
   if (dbUrl.includes(':6543')) {
@@ -27,18 +40,7 @@ export async function checkDatabase(overrideUrl?: string): Promise<CheckResult> 
     };
   }
 
-  let ssl: pg.PoolConfig['ssl'] | undefined = undefined;
-  const isRemote =
-    !dbUrl.includes('localhost') &&
-    !dbUrl.includes('127.0.0.1') &&
-    !dbUrl.includes('::1');
-
-  if (config.DATABASE_SSL || isRemote) {
-    ssl = {
-      rejectUnauthorized: true,
-      ca: config.DATABASE_SSL_CA ? config.DATABASE_SSL_CA : undefined,
-    };
-  }
+  const ssl = getDatabaseSslConfig(dbUrl);
 
   const pool = new Pool({
     connectionString: dbUrl,
@@ -55,69 +57,219 @@ export async function checkDatabase(overrideUrl?: string): Promise<CheckResult> 
     }
     return { service, passed: false, message: 'Query executed but returned unexpected result.' };
   } catch (err: any) {
-    const safeError = err.code ? `PostgreSQL error code ${err.code}` : (err.message || 'Connection failed');
+    if (isUntrustedCertificateError(err) || err.message === UNTRUSTED_CERT_SAFE_REASON) {
+      return { service, passed: false, message: `Failed: ${UNTRUSTED_CERT_SAFE_REASON}` };
+    }
+    let safeError = err.code ? `PostgreSQL error code ${err.code}` : (err.message || 'Connection failed');
+    try {
+      const parsed = new URL(dbUrl);
+      if (parsed.password) {
+        safeError = safeError.replaceAll(parsed.password, '[REDACTED]');
+      }
+    } catch {}
     return { service, passed: false, message: `Failed: ${safeError}` };
   } finally {
     await pool.end().catch(() => {});
   }
 }
 
-export async function checkSupabaseStorage(overrideUrl?: string, overrideKey?: string): Promise<CheckResult> {
+export function validateStorageConfig(url?: string, bucket?: string): void {
+  // Validate SUPABASE_URL
+  if (!url || url.trim() === '') {
+    throw new Error('Invalid or missing SUPABASE_URL: value is required.');
+  }
+  if (/\s/.test(url)) {
+    throw new Error('Invalid SUPABASE_URL: URL contains whitespace.');
+  }
+  if (/[<>[\]{}]/.test(url)) {
+    throw new Error('Invalid SUPABASE_URL: URL contains bracket characters.');
+  }
+  if (url.endsWith('/')) {
+    throw new Error('Invalid SUPABASE_URL: trailing slash is not allowed.');
+  }
+  let parsed: URL;
+  try {
+    parsed = new URL(url);
+  } catch {
+    throw new Error('Invalid SUPABASE_URL: invalid URL format.');
+  }
+  if (parsed.pathname && parsed.pathname !== '' && parsed.pathname !== '/') {
+    throw new Error('Invalid SUPABASE_URL: URL must not contain a path.');
+  }
+
+  // Validate STORAGE_BUCKET
+  if (!bucket || bucket.trim() === '') {
+    throw new Error('Invalid or missing STORAGE_BUCKET: bucket name is required.');
+  }
+  if (/\s/.test(bucket)) {
+    throw new Error('Invalid STORAGE_BUCKET: bucket name contains whitespace.');
+  }
+  if (/[<>[\]{}]/.test(bucket)) {
+    throw new Error('Invalid STORAGE_BUCKET: bucket name contains bracket characters.');
+  }
+  if (bucket.includes('/')) {
+    throw new Error('Invalid STORAGE_BUCKET: bucket name must not contain slashes.');
+  }
+}
+
+export function sanitizeErrorMessage(msg: any, secrets: (string | undefined)[] = []): string {
+  let text = typeof msg === 'string' ? msg : JSON.stringify(msg);
+  for (const secret of secrets) {
+    if (secret && secret.trim().length > 0) {
+      text = text.replaceAll(secret, '[REDACTED]');
+    }
+  }
+  text = text.replace(/https?:\/\/[^\s"'<>]+/g, '[REDACTED_URL]');
+  text = text.replace(/Bearer\s+[A-Za-z0-9-_.]+/gi, 'Bearer [REDACTED]');
+  text = text.replace(/apikey:\s*[^\s"',]+/gi, 'apikey: [REDACTED]');
+  return text;
+}
+
+const TINY_PNG_BUFFER = Buffer.from(
+  'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+  'base64'
+);
+
+async function extractStorageErrorText(res: Response): Promise<string> {
+  try {
+    const json: any = await res.json();
+    if (json) {
+      if (typeof json.message === 'string' && json.message.trim()) {
+        return json.message.trim();
+      }
+      if (typeof json.error === 'string' && json.error.trim()) {
+        return json.error.trim();
+      }
+      if (typeof json.msg === 'string' && json.msg.trim()) {
+        return json.msg.trim();
+      }
+    }
+  } catch {
+    try {
+      const text = await res.text();
+      if (text && text.trim() && !text.includes('<html')) {
+        return text.trim();
+      }
+    } catch {}
+  }
+  return res.statusText || `HTTP ${res.status}`;
+}
+
+export async function checkSupabaseStorage(
+  overrideUrl?: string,
+  overrideKey?: string,
+  overrideBucket?: string
+): Promise<CheckResult> {
   const service = 'Supabase Storage';
   const url = overrideUrl !== undefined ? overrideUrl : config.SUPABASE_URL;
   const key = overrideKey !== undefined ? overrideKey : config.SUPABASE_SERVICE_KEY;
-  const bucket = config.STORAGE_BUCKET || 'booyah-private';
-
-  if (!url || !key) {
-    return { service, passed: false, message: 'SUPABASE_URL or SUPABASE_SERVICE_KEY is missing.' };
-  }
-
-  const probeKey = `screenshots/.probe-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.txt`;
-  const probeContent = Buffer.from('booyah-win-storage-probe');
+  const bucket = overrideBucket !== undefined ? overrideBucket : (config.STORAGE_BUCKET || 'booyah-private');
 
   try {
-    // 1. Upload probe
-    const uploadRes = await fetch(`${url}/storage/v1/object/${bucket}/${probeKey}`, {
+    validateStorageConfig(url, bucket);
+  } catch (valErr: any) {
+    return { service, passed: false, message: valErr.message };
+  }
+
+  if (!key || key.trim() === '') {
+    return { service, passed: false, message: 'Invalid or missing SUPABASE_SERVICE_KEY: value is required.' };
+  }
+
+  const probeKey = `_healthcheck/probe-${Date.now()}-${crypto.randomBytes(4).toString('hex')}.png`;
+
+  // 1. Upload probe
+  let uploadRes: Response;
+  try {
+    uploadRes = await fetch(`${url}/storage/v1/object/${bucket}/${probeKey}`, {
       method: 'POST',
       headers: {
         Authorization: `Bearer ${key}`,
         apikey: key,
-        'Content-Type': 'text/plain',
+        'Content-Type': 'image/png',
       },
-      body: probeContent,
+      body: TINY_PNG_BUFFER,
     });
+  } catch (err: any) {
+    const safeErr = sanitizeErrorMessage(err.message || 'Connection failed', [key, url]);
+    return { service, passed: false, message: `Upload probe failed: ${safeErr}` };
+  }
 
-    if (!uploadRes.ok) {
-      const status = uploadRes.status;
-      return { service, passed: false, message: `Upload probe failed with HTTP status ${status}.` };
+  if (!uploadRes.ok) {
+    const errText = await extractStorageErrorText(uploadRes);
+    const safeErr = sanitizeErrorMessage(errText, [key, url]);
+    return { service, passed: false, message: `Upload probe failed: ${safeErr}` };
+  }
+
+  // 2. Read-back and Cleanup
+  let readError: string | null = null;
+  let cleanupError: string | null = null;
+
+  try {
+    try {
+      const readRes = await fetch(`${url}/storage/v1/object/${bucket}/${probeKey}`, {
+        method: 'GET',
+        headers: {
+          Authorization: `Bearer ${key}`,
+          apikey: key,
+        },
+      });
+
+      if (!readRes.ok) {
+        const errText = await extractStorageErrorText(readRes);
+        readError = sanitizeErrorMessage(errText, [key, url]);
+      }
+    } catch (err: any) {
+      readError = sanitizeErrorMessage(err.message || 'Connection failed', [key, url]);
     }
+  } finally {
+    // Cleanup always runs even if read back threw or failed
+    try {
+      const deleteRes = await fetch(`${url}/storage/v1/object/${bucket}/${probeKey}`, {
+        method: 'DELETE',
+        headers: {
+          Authorization: `Bearer ${key}`,
+          apikey: key,
+        },
+      });
 
-    // 2. Delete probe
-    const deleteRes = await fetch(`${url}/storage/v1/object/${bucket}/${probeKey}`, {
-      method: 'DELETE',
-      headers: {
-        Authorization: `Bearer ${key}`,
-        apikey: key,
-      },
-    });
-
-    if (!deleteRes.ok) {
-      return {
-        service,
-        passed: false,
-        message: `Probe uploaded, but cleanup delete returned HTTP status ${deleteRes.status}.`,
-      };
+      if (!deleteRes.ok) {
+        const errText = await extractStorageErrorText(deleteRes);
+        cleanupError = sanitizeErrorMessage(errText, [key, url]);
+      }
+    } catch (err: any) {
+      cleanupError = sanitizeErrorMessage(err.message || 'Cleanup connection failed', [key, url]);
     }
+  }
 
+  if (readError && cleanupError) {
     return {
       service,
-      passed: true,
-      message: `Successfully uploaded and deleted probe file in bucket '${bucket}'.`,
+      passed: false,
+      message: `Read-back probe failed: ${readError}. Additionally, cleanup delete failed: ${cleanupError} (probe file left in bucket).`,
     };
-  } catch (err: any) {
-    const safeMsg = err.message ? err.message.replace(key, '[REDACTED]') : 'Network or connection error';
-    return { service, passed: false, message: `Storage probe failed: ${safeMsg}` };
   }
+
+  if (readError) {
+    return {
+      service,
+      passed: false,
+      message: `Read-back probe failed: ${readError}. Probe file was cleaned up successfully.`,
+    };
+  }
+
+  if (cleanupError) {
+    return {
+      service,
+      passed: false,
+      message: `Probe uploaded and read back successfully, but cleanup delete failed: ${cleanupError} (probe file left in bucket).`,
+    };
+  }
+
+  return {
+    service,
+    passed: true,
+    message: `Successfully uploaded, read back, and deleted probe file in bucket '${bucket}'.`,
+  };
 }
 
 export async function checkGmailSmtp(sendToEmail?: string | null, overrideUser?: string, overridePass?: string): Promise<CheckResult> {
@@ -160,7 +312,10 @@ export async function checkGmailSmtp(sendToEmail?: string | null, overrideUser?:
       message: 'SMTP credentials verified successfully (no email sent).',
     };
   } catch (err: any) {
-    const safeError = err.response || err.code || err.message || 'Authentication failed';
+    let safeError = err.response || err.code || err.message || 'Authentication failed';
+    if (pass) {
+      safeError = String(safeError).replaceAll(pass, '[REDACTED]');
+    }
     return { service, passed: false, message: `SMTP verification failed: ${safeError}` };
   }
 }

@@ -171,7 +171,7 @@ export const CreateMatch: React.FC = () => {
                 M{createdMatch.id}
               </span>
               <span className="text-xs uppercase tracking-wider font-bold px-2.5 py-1 rounded bg-slate-800 text-slate-300 border border-slate-700">
-                {createdMatch.status}
+                {createdMatch.status.replace('_', ' ')}
               </span>
             </div>
             <span className="text-xs text-slate-400">

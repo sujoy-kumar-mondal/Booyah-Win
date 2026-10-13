@@ -701,6 +701,40 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     expect(u1W.addMoney).toBe(1000);
   });
 
+  it('auto-cancels expired matches past start_time that never went live and refuses openRoomStaff', async () => {
+    const admin = await createStaff('admin');
+    const tierId = await createSoloBRTier({ entryFee: '10.00', minPlayers: 1 });
+    const startTime = new Date(Date.now() + 3600000).toISOString();
+    const match = await createMatchStaff(admin.id, { tierId, startTime });
+
+    const u1 = await createUser();
+    await setWallet(u1.id, 1000, 0, 0);
+    await joinMatchSolo(u1.id, match.id);
+
+    // Fast-forward start_time into the past
+    await query(
+      `UPDATE matches SET start_time = now() - INTERVAL '30 minutes' WHERE id = $1`,
+      [match.id]
+    );
+
+    // Attempting to open room for an expired match must be refused
+    await expect(
+      openRoomStaff(admin.id, match.id, 'ROOM123', 'PASS123')
+    ).rejects.toThrow(/expired/i);
+
+    // Run scheduler tick
+    const tickRes = await runSchedulerTick();
+    expect(tickRes.cancelledMatchesCount).toBeGreaterThanOrEqual(1);
+
+    // Verify match is cancelled and refund issued
+    const mDb = await query(`SELECT status, cancel_reason FROM matches WHERE id = $1`, [match.id]);
+    expect(mDb.rows[0].status).toBe('cancelled');
+    expect(mDb.rows[0].cancel_reason).toBe('Match start time expired');
+
+    const u1W = await getWallet(u1.id);
+    expect(u1W.addMoney).toBe(1000);
+  });
+
   // ─── 14. Ledger reconciliation after teams, disbands and cancels ──────────────
   it('ledger reconciliation after teams, disbands and cancels', async () => {
     const admin = await createStaff('admin');
@@ -850,8 +884,8 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     expect(teamDb.rows[0].status).toBe('confirmed');
   });
 
-  // ─── 18. Change #6: goLiveStaff rejects underfilled match unless caller is admin ─
-  it('go-live rejects an underfilled match unless caller is admin', async () => {
+  // ─── 18. Match cannot go live until minimum players requirement is fulfilled ─
+  it("go-live rejects an underfilled match until minimum players requirement is fulfilled", async () => {
     const admin = await createStaff('admin');
     const employee = await createStaff('employee');
     const tierId = await createSoloBRTier({ minPlayers: 10 });
@@ -866,12 +900,24 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     await setWallet(u1.id, 1000, 0, 0);
     await joinMatchSolo(u1.id, match.id);
 
-    // Employee cannot force live -> 403 FORBIDDEN
+    // Employee cannot force live -> 400 INVALID_TRANSITION
     await expect(
       goLiveStaff(employee.id, match.id, employee.role)
-    ).rejects.toMatchObject({ code: ErrorCodes.FORBIDDEN, statusCode: 403 });
+    ).rejects.toMatchObject({ code: ErrorCodes.INVALID_TRANSITION, statusCode: 400 });
 
-    // Admin can force live -> 200
+    // Admin also CANNOT force live when underfilled -> 400 INVALID_TRANSITION
+    await expect(
+      goLiveStaff(admin.id, match.id, admin.role)
+    ).rejects.toMatchObject({ code: ErrorCodes.INVALID_TRANSITION, statusCode: 400 });
+
+    // Fill remaining 9 players so min is reached (10/10)
+    for (let i = 2; i <= 10; i++) {
+      const u = await createUser();
+      await setWallet(u.id, 1000, 0, 0);
+      await joinMatchSolo(u.id, match.id);
+    }
+
+    // Now min requirement is fulfilled -> goes live successfully!
     await expect(
       goLiveStaff(admin.id, match.id, admin.role)
     ).resolves.toBeUndefined();

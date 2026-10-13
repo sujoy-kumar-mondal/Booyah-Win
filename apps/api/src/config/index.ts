@@ -1,3 +1,4 @@
+import fs from 'node:fs';
 import dotenv from 'dotenv';
 import path from 'path';
 import { z } from 'zod';
@@ -28,7 +29,77 @@ const envSchema = z.object({
   FILE_URL_SECRET: z.string().optional(),
   DATABASE_SSL: z.string().optional(),
   DATABASE_SSL_CA: z.string().optional(),
+  DATABASE_SSL_CA_BASE64: z.string().optional(),
+  DATABASE_SSL_CA_FILE: z.string().optional(),
 });
+
+function validateAndNormalizePem(raw: string): string {
+  const normalized = raw.replace(/\r\n/g, '\n').trim();
+  if (
+    !normalized.includes('-----BEGIN CERTIFICATE-----') ||
+    !normalized.includes('-----END CERTIFICATE-----')
+  ) {
+    throw new Error('Invalid CA certificate: malformed PEM format.');
+  }
+  return normalized;
+}
+
+export function resolveDatabaseSslCa(
+  env: Record<string, string | undefined> = process.env
+): string | undefined {
+  const sources: { name: string; cert: string }[] = [];
+
+  // 1. DATABASE_SSL_CA
+  const rawCa = env.DATABASE_SSL_CA?.trim();
+  if (rawCa && rawCa !== 'undefined') {
+    sources.push({ name: 'DATABASE_SSL_CA', cert: validateAndNormalizePem(rawCa) });
+  }
+
+  // 2. DATABASE_SSL_CA_BASE64
+  const b64Ca = env.DATABASE_SSL_CA_BASE64?.trim();
+  if (b64Ca && b64Ca !== 'undefined') {
+    let decoded: string;
+    try {
+      decoded = Buffer.from(b64Ca, 'base64').toString('utf-8');
+    } catch {
+      throw new Error('Invalid CA certificate: malformed PEM format.');
+    }
+    sources.push({ name: 'DATABASE_SSL_CA_BASE64', cert: validateAndNormalizePem(decoded) });
+  }
+
+  // 3. DATABASE_SSL_CA_FILE
+  const fileCa = env.DATABASE_SSL_CA_FILE?.trim();
+  if (fileCa && fileCa !== 'undefined') {
+    try {
+      if (!fs.existsSync(fileCa)) {
+        throw new Error('DATABASE_SSL_CA_FILE was not found.');
+      }
+      const content = fs.readFileSync(fileCa, 'utf-8');
+      sources.push({ name: 'DATABASE_SSL_CA_FILE', cert: validateAndNormalizePem(content) });
+    } catch (err: any) {
+      if (err.message === 'Invalid CA certificate: malformed PEM format.') {
+        throw err;
+      }
+      throw new Error('DATABASE_SSL_CA_FILE was not found.');
+    }
+  }
+
+  if (sources.length === 0) {
+    return undefined;
+  }
+
+  // Check if multiple sources were provided and differ
+  const firstCert = sources[0].cert;
+  for (let i = 1; i < sources.length; i++) {
+    if (sources[i].cert !== firstCert) {
+      throw new Error(
+        'Multiple conflicting CA certificates provided in environment variables (DATABASE_SSL_CA, DATABASE_SSL_CA_BASE64, DATABASE_SSL_CA_FILE). Refusing to start.'
+      );
+    }
+  }
+
+  return firstCert;
+}
 
 export function validateTestDatabaseUrl(url: string | undefined): string {
   if (!url) {
@@ -62,7 +133,47 @@ export function validateTestDatabaseUrl(url: string | undefined): string {
   return url;
 }
 
+export const KNOWN_DEV_PLACEHOLDERS = new Set<string>([
+  '',
+  'changeme',
+  'placeholder',
+  'secret',
+  'password',
+  'admin123',
+  'dev_secret',
+  'development_secret',
+  'your_secret_here',
+  'your-secret-here',
+  'replace_me',
+  'replace-me',
+  'test_jwt_secret_must_be_at_least_32_characters_long_for_security',
+  'test_otp_hmac_secret_must_be_at_least_32_characters_long',
+  'test_file_url_secret_must_be_at_least_32_characters_long',
+  'dummy_secret_service_key',
+  'cron_secret',
+  'cron_super_secret_token_1234567890_abcdefg',
+  'test_cron_secret',
+  'short_otp_secret',
+  'short_file_secret',
+  'too_short_jwt',
+  'test_jwt_secret',
+  'test_otp_secret',
+]);
+
+function assertNotPlaceholder(name: string, val: string | undefined): void {
+  if (!val || KNOWN_DEV_PLACEHOLDERS.has(val.trim())) {
+    throw new Error(`Production startup check failed: ${name} equals a known development placeholder. Use a secure production secret.`);
+  }
+}
+
 export function validateProductionEnv(env: Record<string, string | undefined> = process.env): void {
+  // 0. Render Environment Enforcement
+  if (env.RENDER === 'true' || env.RENDER === '1') {
+    if (env.NODE_ENV !== 'production') {
+      throw new Error(`Invalid environment: NODE_ENV must be set to "production" on Render (got "${env.NODE_ENV || 'undefined'}").`);
+    }
+  }
+
   // 1. DATABASE_URL
   if (!env.DATABASE_URL || env.DATABASE_URL.trim() === '') {
     throw new Error('Missing required environment variable: DATABASE_URL');
@@ -72,16 +183,19 @@ export function validateProductionEnv(env: Record<string, string | undefined> = 
   }
 
   // 2. JWT_SECRET
+  assertNotPlaceholder('JWT_SECRET', env.JWT_SECRET);
   if (!env.JWT_SECRET || env.JWT_SECRET.length < 32) {
     throw new Error('Invalid or missing environment variable: JWT_SECRET must be at least 32 characters');
   }
 
   // 3. OTP_HMAC_SECRET
+  assertNotPlaceholder('OTP_HMAC_SECRET', env.OTP_HMAC_SECRET);
   if (!env.OTP_HMAC_SECRET || env.OTP_HMAC_SECRET.length < 32) {
     throw new Error('Invalid or missing environment variable: OTP_HMAC_SECRET must be at least 32 characters');
   }
 
   // 4. FIELD_ENCRYPTION_KEY (must be exactly 32 bytes when base64 decoded)
+  assertNotPlaceholder('FIELD_ENCRYPTION_KEY', env.FIELD_ENCRYPTION_KEY);
   if (!env.FIELD_ENCRYPTION_KEY || env.FIELD_ENCRYPTION_KEY.trim() === '') {
     throw new Error('Missing required environment variable: FIELD_ENCRYPTION_KEY');
   }
@@ -94,7 +208,7 @@ export function validateProductionEnv(env: Record<string, string | undefined> = 
     throw new Error('Invalid environment variable: FIELD_ENCRYPTION_KEY must be a base64 string of exactly 32 bytes');
   }
 
-  // 5. CORS_ORIGINS (no wildcards)
+  // 5. CORS_ORIGINS (no wildcards and HTTPS only in production)
   if (!env.CORS_ORIGINS || env.CORS_ORIGINS.trim() === '') {
     throw new Error('Missing required environment variable: CORS_ORIGINS');
   }
@@ -102,11 +216,15 @@ export function validateProductionEnv(env: Record<string, string | undefined> = 
   if (origins.some((o) => o === '*' || o.includes('*'))) {
     throw new Error('Invalid environment variable: CORS_ORIGINS must not contain wildcard (*)');
   }
+  if (origins.some((o) => o.startsWith('http://'))) {
+    throw new Error('Invalid environment variable: CORS_ORIGINS must not contain insecure http:// origins in production');
+  }
 
   // 6. Supabase settings
   if (!env.SUPABASE_URL || env.SUPABASE_URL.trim() === '') {
     throw new Error('Missing required environment variable: SUPABASE_URL');
   }
+  assertNotPlaceholder('SUPABASE_SERVICE_KEY', env.SUPABASE_SERVICE_KEY);
   if (!env.SUPABASE_SERVICE_KEY || env.SUPABASE_SERVICE_KEY.trim() === '') {
     throw new Error('Missing required environment variable: SUPABASE_SERVICE_KEY');
   }
@@ -115,16 +233,22 @@ export function validateProductionEnv(env: Record<string, string | undefined> = 
   if (!env.GMAIL_USER || env.GMAIL_USER.trim() === '') {
     throw new Error('Missing required environment variable: GMAIL_USER');
   }
+  assertNotPlaceholder('GMAIL_APP_PASSWORD', env.GMAIL_APP_PASSWORD);
   if (!env.GMAIL_APP_PASSWORD || env.GMAIL_APP_PASSWORD.trim() === '') {
     throw new Error('Missing required environment variable: GMAIL_APP_PASSWORD');
   }
 
   // 8. CRON_SECRET
+  assertNotPlaceholder('CRON_SECRET', env.CRON_SECRET);
   if (!env.CRON_SECRET || env.CRON_SECRET.trim() === '') {
     throw new Error('Missing required environment variable: CRON_SECRET');
   }
+  if (env.CRON_SECRET.length < 16) {
+    throw new Error('Invalid environment variable: CRON_SECRET must be at least 16 characters');
+  }
 
   // 9. FILE_URL_SECRET
+  assertNotPlaceholder('FILE_URL_SECRET', env.FILE_URL_SECRET);
   if (!env.FILE_URL_SECRET || env.FILE_URL_SECRET.length < 32) {
     throw new Error('Invalid or missing environment variable: FILE_URL_SECRET must be at least 32 characters');
   }
@@ -206,7 +330,7 @@ export const config = {
     return process.env.DATABASE_SSL === 'true';
   },
   get DATABASE_SSL_CA() {
-    return process.env.DATABASE_SSL_CA || '';
+    return resolveDatabaseSslCa(process.env) || '';
   },
   get FILE_URL_SECRET() {
     return (

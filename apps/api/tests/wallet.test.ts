@@ -32,6 +32,7 @@ import {
 import { submitDeposit, listUserDeposits } from '../src/modules/wallet/deposit.service.js';
 import {
   approveDeposit,
+  verifyDeposit,
   rejectDeposit,
 } from '../src/modules/wallet/deposit.staff.service.js';
 import {
@@ -376,9 +377,13 @@ describe('needs_admin threshold', () => {
     const employee = await createStaff('employee');
     const depId    = await createPendingDeposit(u.id, '600.00');
 
+    // In two-step approvals, employee verifies
+    await verifyDeposit(employee.id, employee.email, 'employee', depId);
+
+    // But employee cannot give final approval (admin only)
     await expect(
       approveDeposit(employee.id, employee.email, 'employee', depId)
-    ).rejects.toMatchObject({ code: 'ADMIN_APPROVAL_REQUIRED' });
+    ).rejects.toMatchObject({ code: 'FORBIDDEN', statusCode: 403 });
   });
 
   it('admin can approve high-value deposit', async () => {
@@ -1047,10 +1052,10 @@ describe('Approval-time dynamic re-check of admin_approval_threshold', () => {
     // Admin lowers threshold to 500.00
     await query(`UPDATE app_settings SET value = '500.00' WHERE key = 'admin_approval_threshold'`);
 
-    // Employee tries to approve -> approval-time recheck catches 600 >= 500 and rejects with ADMIN_APPROVAL_REQUIRED
+    // Under two-step approvals, employee cannot approve any deposit (admin-only)
     await expect(
       approveDeposit(employee.id, employee.email, 'employee', depId)
-    ).rejects.toMatchObject({ code: 'ADMIN_APPROVAL_REQUIRED', statusCode: 403 });
+    ).rejects.toMatchObject({ code: 'FORBIDDEN', statusCode: 403 });
   });
 });
 

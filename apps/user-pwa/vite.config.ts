@@ -4,22 +4,74 @@ import { VitePWA } from 'vite-plugin-pwa';
 import path from 'path';
 import { pwaWorkboxConfig } from './src/pwaConfig.js';
 
-function cspHtmlPlugin() {
+function cspAndHeadersPlugin() {
   return {
-    name: 'csp-html-plugin',
-    transformIndexHtml(html: string) {
+    name: 'csp-and-headers-plugin',
+    transformIndexHtml(html: string, ctx: any) {
+      const isDev = !ctx.bundle; // true in vite dev server, false in vite build
       const apiOrigin = (process.env.VITE_API_ORIGIN || process.env.VITE_API_URL || '').trim();
       const storageOrigin = (process.env.VITE_STORAGE_ORIGIN || '').trim();
+
+      // Production connect-src: exactly 'self' plus the single API origin from VITE_API_ORIGIN (no wildcards)
+      // Dev mode: allows only 'self' and Vite's hot-reload WebSocket for port 5173
+      const connectSrc = isDev
+        ? `ws://localhost:5173`
+        : apiOrigin;
+
       return html
+        .replace('%CONNECT_SRC%', connectSrc)
         .replace('%VITE_API_ORIGIN%', apiOrigin)
         .replace('%VITE_STORAGE_ORIGIN%', storageOrigin);
+    },
+    generateBundle() {
+      const apiOrigin = (process.env.VITE_API_ORIGIN || process.env.VITE_API_URL || '').trim();
+      const storageOrigin = (process.env.VITE_STORAGE_ORIGIN || '').trim();
+      const connectSrc = `connect-src 'self' ${apiOrigin}`.trim();
+      const imgSrc = `img-src 'self' blob: ${storageOrigin}`.trim();
+
+      const headersContent = [
+        '# Cache control for immutable hashed assets',
+        '/assets/*',
+        '  Cache-Control: public, max-age=31536000, immutable',
+        '',
+        '# Cache control for entrypoints and service worker',
+        '/index.html',
+        '  Cache-Control: no-cache, no-store, must-revalidate',
+        '',
+        '/sw.js',
+        '  Cache-Control: no-cache, no-store, must-revalidate',
+        '',
+        '/registerSW.js',
+        '  Cache-Control: no-cache, no-store, must-revalidate',
+        '',
+        '# Global security headers',
+        '/*',
+        '  X-Frame-Options: DENY',
+        '  X-Content-Type-Options: nosniff',
+        '  Referrer-Policy: strict-origin-when-cross-origin',
+        '  Permissions-Policy: camera=(), microphone=(), geolocation=()',
+        `  Content-Security-Policy: default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self' data:; ${imgSrc}; ${connectSrc}; object-src 'none'; base-uri 'self'; form-action 'self'; frame-ancestors 'none';`,
+        ''
+      ].join('\n');
+
+      this.emitFile({
+        type: 'asset',
+        fileName: '_headers',
+        source: headersContent,
+      });
+
+      this.emitFile({
+        type: 'asset',
+        fileName: '_redirects',
+        source: '/*    /index.html   200\n',
+      });
     },
   };
 }
 
 export default defineConfig({
   plugins: [
-    cspHtmlPlugin(),
+    cspAndHeadersPlugin(),
     react(),
     VitePWA({
       registerType: 'autoUpdate',

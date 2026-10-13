@@ -1,11 +1,16 @@
 import { createApp } from './app.js';
 import { config, validateProductionEnv } from './config/index.js';
-import { closePool } from './db/index.js';
-import { isSchedulerTickRunning } from './modules/matches/scheduler.service.js';
+import {
+  closePool,
+  assertDatabaseConnection,
+  isUntrustedCertificateError,
+  UNTRUSTED_CERT_SAFE_REASON,
+} from './db/index.js';
+import { isSchedulerTickRunning, runSchedulerTick } from './modules/matches/scheduler.service.js';
 import { logger } from './utils/logger.js';
 
-// Production startup check
-if (config.NODE_ENV === 'production') {
+// Production startup check (runs on any host when NODE_ENV=production, or whenever RENDER is true)
+if (config.NODE_ENV === 'production' || process.env.RENDER === 'true' || process.env.RENDER === '1') {
   try {
     validateProductionEnv(process.env);
     logger.info('Production environment validation succeeded');
@@ -15,17 +20,41 @@ if (config.NODE_ENV === 'production') {
   }
 }
 
-const app = createApp();
+// Database startup connectivity check
+try {
+  await assertDatabaseConnection();
+  logger.info('Database connection established successfully');
+} catch (err: any) {
+  if (isUntrustedCertificateError(err) || err.message === UNTRUSTED_CERT_SAFE_REASON) {
+    logger.fatal(UNTRUSTED_CERT_SAFE_REASON);
+  } else {
+    logger.fatal({ err: err.message }, 'Failed to connect to database at startup.');
+  }
+  process.exit(1);
+}
 
-const server = app.listen(config.PORT, () => {
-  logger.info(`Booyah Win API server running on port ${config.PORT} [NODE_ENV=${config.NODE_ENV}]`);
+const app = createApp();
+const port = Number(process.env.PORT) || config.PORT || 3000;
+
+const server = app.listen(port, '0.0.0.0', () => {
+  logger.info(`Booyah Win API server running on port ${port} (0.0.0.0) [NODE_ENV=${config.NODE_ENV}]`);
 });
+
+// Background scheduler tick timer (runs every 30 seconds to auto-cancel expired matches, cleanup stale OTPs, etc.)
+const SCHEDULER_TICK_INTERVAL_MS = 30_000;
+const schedulerTimer = setInterval(() => {
+  runSchedulerTick().catch((err) => {
+    logger.error({ err: err.message }, 'Background scheduler tick execution error');
+  });
+}, SCHEDULER_TICK_INTERVAL_MS);
+schedulerTimer.unref();
 
 let isShuttingDown = false;
 
 async function gracefulShutdown(signal: string) {
   if (isShuttingDown) return;
   isShuttingDown = true;
+  clearInterval(schedulerTimer);
   logger.info({ signal }, 'Graceful shutdown initiated. Stopping new HTTP connections...');
 
   // Fallback timer to force exit if hanging

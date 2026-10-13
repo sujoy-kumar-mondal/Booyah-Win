@@ -57,6 +57,7 @@ describe('Admin Audit Logs Page', () => {
             {
               id: '999',
               staffId: '1',
+              staffName: 'Admin Sujoy',
               action: 'balance_adjusted',
               targetType: 'user',
               targetId: '42',
@@ -90,8 +91,16 @@ describe('Admin Audit Logs Page', () => {
     );
 
     await waitFor(() => {
-      expect(screen.getByText('balance_adjusted')).toBeInTheDocument();
+      expect(screen.getByText('Balance Adjusted')).toBeInTheDocument();
     });
+
+    // Verify staff name and ID are rendered
+    expect(screen.getByText('Admin Sujoy')).toBeInTheDocument();
+    expect(screen.getByText('ID: #1')).toBeInTheDocument();
+
+    // Verify action options render human-friendly labels with valid enum values
+    expect(screen.getByRole('option', { name: 'Deposit Approved' })).toHaveValue('deposit_approved');
+    expect(screen.getByRole('option', { name: 'Balance Adjusted' })).toHaveValue('balance_adjusted');
 
     // 1. Verify ALLOWLISTED keys ARE present in DOM
     expect(screen.getByText('Legitimate compensation reason')).toBeInTheDocument();

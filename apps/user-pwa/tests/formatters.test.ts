@@ -3,6 +3,8 @@ import {
   formatIndianRupees,
   formatISTDateTime,
   formatCooldownMessage,
+  formatGameMode,
+  formatMatchStatus,
 } from '../src/utils/formatters.js';
 
 describe('formatIndianRupees (Pure String Manipulation)', () => {
@@ -60,5 +62,43 @@ describe('formatISTDateTime & formatCooldownMessage', () => {
   it('returns null when availableAt is null or undefined', () => {
     expect(formatCooldownMessage(null)).toBeNull();
     expect(formatCooldownMessage(undefined)).toBeNull();
+  });
+});
+
+describe('formatGameMode', () => {
+  it('formats BATTLE_ROYALE without underscores to BATTLE ROYALE', () => {
+    expect(formatGameMode('BATTLE_ROYALE')).toBe('BATTLE ROYALE');
+  });
+
+  it('formats battle_royale to Battle Royale', () => {
+    expect(formatGameMode('battle_royale')).toBe('Battle Royale');
+  });
+
+  it('formats CLASH_SQUAD and clash_squad without underscores', () => {
+    expect(formatGameMode('CLASH_SQUAD')).toBe('CLASH SQUAD');
+    expect(formatGameMode('clash_squad')).toBe('Clash Squad');
+  });
+
+  it('handles null and undefined gracefully', () => {
+    expect(formatGameMode(null)).toBe('');
+    expect(formatGameMode(undefined)).toBe('');
+  });
+});
+
+describe('formatMatchStatus', () => {
+  it('formats room_open without underscores to ROOM OPEN', () => {
+    expect(formatMatchStatus('room_open')).toBe('ROOM OPEN');
+  });
+
+  it('formats other statuses to uppercase strings', () => {
+    expect(formatMatchStatus('upcoming')).toBe('UPCOMING');
+    expect(formatMatchStatus('live')).toBe('LIVE');
+    expect(formatMatchStatus('completed')).toBe('COMPLETED');
+    expect(formatMatchStatus('cancelled')).toBe('CANCELLED');
+  });
+
+  it('handles null and undefined gracefully', () => {
+    expect(formatMatchStatus(null)).toBe('');
+    expect(formatMatchStatus(undefined)).toBe('');
   });
 });

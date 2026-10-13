@@ -4,6 +4,7 @@ import { BrowserRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { AuthProvider } from './context/AuthContext.js';
 import { InvitesProvider } from './context/InvitesContext.js';
+import { MaintenanceProvider } from './context/MaintenanceContext.js';
 import { App } from './App.js';
 import './index.css';
 
@@ -22,7 +23,9 @@ ReactDOM.createRoot(document.getElementById('root')!).render(
       <BrowserRouter>
         <AuthProvider>
           <InvitesProvider>
-            <App />
+            <MaintenanceProvider>
+              <App />
+            </MaintenanceProvider>
           </InvitesProvider>
         </AuthProvider>
       </BrowserRouter>

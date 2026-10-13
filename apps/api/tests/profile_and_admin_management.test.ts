@@ -788,6 +788,7 @@ describe('Milestone 8: History, Profile, Staff Dashboard & Admin Management', ()
         .send({ wallet: 'add_money', amount: '50.00', reason: 'Goodwill credit bonus' })
         .expect(200);
 
+      expect(creditRes.body.data.amount).toBe('50.00');
       expect(creditRes.body.data.balances.addMoney).toBe('50.00');
       expect(creditRes.body.data.balances.total).toBe('50.00');
 
@@ -806,6 +807,7 @@ describe('Milestone 8: History, Profile, Staff Dashboard & Admin Management', ()
         .send({ wallet: 'add_money', amount: '-20.00', reason: 'Correction clawback' })
         .expect(200);
 
+      expect(debitRes.body.data.amount).toBe('-20.00');
       expect(debitRes.body.data.balances.addMoney).toBe('30.00');
       expect(debitRes.body.data.balances.total).toBe('30.00');
 
@@ -817,6 +819,15 @@ describe('Milestone 8: History, Profile, Staff Dashboard & Admin Management', ()
         .expect(402);
 
       expect(overdraftRes.body.error.code).toBe(ErrorCodes.LOW_BALANCE);
+
+      // Credit with integer string (e.g. '100') formats response amount as 2-decimal '100.00'
+      const intCreditRes = await request(app)
+        .post(`/api/v1/admin/users/${user.id}/adjust`)
+        .set('Authorization', `Bearer ${adminToken}`)
+        .send({ wallet: 'winning', amount: '100', reason: 'Integer format test' })
+        .expect(200);
+      expect(intCreditRes.body.data.amount).toBe('100.00');
+      expect(intCreditRes.body.data.balances.winning).toBe('100.00');
     });
 
     it('GET /admin/users/:id returns user detail, wallets, recent ledger, and match history', async () => {

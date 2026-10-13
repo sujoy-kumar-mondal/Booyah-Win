@@ -97,11 +97,10 @@ export const Wallet: React.FC = () => {
               type="button"
               onClick={() => switchTab('add')}
               data-testid="quick-add-money-btn"
-              className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-all ${
-                activeTab === 'add'
+              className={`flex items-center justify-center gap-2 rounded-xl py-2.5 text-xs font-bold transition-all ${activeTab === 'add'
                   ? 'bg-emerald-400 text-slate-950 ring-2 ring-emerald-500 shadow-md'
                   : 'bg-emerald-500 text-slate-950 hover:bg-emerald-400 active:scale-[0.98]'
-              }`}
+                }`}
             >
               <PlusCircle className="h-4 w-4" />
               Add Money
@@ -110,11 +109,10 @@ export const Wallet: React.FC = () => {
               type="button"
               onClick={() => switchTab('withdraw')}
               data-testid="quick-withdraw-btn"
-              className={`flex items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-bold transition-all ${
-                activeTab === 'withdraw'
+              className={`flex items-center justify-center gap-2 rounded-xl border py-2.5 text-xs font-bold transition-all ${activeTab === 'withdraw'
                   ? 'border-emerald-500 bg-slate-800 text-emerald-400 ring-2 ring-emerald-500/50'
                   : 'border-slate-700 bg-slate-800/80 text-slate-200 hover:bg-slate-700 active:scale-[0.98]'
-              }`}
+                }`}
             >
               <ArrowDownToLine className="h-4 w-4" />
               Withdraw
@@ -196,11 +194,10 @@ export const Wallet: React.FC = () => {
           type="button"
           onClick={() => switchTab('overview')}
           data-testid="tab-btn-overview"
-          className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all ${
-            activeTab === 'overview'
+          className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all ${activeTab === 'overview'
               ? 'bg-slate-800 text-emerald-400 shadow'
               : 'text-slate-400 hover:text-slate-200'
-          }`}
+            }`}
         >
           Overview
         </button>
@@ -208,11 +205,10 @@ export const Wallet: React.FC = () => {
           type="button"
           onClick={() => switchTab('add')}
           data-testid="tab-btn-add"
-          className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all ${
-            activeTab === 'add'
+          className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all ${activeTab === 'add'
               ? 'bg-slate-800 text-emerald-400 shadow'
               : 'text-slate-400 hover:text-slate-200'
-          }`}
+            }`}
         >
           Add Money
         </button>
@@ -220,11 +216,10 @@ export const Wallet: React.FC = () => {
           type="button"
           onClick={() => switchTab('withdraw')}
           data-testid="tab-btn-withdraw"
-          className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all ${
-            activeTab === 'withdraw'
+          className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all ${activeTab === 'withdraw'
               ? 'bg-slate-800 text-emerald-400 shadow'
               : 'text-slate-400 hover:text-slate-200'
-          }`}
+            }`}
         >
           Withdraw
         </button>
@@ -232,11 +227,10 @@ export const Wallet: React.FC = () => {
           type="button"
           onClick={() => switchTab('requests')}
           data-testid="tab-btn-requests"
-          className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all ${
-            activeTab === 'requests'
+          className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all ${activeTab === 'requests'
               ? 'bg-slate-800 text-emerald-400 shadow'
               : 'text-slate-400 hover:text-slate-200'
-          }`}
+            }`}
         >
           Requests
         </button>
@@ -244,11 +238,10 @@ export const Wallet: React.FC = () => {
           type="button"
           onClick={() => switchTab('transactions')}
           data-testid="tab-btn-transactions"
-          className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all ${
-            activeTab === 'transactions'
+          className={`flex-1 rounded-lg py-2 text-xs font-bold transition-all ${activeTab === 'transactions'
               ? 'bg-slate-800 text-emerald-400 shadow'
               : 'text-slate-400 hover:text-slate-200'
-          }`}
+            }`}
         >
           History
         </button>

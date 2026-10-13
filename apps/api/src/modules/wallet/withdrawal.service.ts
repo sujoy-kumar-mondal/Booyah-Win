@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Withdrawal service – user-facing.
  *
  * Change #4 – correct operation order inside the transaction:
@@ -23,15 +23,16 @@ import {
 import { query, withTransaction } from '../../db/index.js';
 import { AppError } from '../../middleware/errorHandler.js';
 import { debitWallet } from './wallet.service.js';
+import { RULES } from '../../config/rules.js';
 
-const MIN_WITHDRAWAL_PAISE = 5000; // ₹50
+const MIN_WITHDRAWAL_PAISE = RULES.MIN_WITHDRAWAL_PAISE;
 const UPI_LOCK_HOURS = 48;
 
 export interface WithdrawalDto {
   id: string;
   amount: string;
   upiId: string;
-  status: 'pending' | 'paid' | 'rejected';
+  status: 'pending' | 'employee_approved' | 'paid' | 'rejected';
   rejectReason: string | null;
   payoutRef: string | null;
   createdAt: string;

@@ -6,4 +6,7 @@ build
 coverage
 *.log
 uploads/
-apps/api/uploads/
+apps/api/uploads/
+scratch/
+*.dump
+prod-ca-2021.crt

@@ -6,6 +6,7 @@ import { validateWithdrawAmount } from '../../utils/validation.js';
 import { formatIndianRupees } from '../../utils/formatters.js';
 import { ApiError } from '../../api/client.js';
 import { ErrorCodes } from '@booyah/shared';
+import { useMaintenance } from '../../context/MaintenanceContext.js';
 import {
   ArrowDownToLine,
   AlertTriangle,
@@ -24,6 +25,7 @@ interface WithdrawFormProps {
 export const WithdrawForm: React.FC<WithdrawFormProps> = ({ onSuccess, onViewWithdrawals }) => {
   const { user, wallets } = useAuth();
   const queryClient = useQueryClient();
+  const { enabled: isMaintenance } = useMaintenance();
 
   const winningBalance = wallets?.winning || '0.00';
   const savedUpiId = user?.upiId || '';
@@ -359,9 +361,14 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = ({ onSuccess, onViewWit
         </div>
 
         {/* Submit Button (stays disabled until amount valid, UPI matches, and checkbox ticked) */}
+        {isMaintenance && (
+          <p className="text-xs text-amber-400 text-center font-medium" data-testid="withdraw-maintenance-warning">
+            Withdrawals are temporarily disabled during maintenance.
+          </p>
+        )}
         <button
           type="submit"
-          disabled={!isFormValid || withdrawMutation.isPending}
+          disabled={!isFormValid || withdrawMutation.isPending || isMaintenance}
           data-testid="submit-withdraw-btn"
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-bold text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.98] disabled:opacity-40 disabled:pointer-events-none"
         >

@@ -49,6 +49,7 @@ type SlowCallback = (isSlow: boolean) => void;
 const sessionReplacedListeners = new Set<VoidCallback>();
 const unauthenticatedListeners = new Set<VoidCallback>();
 const slowRequestListeners = new Set<SlowCallback>();
+const maintenanceModeListeners = new Set<(msg?: string) => void>();
 
 export function onSessionReplaced(cb: VoidCallback): () => void {
   sessionReplacedListeners.add(cb);
@@ -65,12 +66,21 @@ export function onSlowRequest(cb: SlowCallback): () => void {
   return () => slowRequestListeners.delete(cb);
 }
 
+export function onMaintenanceMode(cb: (msg?: string) => void): () => void {
+  maintenanceModeListeners.add(cb);
+  return () => maintenanceModeListeners.delete(cb);
+}
+
 function notifySessionReplaced(): void {
   sessionReplacedListeners.forEach((cb) => cb());
 }
 
 function notifyUnauthenticated(): void {
   unauthenticatedListeners.forEach((cb) => cb());
+}
+
+function notifyMaintenanceMode(msg?: string): void {
+  maintenanceModeListeners.forEach((cb) => cb(msg));
 }
 
 let activeSlowCount = 0;
@@ -164,6 +174,8 @@ export async function apiClient<T>(endpoint: string, options: RequestOptions = {
       } else if (code === ErrorCodes.UNAUTHENTICATED) {
         clearStoredToken();
         notifyUnauthenticated();
+      } else if (code === ErrorCodes.MAINTENANCE_MODE || res.status === 503) {
+        notifyMaintenanceMode(json.error?.message);
       }
 
       throw new ApiError(code, friendlyMessage, details, res.status);

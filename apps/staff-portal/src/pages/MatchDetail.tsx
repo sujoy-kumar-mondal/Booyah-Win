@@ -91,6 +91,27 @@ export const MatchDetail: React.FC = () => {
 
   const match: MatchDetailStaffDto | undefined = data?.match;
 
+  const enrolledPlayersCount = match?.players?.filter((p) => !p.refundedAt).length ?? (match?.joinedCount ?? 0);
+  const confirmedTeamsCount = match?.teams?.filter((t) => t.status === 'confirmed').length ?? 0;
+
+  let isMatchUnderfilled = false;
+  let underfilledReason = '';
+
+  if (match) {
+    if (match.teamMode === 'solo') {
+      isMatchUnderfilled = enrolledPlayersCount < match.minPlayers;
+      underfilledReason = `Requires at least ${match.minPlayers} players to go live (currently ${enrolledPlayersCount}/${match.minPlayers})`;
+    } else if (match.gameMode === 'clash_squad') {
+      isMatchUnderfilled = confirmedTeamsCount < 2;
+      underfilledReason = `Requires at least 2 confirmed teams to go live (currently ${confirmedTeamsCount}/2)`;
+    } else {
+      const confirmedTeamIds = new Set(match.teams?.filter((t) => t.status === 'confirmed').map((t) => t.id) ?? []);
+      const confirmedPlayersCount = match.players?.filter((p) => !p.refundedAt && p.teamId && confirmedTeamIds.has(p.teamId)).length ?? enrolledPlayersCount;
+      isMatchUnderfilled = confirmedPlayersCount < match.minPlayers;
+      underfilledReason = `Requires at least ${match.minPlayers} confirmed players to go live (currently ${confirmedPlayersCount}/${match.minPlayers})`;
+    }
+  }
+
   const handleCopy = async (text: string, key: string) => {
     const ok = await copyToClipboard(text);
     if (ok) {
@@ -137,6 +158,11 @@ export const MatchDetail: React.FC = () => {
     if (!match || isSubmittingRef.current) return;
 
     try {
+      if (isMatchUnderfilled) {
+        setGoLiveError(underfilledReason);
+        return;
+      }
+
       isSubmittingRef.current = true;
       setIsSubmitting(true);
       setGoLiveError(null);
@@ -146,7 +172,7 @@ export const MatchDetail: React.FC = () => {
       setIsGoLiveModal(false);
       await queryClient.invalidateQueries({ queryKey: ['staff-match-detail', match.id] });
     } catch (err: any) {
-      if (err?.code === 'INVALID_TRANSITION' || err?.status === 409) {
+      if (err?.status === 409) {
         setGoLiveError('This request was already processed');
         await queryClient.invalidateQueries({ queryKey: ['staff-match-detail', match.id] });
       } else {
@@ -275,19 +301,21 @@ export const MatchDetail: React.FC = () => {
 
           {match.status === 'upcoming' && (
             <>
-              <button
-                type="button"
-                onClick={() => {
-                  setRoomIdInput('');
-                  setRoomPasswordInput('');
-                  setOpenRoomError(null);
-                  setIsOpenRoomModal(true);
-                }}
-                className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-sm rounded-lg flex items-center gap-2 transition-colors shadow-lg shadow-amber-500/10"
-              >
-                <DoorOpen className="w-4 h-4" />
-                Open Room
-              </button>
+              {(!match.startTime || new Date(match.startTime).getTime() > Date.now()) && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    setRoomIdInput('');
+                    setRoomPasswordInput('');
+                    setOpenRoomError(null);
+                    setIsOpenRoomModal(true);
+                  }}
+                  className="px-4 py-2 bg-amber-500 hover:bg-amber-400 text-slate-950 font-semibold text-sm rounded-lg flex items-center gap-2 transition-colors shadow-lg shadow-amber-500/10"
+                >
+                  <DoorOpen className="w-4 h-4" />
+                  Open Room
+                </button>
+              )}
               <button
                 type="button"
                 onClick={() => {
@@ -311,9 +339,15 @@ export const MatchDetail: React.FC = () => {
                   setGoLiveError(null);
                   setIsGoLiveModal(true);
                 }}
-                className="px-4 py-2 bg-rose-600 hover:bg-rose-500 text-white font-semibold text-sm rounded-lg flex items-center gap-2 transition-colors shadow-lg shadow-rose-600/10"
+                disabled={isMatchUnderfilled}
+                title={isMatchUnderfilled ? underfilledReason : undefined}
+                className={`px-4 py-2 font-semibold text-sm rounded-lg flex items-center gap-2 transition-colors ${
+                  isMatchUnderfilled
+                    ? 'bg-slate-800 text-slate-500 cursor-not-allowed border border-slate-700'
+                    : 'bg-rose-600 hover:bg-rose-500 text-white shadow-lg shadow-rose-600/10'
+                }`}
               >
-                <Radio className="w-4 h-4" />
+                <Radio className={`w-4 h-4 ${isMatchUnderfilled ? 'text-slate-500' : 'text-white'}`} />
                 Go Live
               </button>
               <button
@@ -361,6 +395,18 @@ export const MatchDetail: React.FC = () => {
         </div>
       </div>
 
+      {match.status === 'room_open' && isMatchUnderfilled && (
+        <div className="p-4 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-200 flex items-start gap-3">
+          <AlertTriangle className="w-5 h-5 text-amber-400 shrink-0 mt-0.5" />
+          <div className="space-y-1">
+            <h4 className="font-semibold text-sm text-amber-300">Minimum Players Requirement Not Fulfilled</h4>
+            <p className="text-xs text-amber-200/80">
+              {underfilledReason}. This match cannot go live until the minimum player requirement is fulfilled.
+            </p>
+          </div>
+        </div>
+      )}
+
       {/* Overview Grid */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
         {/* Match Snapshot Details */}
@@ -397,7 +443,9 @@ export const MatchDetail: React.FC = () => {
             <div>
               <span className="text-xs text-slate-500 block">Player Roster</span>
               <span className="font-medium text-white">
-                {activePlayers.length} / {match.maxPlayers} (Min {match.minPlayers})
+                {match.status === 'cancelled'
+                  ? (match.players?.length ?? match.joinedCount ?? 0)
+                  : activePlayers.length} / {match.maxPlayers} (Min {match.minPlayers})
               </span>
             </div>
           </div>
@@ -706,7 +754,11 @@ export const MatchDetail: React.FC = () => {
           <div className="space-y-0.5">
             <h2 className="text-base font-bold text-white flex items-center gap-2">
               <Users className="w-5 h-5 text-amber-500" />
-              Roster Players ({activePlayers.length} Active / {match.players?.length || 0} Total)
+              Roster Players (
+                {match.status === 'cancelled'
+                  ? `${match.players?.length || 0} Joined (Refunded)`
+                  : `${activePlayers.length} Active / ${match.players?.length || 0} Total`}
+              )
             </h2>
             <p className="text-xs text-slate-400">
               Verified players enrolled in the match custom room.
@@ -881,6 +933,27 @@ export const MatchDetail: React.FC = () => {
               Confirm that players have entered the in-game room and the match has commenced.
             </p>
 
+            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-400 space-y-1">
+              <div>Min Required: <strong className="text-slate-200">{match.minPlayers}</strong></div>
+              <div>
+                {match.gameMode === 'clash_squad' ? (
+                  <>Confirmed Teams: <strong className="text-slate-200">{confirmedTeamsCount}</strong> / 2</>
+                ) : (
+                  <>Enrolled Players: <strong className="text-slate-200">{enrolledPlayersCount}</strong> / {match.minPlayers}</>
+                )}
+              </div>
+            </div>
+
+            {isMatchUnderfilled && (
+              <div className="p-3 bg-amber-500/10 border border-amber-500/30 rounded-lg text-xs text-amber-300 flex items-start gap-2">
+                <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
+                <div>
+                  <strong className="block font-semibold">Minimum Players Requirement Not Fulfilled</strong>
+                  <span>{underfilledReason}. Match cannot go live until requirement is met.</span>
+                </div>
+              </div>
+            )}
+
             {goLiveError && (
               <div className="p-3 bg-red-950/50 border border-red-900 rounded-lg text-xs text-red-200">
                 {goLiveError}
@@ -898,8 +971,8 @@ export const MatchDetail: React.FC = () => {
               <button
                 type="button"
                 onClick={handleGoLiveSubmit}
-                disabled={isSubmitting}
-                className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg disabled:opacity-50"
+                disabled={isSubmitting || isMatchUnderfilled}
+                className="px-5 py-2 bg-rose-600 hover:bg-rose-500 text-white font-bold text-xs rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {isSubmitting ? 'Transitioning...' : 'Confirm Go Live'}
               </button>

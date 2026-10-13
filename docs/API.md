@@ -51,7 +51,7 @@ List endpoints with pagination return cursor parameters:
 ```
 
 ### 1.5 Master Error Codes
-`UNAUTHENTICATED`, `SESSION_REPLACED`, `FORBIDDEN`, `ADMIN_APPROVAL_REQUIRED`, `VALIDATION_ERROR`, `INVALID_OTP`, `OTP_RATE_LIMITED`, `EMAIL_EXISTS`, `MOBILE_EXISTS`, `FF_ID_EXISTS`, `UPI_EXISTS`, `INVALID_REFERRAL`, `FIELD_COOLDOWN`, `IN_ACTIVE_MATCH`, `LOW_BALANCE`, `UTR_EXISTS`, `DEPOSIT_LIMIT`, `WITHDRAWAL_PENDING`, `UPI_RECENTLY_CHANGED`, `MATCH_FULL`, `ALREADY_JOINED`, `MATCH_NOT_JOINABLE`, `TEAM_INVALID`, `INVITE_EXPIRED`, `RESULT_INVALID`, `RESULT_LOCKED`, `NOT_FOUND`, `RATE_LIMITED`, `INTERNAL_ERROR`, `INVALID_TRANSITION`, `DATABASE_BUSY`.
+`UNAUTHENTICATED`, `SESSION_REPLACED`, `FORBIDDEN`, `ADMIN_APPROVAL_REQUIRED`, `ADMINS_APPROVE_DIRECTLY`, `VALIDATION_ERROR`, `INVALID_OTP`, `OTP_RATE_LIMITED`, `EMAIL_EXISTS`, `MOBILE_EXISTS`, `FF_ID_EXISTS`, `UPI_EXISTS`, `INVALID_REFERRAL`, `FIELD_COOLDOWN`, `IN_ACTIVE_MATCH`, `LOW_BALANCE`, `UTR_EXISTS`, `DEPOSIT_LIMIT`, `WITHDRAWAL_PENDING`, `UPI_RECENTLY_CHANGED`, `MATCH_FULL`, `ALREADY_JOINED`, `MATCH_NOT_JOINABLE`, `TEAM_INVALID`, `INVITE_EXPIRED`, `RESULT_INVALID`, `RESULT_LOCKED`, `NOT_FOUND`, `RATE_LIMITED`, `INTERNAL_ERROR`, `INVALID_TRANSITION`, `DATABASE_BUSY`, `MAINTENANCE_MODE`.
 
 ---
 
@@ -85,6 +85,25 @@ List endpoints with pagination return cursor parameters:
 - **Error Responses**:
   - `503`: `{ "status": "error", "database": "disconnected", "timestamp": "..." }`
   - `429 RATE_LIMITED`: Exceeded dedicated health rate limit.
+
+#### `GET /api/v1/status`
+- **Auth**: None
+- **Rate Limit**: Dedicated status rate limit (60 req/min)
+- **Description**: Public endpoint returning maintenance mode status and server timestamp. Includes cache prevention headers (`Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate`, `Pragma: no-cache`, `Expires: 0`). When database is disconnected, safely returns HTTP 200 with `maintenance_enabled: false`, `unknown: true`.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "maintenance_enabled": false,
+      "maintenance_message": "",
+      "maintenance_until": null,
+      "unknown": false,
+      "server_time": "2026-10-13T10:19:39.466Z"
+    }
+  }
+  ```
+- **Error Responses**:
+  - `429 RATE_LIMITED`: Exceeded dedicated status rate limit.
 
 #### `GET /api/v1/support`
 - **Auth**: None
@@ -133,6 +152,43 @@ List endpoints with pagination return cursor parameters:
     }
     ```
 
+#### `GET /api/v1/leaderboard`
+- **Auth**: None (Public)
+- **Rate Limit**: 60 req/min
+- **Description**: Returns top 50 match winners for the current IST week window (Monday 00:00:00 to Sunday 23:59:59 IST). Single-flight 60s server cache invalidated on match result approval, reversal, and user deletion. Only public in-game name (`name`) is exposed; zero private information.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "weekStart": "2026-10-11T18:30:00.000Z",
+      "weekEnd": "2026-10-18T18:29:59.000Z",
+      "generatedAt": "2026-10-13T13:39:20.037Z",
+      "entries": [
+        {
+          "rank": 1,
+          "name": "ProPlayer1",
+          "winnings": "250.00"
+        }
+      ]
+    }
+  }
+  ```
+
+#### `GET /api/v1/rules`
+- **Auth**: None (Public)
+- **Rate Limit**: 60 req/min
+- **Description**: Returns operational game and economy rules (referral bonus amount, cashback entry fee cap percentage, minimum withdrawal amount) read directly from single-source server configuration.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "referralReward": "5.00",
+      "maxCashbackUsagePercent": 5,
+      "minWithdrawal": "50.00"
+    }
+  }
+  ```
+
 #### `GET /api/v1/files/:key`
 - **Auth**: HMAC signed URL (`token` and `expires` query parameters)
 - **Rate Limit**: Global (100 req/min)
@@ -143,6 +199,40 @@ List endpoints with pagination return cursor parameters:
 - **Error Responses**:
   - `403 FORBIDDEN`: Missing, invalid, or expired signature.
   - `404 NOT_FOUND`: File key does not exist or invalid format.
+
+#### `GET /api/v1/status`
+- **Auth**: None
+- **Rate Limit**: Dedicated status rate limit (60 req/min per IP)
+- **Headers**:
+  - `Cache-Control`: `no-store`
+- **Description**: Returns current maintenance status. Always responds with 200 even if database connection fails (`unknown: true`). Polling clients should respect `Retry-After` on 429.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "maintenance": {
+        "enabled": false,
+        "message": "Under scheduled maintenance. Please check back shortly.",
+        "until": null
+      }
+    }
+  }
+  ```
+- **Fallback Response when DB unreachable (200)**:
+  ```json
+  {
+    "data": {
+      "maintenance": {
+        "enabled": false,
+        "message": "Status temporarily unavailable",
+        "until": null,
+        "unknown": true
+      }
+    }
+  }
+  ```
+- **Error Responses**:
+  - `429 RATE_LIMITED`: Exceeded 60 req/min status limit. Returns `Retry-After` header.
 
 ---
 
@@ -475,6 +565,43 @@ List endpoints with pagination return cursor parameters:
   }
   ```
 
+#### `GET /api/v1/me/leaderboard-rank` (and `GET /api/v1/users/me/leaderboard-rank`)
+- **Auth**: `requireUser`
+- **Rate Limit**: 60 req/min
+- **Description**: Returns the authenticated user's own rank and match winnings for the current IST week window (also when outside top 50), or `null` if the user has no match winnings in the current week window.
+- **Success Response (200)**:
+  - When user has winnings:
+    ```json
+    {
+      "data": {
+        "rank": 1,
+        "winnings": "250.00"
+      }
+    }
+    ```
+  - When user has no winnings:
+    ```json
+    {
+      "data": null
+    }
+    ```
+
+#### `GET /api/v1/me/referral-summary` (and `GET /api/v1/users/me/referral-summary`)
+- **Auth**: `requireUser`
+- **Rate Limit**: 60 req/min
+- **Description**: Returns summary counts of the authenticated user's referral performance: `referredCount` (number of registered referrals), `bonusEarnedCount` (number of referrals credited), and `totalBonusEarned` (sum from wallet ledger). Strictly preserves privacy: zero personal details (names, emails, mobiles) of referred users are exposed.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "referralCode": "BOOYAH123",
+      "referredCount": 5,
+      "bonusEarnedCount": 2,
+      "totalBonusEarned": "10.00"
+    }
+  }
+  ```
+
 ---
 
 ### Group 5: Wallet & Transactions
@@ -522,17 +649,18 @@ List endpoints with pagination return cursor parameters:
           "amount": "100.00",
           "utr": "123456789012",
           "screenshotUrl": "/api/v1/files/...",
-          "status": "approved",
+          "status": "pending",
           "rejectReason": null,
           "needsAdmin": false,
           "createdAt": "2026-10-10T12:00:00.000Z",
-          "reviewedAt": "2026-10-10T12:15:00.000Z"
+          "reviewedAt": null
         }
       ],
       "nextCursor": null
     }
   }
   ```
+- **Notes**: `status` is `'pending' | 'employee_approved' | 'approved' | 'rejected'`. Staff identities are never exposed to players.
 
 #### `POST /api/v1/wallet/withdrawals`
 - **Auth**: `requireUser`
@@ -588,6 +716,7 @@ List endpoints with pagination return cursor parameters:
     }
   }
   ```
+- **Notes**: `status` is `'pending' | 'employee_approved' | 'paid' | 'rejected'`. Staff identities are never exposed to players.
 
 #### `GET /api/v1/wallet/transactions`
 - **Auth**: `requireUser`
@@ -877,8 +1006,13 @@ List endpoints with pagination return cursor parameters:
       "pendingDepositsCount": 3,
       "oldestPendingDepositAgeMinutes": 35.5,
       "isOldestDepositOver30Min": true,
+      "employeeApprovedDepositsCount": 1,
+      "oldestEmployeeApprovedDepositAgeMinutes": 10.0,
+      "isOldestEmployeeApprovedDepositOver30Min": false,
       "pendingWithdrawalsCount": 1,
       "oldestPendingWithdrawalAgeMinutes": 1500.0,
+      "employeeApprovedWithdrawalsCount": 0,
+      "oldestEmployeeApprovedWithdrawalAgeMinutes": null,
       "liveMatchesCount": 1,
       "upcomingMatchesCount": 5,
       "roomOpenMatchesCount": 0,
@@ -1138,7 +1272,7 @@ List endpoints with pagination return cursor parameters:
 #### `GET /api/v1/staff/deposits`
 - **Auth**: `requireStaff`
 - **Query Parameters**:
-  - `status`: `'pending' | 'approved' | 'rejected'`
+  - `status`: `'pending' | 'employee_approved' | 'approved' | 'rejected'`
   - `cursor`: string
   - `limit`: number
 - **Success Response (200)**:
@@ -1159,7 +1293,9 @@ List endpoints with pagination return cursor parameters:
           "pendingMinutes": 15,
           "createdAt": "2026-10-10T10:00:00.000Z",
           "reviewedAt": null,
-          "reviewedBy": null
+          "reviewedBy": null,
+          "employeeReviewedAt": null,
+          "employeeReviewedBy": null
         }
       ],
       "nextCursor": null
@@ -1167,10 +1303,24 @@ List endpoints with pagination return cursor parameters:
   }
   ```
 
+#### `POST /api/v1/staff/deposits/:id/verify`
+- **Auth**: `requireStaff` (Employees only; admin calling this gets 403 `ADMINS_APPROVE_DIRECTLY`)
+- **Rate Limit**: 30 req/min per staff user
+- **Validation**: Only pending deposits can be verified. Staff cannot verify their own deposit (`FORBIDDEN`).
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Deposit verified"
+    }
+  }
+  ```
+- **Error Codes**: `ADMINS_APPROVE_DIRECTLY`, `FORBIDDEN`, `VALIDATION_ERROR`, `NOT_FOUND`
+
 #### `POST /api/v1/staff/deposits/:id/approve`
-- **Auth**: `requireStaff`
-- **Rate Limit**: 30 req/min per staff user (Requirement 4)
-- **Validation**: If deposit amount > `admin_approval_threshold`, employees are blocked with `ADMIN_APPROVAL_REQUIRED`. Staff cannot approve their own deposit (`FORBIDDEN`).
+- **Auth**: `requireStaff` (Admin only; employees get 403 `FORBIDDEN`)
+- **Rate Limit**: 30 req/min per staff user
+- **Validation**: Final approval moves money. Admin can approve deposits in `employee_approved` state or directly from `pending` state (audited as `deposit_approved_direct`). Staff cannot approve their own deposit (`FORBIDDEN`).
 - **Success Response (200)**:
   ```json
   {
@@ -1179,18 +1329,18 @@ List endpoints with pagination return cursor parameters:
     }
   }
   ```
-- **Error Codes**: `ADMIN_APPROVAL_REQUIRED`, `FORBIDDEN`, `VALIDATION_ERROR`, `NOT_FOUND`
+- **Error Codes**: `FORBIDDEN`, `VALIDATION_ERROR`, `NOT_FOUND`
 
 #### `POST /api/v1/staff/deposits/:id/reject`
 - **Auth**: `requireStaff`
-- **Rate Limit**: 30 req/min per staff user (Requirement 4)
+- **Rate Limit**: 30 req/min per staff user
 - **Request Body**:
   ```json
   {
     "reason": "Invalid transaction reference"
   }
   ```
-- **Validation**: Rejection reason must be at least 5 characters.
+- **Validation**: Rejection reason must be at least 5 characters. Employees can reject only `pending` deposits; only administrators can reject `employee_approved` deposits (403 `FORBIDDEN`). Staff cannot reject their own deposit (`FORBIDDEN`).
 - **Success Response (200)**:
   ```json
   {
@@ -1199,12 +1349,12 @@ List endpoints with pagination return cursor parameters:
     }
   }
   ```
-- **Error Codes**: `VALIDATION_ERROR`, `NOT_FOUND`
+- **Error Codes**: `FORBIDDEN`, `VALIDATION_ERROR`, `NOT_FOUND`
 
 #### `GET /api/v1/staff/withdrawals`
 - **Auth**: `requireStaff`
 - **Query Parameters**:
-  - `status`: `'pending' | 'paid' | 'rejected'`
+  - `status`: `'pending' | 'employee_approved' | 'paid' | 'rejected'`
   - `cursor`: string
   - `limit`: number
 - **Success Response (200)**:
@@ -1223,7 +1373,9 @@ List endpoints with pagination return cursor parameters:
           "payoutRef": null,
           "createdAt": "2026-10-10T10:00:00.000Z",
           "processedAt": null,
-          "processedBy": null
+          "processedBy": null,
+          "employeeReviewedAt": null,
+          "employeeReviewedBy": null
         }
       ],
       "nextCursor": null
@@ -1231,16 +1383,30 @@ List endpoints with pagination return cursor parameters:
   }
   ```
 
+#### `POST /api/v1/staff/withdrawals/:id/verify`
+- **Auth**: `requireStaff` (Employees only; admin calling this gets 403 `ADMINS_APPROVE_DIRECTLY`)
+- **Rate Limit**: 30 req/min per staff user
+- **Validation**: Only pending withdrawals can be verified. Staff cannot verify their own withdrawal (`FORBIDDEN`).
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Withdrawal verified"
+    }
+  }
+  ```
+- **Error Codes**: `ADMINS_APPROVE_DIRECTLY`, `FORBIDDEN`, `VALIDATION_ERROR`, `NOT_FOUND`
+
 #### `POST /api/v1/staff/withdrawals/:id/mark-paid`
-- **Auth**: `requireStaff`
-- **Rate Limit**: 30 req/min per staff user (Requirement 4)
+- **Auth**: `requireStaff` (Admin only; employees get 403 `FORBIDDEN`)
+- **Rate Limit**: 30 req/min per staff user
 - **Request Body**:
   ```json
   {
     "payoutRef": "BANK-REF-9988"
   }
   ```
-- **Validation**: `payoutRef` is required. High-value withdrawals require admin role. Staff cannot process their own withdrawal (`FORBIDDEN`).
+- **Validation**: `payoutRef` is required. Admin can mark paid withdrawals in `employee_approved` state or directly from `pending` state (audited as `withdrawal_paid_direct`). Staff cannot process their own withdrawal (`FORBIDDEN`).
 - **Success Response (200)**:
   ```json
   {
@@ -1249,18 +1415,18 @@ List endpoints with pagination return cursor parameters:
     }
   }
   ```
-- **Error Codes**: `ADMIN_APPROVAL_REQUIRED`, `FORBIDDEN`, `VALIDATION_ERROR`, `NOT_FOUND`
+- **Error Codes**: `FORBIDDEN`, `VALIDATION_ERROR`, `NOT_FOUND`
 
 #### `POST /api/v1/staff/withdrawals/:id/reject`
 - **Auth**: `requireStaff`
-- **Rate Limit**: 30 req/min per staff user (Requirement 4)
+- **Rate Limit**: 30 req/min per staff user
 - **Request Body**:
   ```json
   {
     "reason": "Invalid UPI VPA"
   }
   ```
-- **Validation**: Rejection reason must be at least 5 characters. Staff cannot reject their own withdrawal (`FORBIDDEN`).
+- **Validation**: Rejection reason must be at least 5 characters. Refunds held amount back to winning wallet. Employees can reject only `pending` withdrawals; only administrators can reject `employee_approved` withdrawals (403 `FORBIDDEN`). Staff cannot reject their own withdrawal (`FORBIDDEN`).
 - **Success Response (200)**:
   ```json
   {
@@ -1270,6 +1436,88 @@ List endpoints with pagination return cursor parameters:
   }
   ```
 - **Error Codes**: `FORBIDDEN`, `VALIDATION_ERROR`, `NOT_FOUND`
+
+#### `GET /api/v1/staff/users`
+- **Auth**: `requireStaff` (Both employees and administrators)
+- **Rate Limit**: Global (100 req/min)
+- **Description**: Search and list users with cursor pagination. Sensitive fields are masked: `mobile` (`******7890`), `upiId` (`****1234@upi`). Restricted strictly by explicit allowlist (omits `dateOfBirth`, `pan`, `aadhaar`, and referral chain `referredBy`).
+- **Query Parameters**:
+  - `q`: string (search by name, email, mobile, or Free Fire ID)
+  - `cursor`: string
+  - `limit`: number
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "items": [
+        {
+          "id": "5",
+          "name": "New Player",
+          "email": "user@example.com",
+          "mobile": "******3299",
+          "ffId": "99887766",
+          "ffName": "NewPlayerPro",
+          "upiId": "user@upi",
+          "isDeleted": false,
+          "deletedAt": null,
+          "createdAt": "2026-10-13T10:19:39.709Z"
+        }
+      ],
+      "nextCursor": null,
+      "hasMore": false
+    }
+  }
+  ```
+- **Error Codes**: `UNAUTHENTICATED`, `FORBIDDEN`
+
+#### `GET /api/v1/staff/users/:id`
+- **Auth**: `requireStaff` (Both employees and administrators)
+- **Rate Limit**: 60 req/min per staff user. Additionally, employees have a daily distinct user view cap (default 300 per day). Exceeding this cap returns 429 `RATE_LIMITED` and logs an audit entry `user_view_limit_exceeded`.
+- **Description**: Retrieves user detail (profile, wallets, recent ledger, recent matches, and pending requests). Masked fields (`mobile`, `upiId`) and explicit profile allowlist apply. Every staff view (employee and admin) is audited as `user_viewed`.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "profile": {
+        "id": "1",
+        "name": "Player One",
+        "email": "user@example.com",
+        "mobile": "******3210",
+        "ffId": "12345678",
+        "ffName": "ProPlayer1",
+        "upiId": "user@upi",
+        "isDeleted": false,
+        "deletedAt": null,
+        "createdAt": "2026-10-13T10:19:39.466Z"
+      },
+      "wallets": {
+        "addMoney": "210.00",
+        "cashback": "0.00",
+        "winning": "150.00",
+        "total": "360.00"
+      },
+      "recentLedger": [
+        {
+          "id": 14,
+          "wallet": "winning",
+          "type": "withdrawal_refund",
+          "amount": "50.00",
+          "balanceAfter": "150.00",
+          "totalAfter": "360.00",
+          "refType": "withdrawal",
+          "refId": "2",
+          "createdAt": "2026-10-13T10:19:39.967Z"
+        }
+      ],
+      "recentMatches": [],
+      "pendingRequests": {
+        "deposits": [],
+        "withdrawals": []
+      }
+    }
+  }
+  ```
+- **Error Codes**: `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED`
 
 ---
 
@@ -1813,7 +2061,7 @@ List endpoints with pagination return cursor parameters:
 
 #### `PATCH /api/v1/admin/settings`
 - **Auth**: `requireAdmin`
-- **Request Body**: Key-value settings map (rejects `payment_qr_key`)
+- **Request Body**: Key-value settings map (rejects `payment_qr_key` and rejects writes to unused `admin_approval_threshold`)
 - **Success Response (200)**:
   ```json
   {
@@ -1861,6 +2109,7 @@ List endpoints with pagination return cursor parameters:
         {
           "id": "43",
           "staffId": "1",
+          "staffName": "Admin User",
           "action": "settings_payment_qr_updated",
           "targetType": "app_settings",
           "targetId": null,

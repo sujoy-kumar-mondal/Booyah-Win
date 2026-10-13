@@ -29,15 +29,17 @@ const walletRateLimit = rateLimit({
   },
 });
 
+import { maintenanceGuard } from '../../middleware/maintenance.js';
+
 // All wallet routes require authentication
 walletRouter.use(authenticateUser);
 
 // Deposits
-walletRouter.post('/deposits', walletRateLimit, screenshotUpload, createDeposit);
+walletRouter.post('/deposits', maintenanceGuard, walletRateLimit, screenshotUpload, createDeposit);
 walletRouter.get('/deposits', getDeposits);
 
 // Withdrawals
-walletRouter.post('/withdrawals', walletRateLimit, createWithdrawal);
+walletRouter.post('/withdrawals', maintenanceGuard, walletRateLimit, createWithdrawal);
 walletRouter.get('/withdrawals', getWithdrawals);
 
 // Transaction history

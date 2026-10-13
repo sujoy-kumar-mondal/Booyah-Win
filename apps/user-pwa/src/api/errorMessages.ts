@@ -35,6 +35,8 @@ export const ERROR_MESSAGES: Record<ErrorCode, string> = {
   [ErrorCodes.INTERNAL_ERROR]: 'An unexpected system error occurred. Please try again.',
   [ErrorCodes.INVALID_TRANSITION]: 'This match action cannot be performed in its current status.',
   [ErrorCodes.DATABASE_BUSY]: 'The server is temporarily busy. Please retry in a few seconds.',
+  [ErrorCodes.ADMINS_APPROVE_DIRECTLY]: 'Admins approve directly',
+  [ErrorCodes.MAINTENANCE_MODE]: 'The platform is currently undergoing scheduled maintenance. Please try again shortly.',
 };
 
 export const DEFAULT_ERROR_MESSAGE = 'An unexpected error occurred. Please try again.';

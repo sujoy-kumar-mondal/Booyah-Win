@@ -19,6 +19,7 @@ import {
   verifyRegistrationToken,
 } from '../../utils/crypto.js';
 import { sendOtpEmail } from '../../utils/email.js';
+import { RULES } from '../../config/rules.js';
 
 export class AuthService {
   /**
@@ -257,8 +258,8 @@ export class AuthService {
       // 7. If referred, insert referral record
       if (referrerId) {
         await client.query(
-          'INSERT INTO referrals (referrer_id, referred_id, reward, credited_at) VALUES ($1, $2, 5, NULL)',
-          [referrerId, userId]
+          'INSERT INTO referrals (referrer_id, referred_id, reward, credited_at) VALUES ($1, $2, $3, NULL)',
+          [referrerId, userId, paiseToString(RULES.REFERRAL_REWARD_PAISE)]
         );
       }
 

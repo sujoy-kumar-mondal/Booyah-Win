@@ -123,4 +123,64 @@ describe('Requirement 3: Join Button & Balance Validation', () => {
       expect(addMoneyLink.getAttribute('href')).toBe('/wallet?tab=add');
     });
   });
+
+  it('updates Join Match button to Already Joined and increments seats when user joins match', async () => {
+    const freshJoinedMatch = {
+      ...mockMatch,
+      hasJoined: true,
+      joinedPlayers: mockMatch.joinedPlayers + 1,
+    };
+
+    vi.spyOn(matchesApi, 'joinMatchSolo').mockResolvedValueOnce({
+      message: 'Successfully joined match!',
+      matchId: mockMatch.id,
+      joinedAt: '2026-10-12T12:00:00Z',
+    });
+    vi.spyOn(matchesApi, 'fetchMatch').mockResolvedValue(freshJoinedMatch);
+
+    const onRefreshMatch = vi.fn();
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <MatchDetailModal
+            match={mockMatch}
+            isOpen={true}
+            onClose={() => {}}
+            onRefreshMatch={onRefreshMatch}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    // Initially shows Join Match button
+    const joinBtn = screen.getByTestId('join-match-btn');
+    expect(joinBtn).toBeInTheDocument();
+    expect(joinBtn.textContent).toContain('Join Match');
+
+    // Click to open SoloJoinDialog
+    fireEvent.click(joinBtn);
+
+    // Confirm Join inside SoloJoinDialog
+    const confirmBtn = screen.getByTestId('confirm-join-btn');
+    expect(confirmBtn).toBeInTheDocument();
+    fireEvent.click(confirmBtn);
+
+    // Done button appears on success
+    await waitFor(() => {
+      expect(screen.getByTestId('close-success-btn')).toBeInTheDocument();
+    });
+
+    // Click Done to return to MatchDetailModal
+    fireEvent.click(screen.getByTestId('close-success-btn'));
+
+    // Now MatchDetailModal displays Already Joined
+    await waitFor(() => {
+      const alreadyJoinedBtn = screen.getByTestId('joined-status-btn');
+      expect(alreadyJoinedBtn).toBeInTheDocument();
+      expect(alreadyJoinedBtn.textContent).toContain('Already Joined');
+      expect(onRefreshMatch).toHaveBeenCalled();
+    });
+  });
 });
+

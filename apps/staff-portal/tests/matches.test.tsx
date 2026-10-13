@@ -281,4 +281,51 @@ describe('Matches List Page', () => {
       expect(screen.getByText('This request was already processed')).toBeInTheDocument();
     });
   });
+
+  it('displays how many users were joined instead of 0 for cancelled matches', async () => {
+    sessionStorage.setItem(STAFF_TOKEN_STORAGE_KEY, 'test-token');
+
+    const cancelledMatch: matchesApi.MatchStaffDto = {
+      id: '104',
+      tierId: '1',
+      gameMode: 'battle_royale',
+      teamMode: 'solo',
+      entryFee: '10.00',
+      killPrice: '5.00',
+      minKillsForReward: 2,
+      positionPrizes: { '1': '50.00' },
+      maxPlayers: 48,
+      minPlayers: 24,
+      startTime: '2026-10-15T18:00:00.000Z',
+      status: 'cancelled',
+      cancelReason: 'Insufficient players',
+      createdBy: '1',
+      createdAt: '2026-10-11T10:00:00.000Z',
+      joinedCount: 5,
+      seatsTaken: 5,
+    };
+
+    vi.spyOn(matchesApi, 'getStaffMatches').mockResolvedValue(
+      loadContractFixture('GET_staff_matches.json', matchListResponseGuard, 'GET /staff/matches', (d) => {
+        d.matches = [cancelledMatch];
+        d.nextCursor = null;
+      })
+    );
+
+    render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <MemoryRouter>
+          <StaffAuthProvider>
+            <Matches />
+          </StaffAuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByText('M104')).toBeInTheDocument();
+    });
+
+    expect(screen.getByText('5 / 48')).toBeInTheDocument();
+  });
 });

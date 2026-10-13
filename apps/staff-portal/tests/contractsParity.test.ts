@@ -177,6 +177,17 @@ describe('Requirement 1, 2, 4: Staff Portal Strict Contract Parity & Guard Cover
         guard: staffGuards.withdrawalListResponseGuard,
         contracts: ['GET_staff_withdrawals.json'],
       },
+      staffActionResponseGuard: {
+        guard: staffGuards.staffActionResponseGuard,
+        contracts: [
+          'POST_staff_deposits_id_verify.json',
+          'POST_staff_deposits_id_approve.json',
+          'POST_staff_deposits_id_reject.json',
+          'POST_staff_withdrawals_id_verify.json',
+          'POST_staff_withdrawals_id_mark-paid.json',
+          'POST_staff_withdrawals_id_reject.json',
+        ],
+      },
       createMatchResponseGuard: {
         guard: z.object({ match: staffGuards.matchStaffDtoGuard }),
         contracts: ['POST_staff_matches.json'],
@@ -232,6 +243,18 @@ describe('Requirement 1, 2, 4: Staff Portal Strict Contract Parity & Guard Cover
       adminAuditLogsResponseGuard: {
         guard: staffGuards.adminAuditLogsResponseGuard,
         contracts: ['GET_admin_audit-logs.json'],
+      },
+      statusResponseGuard: {
+        guard: staffGuards.statusResponseGuard,
+        contracts: ['GET_api_v1_status.json'],
+      },
+      staffUserListResponseGuard: {
+        guard: staffGuards.staffUserListResponseGuard,
+        contracts: ['GET_staff_users.json'],
+      },
+      staffUserDetailResponseGuard: {
+        guard: staffGuards.staffUserDetailResponseGuard,
+        contracts: ['GET_staff_users_id.json'],
       },
     };
 

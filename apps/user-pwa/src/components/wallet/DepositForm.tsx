@@ -9,6 +9,7 @@ import {
 import { ApiError } from '../../api/client.js';
 import { ErrorCodes } from '@booyah/shared';
 import { formatIndianRupees } from '../../utils/formatters.js';
+import { useMaintenance } from '../../context/MaintenanceContext.js';
 import {
   QrCode,
   Copy,
@@ -27,6 +28,7 @@ interface DepositFormProps {
 
 export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDeposits }) => {
   const queryClient = useQueryClient();
+  const { enabled: isMaintenance } = useMaintenance();
 
   const [amount, setAmount] = useState('');
   const [utr, setUtr] = useState('');
@@ -227,7 +229,7 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
         <div>
           <h3 className="text-lg font-bold text-slate-100">Deposit Submitted</h3>
           <p className="mt-1 text-xs text-slate-400 font-medium">
-            Verified within 30 minutes
+            Usually reviewed within 30 minutes, final approval can take a bit longer
           </p>
         </div>
 
@@ -251,7 +253,7 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
           <div className="flex justify-between">
             <span className="text-slate-400">Status:</span>
             <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400 border border-amber-500/20">
-              Pending Verification
+              Under review
             </span>
           </div>
         </div>
@@ -525,9 +527,14 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
         </div>
 
         {/* Submit Button */}
+        {isMaintenance && (
+          <p className="text-xs text-amber-400 text-center font-medium" data-testid="deposit-maintenance-warning">
+            Deposits are temporarily disabled during maintenance.
+          </p>
+        )}
         <button
           type="submit"
-          disabled={!isConfigured || depositMutation.isPending}
+          disabled={!isConfigured || depositMutation.isPending || isMaintenance}
           data-testid="submit-deposit-btn"
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-bold text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.98] disabled:opacity-50 disabled:pointer-events-none"
         >

@@ -1,8 +1,18 @@
-﻿import { Request, Response, NextFunction } from 'express';
+import { Request, Response, NextFunction } from 'express';
 import { ErrorCodes } from '@booyah/shared';
 import { AppError } from '../../middleware/errorHandler.js';
-import { listDepositsStaff, approveDeposit, rejectDeposit } from './deposit.staff.service.js';
-import { listWithdrawalsStaff, markWithdrawalPaid, rejectWithdrawal } from './withdrawal.staff.service.js';
+import {
+  listDepositsStaff,
+  verifyDeposit,
+  approveDeposit,
+  rejectDeposit,
+} from './deposit.staff.service.js';
+import {
+  listWithdrawalsStaff,
+  verifyWithdrawal,
+  markWithdrawalPaid,
+  rejectWithdrawal,
+} from './withdrawal.staff.service.js';
 
 // ─── Deposits ─────────────────────────────────────────────────────────────────
 
@@ -14,6 +24,14 @@ export async function staffGetDeposits(req: Request, res: Response, next: NextFu
     const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : undefined;
     const result = await listDepositsStaff({ status, limit, cursor });
     res.status(200).json({ data: result });
+  } catch (err) { next(err); }
+}
+
+export async function staffVerifyDeposit(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.staff) throw new AppError(ErrorCodes.UNAUTHENTICATED, 'Not authenticated', 401);
+    await verifyDeposit(req.staff.id, req.staff.email, req.staff.role, req.params.id);
+    res.status(200).json({ data: { message: 'Deposit verified' } });
   } catch (err) { next(err); }
 }
 
@@ -30,7 +48,7 @@ export async function staffRejectDeposit(req: Request, res: Response, next: Next
     if (!req.staff) throw new AppError(ErrorCodes.UNAUTHENTICATED, 'Not authenticated', 401);
     const { reason } = req.body as { reason: string };
     if (!reason) throw new AppError(ErrorCodes.VALIDATION_ERROR, 'reason is required', 400);
-    await rejectDeposit(req.staff.id, req.params.id, reason);
+    await rejectDeposit(req.staff.id, req.staff.email, req.staff.role, req.params.id, reason);
     res.status(200).json({ data: { message: 'Deposit rejected' } });
   } catch (err) { next(err); }
 }
@@ -45,6 +63,14 @@ export async function staffGetWithdrawals(req: Request, res: Response, next: Nex
     const cursor = typeof req.query.cursor === 'string' ? req.query.cursor : undefined;
     const result = await listWithdrawalsStaff({ status, limit, cursor });
     res.status(200).json({ data: result });
+  } catch (err) { next(err); }
+}
+
+export async function staffVerifyWithdrawal(req: Request, res: Response, next: NextFunction): Promise<void> {
+  try {
+    if (!req.staff) throw new AppError(ErrorCodes.UNAUTHENTICATED, 'Not authenticated', 401);
+    await verifyWithdrawal(req.staff.id, req.staff.email, req.staff.role, req.params.id);
+    res.status(200).json({ data: { message: 'Withdrawal verified' } });
   } catch (err) { next(err); }
 }
 
@@ -63,7 +89,7 @@ export async function staffRejectWithdrawal(req: Request, res: Response, next: N
     if (!req.staff) throw new AppError(ErrorCodes.UNAUTHENTICATED, 'Not authenticated', 401);
     const { reason } = req.body as { reason: string };
     if (!reason) throw new AppError(ErrorCodes.VALIDATION_ERROR, 'reason is required', 400);
-    await rejectWithdrawal(req.staff.id, req.staff.email, req.params.id, reason);
+    await rejectWithdrawal(req.staff.id, req.staff.email, req.staff.role, req.params.id, reason);
     res.status(200).json({ data: { message: 'Withdrawal rejected' } });
   } catch (err) { next(err); }
 }

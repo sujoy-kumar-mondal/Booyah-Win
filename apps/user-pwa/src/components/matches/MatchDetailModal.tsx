@@ -11,11 +11,14 @@ import {
   Check,
   AlertTriangle,
 } from 'lucide-react';
-import type { MatchUserDto } from '../../api/matches.js';
+import { useNavigate } from 'react-router-dom';
+import { fetchMatch, type MatchUserDto } from '../../api/matches.js';
 import {
   formatIndianRupees,
   formatISTDateTime,
   isTotalBelowFee,
+  formatGameMode,
+  formatMatchStatus,
 } from '../../utils/formatters.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { SoloJoinDialog } from './SoloJoinDialog.js';
@@ -35,13 +38,22 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
   onClose,
   onRefreshMatch,
 }) => {
-  const { wallets } = useAuth();
+  const navigate = useNavigate();
+  const auth = useAuth();
+  const isAuth = Boolean(auth.isAuthenticated ?? auth.user);
+  const wallets = auth.wallets;
   let queryClient: any = null;
   try {
     queryClient = useQueryClient();
   } catch {
     // If rendered outside QueryClientProvider
   }
+
+  const [currentMatch, setCurrentMatch] = useState<MatchUserDto>(match);
+
+  useEffect(() => {
+    setCurrentMatch(match);
+  }, [match]);
 
   const [passwordRevealed, setPasswordRevealed] = useState(false);
   const [copiedField, setCopiedField] = useState<'roomId' | 'roomPassword' | null>(null);
@@ -51,14 +63,24 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
   const [teamFormOpen, setTeamFormOpen] = useState(false);
   const [teamManageMode, setTeamManageMode] = useState<'replace' | 'disband' | null>(null);
 
+  const handleRefresh = async () => {
+    try {
+      const fresh = await fetchMatch(currentMatch.id);
+      setCurrentMatch(fresh);
+    } catch {
+      // Fallback
+    }
+    onRefreshMatch();
+  };
+
   // Requirement 12: Ensure room password is NOT kept in query cache after leaving screen
   useEffect(() => {
     return () => {
       if (queryClient) {
-        queryClient.removeQueries({ queryKey: ['match', match.id] });
+        queryClient.removeQueries({ queryKey: ['match', currentMatch.id] });
       }
     };
-  }, [match.id, queryClient]);
+  }, [currentMatch.id, queryClient]);
 
   if (!isOpen) return null;
 
@@ -85,20 +107,24 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
     }
   };
 
-  const isSolo = match.teamMode.toLowerCase() === 'solo';
+  const isSolo = currentMatch.teamMode.toLowerCase() === 'solo';
   const isBR =
-    match.gameMode.toLowerCase().includes('battle') || match.gameMode.toLowerCase() === 'br';
+    currentMatch.gameMode.toLowerCase().includes('battle') || currentMatch.gameMode.toLowerCase() === 'br';
 
-  const canJoinStatus = match.status === 'upcoming' || match.status === 'room_open';
-  const isFull = match.joinedPlayers >= match.maxPlayers;
-  const isJoined = match.hasJoined;
+  const canJoinStatus = currentMatch.status === 'upcoming' || currentMatch.status === 'room_open';
+  const isFull = currentMatch.joinedPlayers >= currentMatch.maxPlayers;
+  const isJoined = currentMatch.hasJoined;
 
-  const lowBalanceSoftHint = !isJoined && isTotalBelowFee(wallets?.total, match.entryFee);
+  const lowBalanceSoftHint = !isJoined && isTotalBelowFee(wallets?.total, currentMatch.entryFee);
 
   const showRoomCredentials =
-    isJoined && (match.status === 'room_open' || match.status === 'live');
+    isJoined && (currentMatch.status === 'room_open' || currentMatch.status === 'live');
 
   const handleOpenJoinFlow = () => {
+    if (!isAuth) {
+      navigate('/login');
+      return;
+    }
     if (isSolo) {
       setSoloDialogOpen(true);
     } else {
@@ -120,7 +146,7 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
           <div className="flex items-center justify-between pb-3 border-b border-slate-800">
             <div>
               <span className="inline-block rounded bg-emerald-500/10 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/20 uppercase tracking-wide">
-                {match.gameMode} • {match.teamMode}
+                {formatGameMode(currentMatch.gameMode)} • {currentMatch.teamMode}
               </span>
               <h2 className="mt-1 text-base font-bold text-slate-100">Match Details</h2>
             </div>
@@ -142,7 +168,7 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                   <Clock className="h-3.5 w-3.5 text-slate-400" /> Start Time (IST)
                 </span>
                 <span data-testid="match-start-time" className="mt-1 block font-semibold text-slate-200">
-                  {formatISTDateTime(match.startTime)}
+                  {formatISTDateTime(currentMatch.startTime)}
                 </span>
               </div>
               <div className="rounded-xl bg-slate-800/40 p-3 border border-slate-800">
@@ -151,9 +177,9 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                 </span>
                 {/* Requirement 10: Label seats in team modes as defined by API: seats reserved vs players joined */}
                 <span data-testid="match-seats-label" className="mt-1 block font-semibold text-slate-200">
-                  {match.teamMode.toLowerCase() === 'solo'
-                    ? `${match.joinedPlayers} / ${match.maxPlayers} players joined`
-                    : `${match.seatsTaken} seats reserved vs ${match.joinedPlayers} players joined`}
+                  {currentMatch.teamMode.toLowerCase() === 'solo'
+                    ? `${currentMatch.joinedPlayers} / ${currentMatch.maxPlayers} players joined`
+                    : `${currentMatch.seatsTaken} seats reserved vs ${currentMatch.joinedPlayers} players joined`}
                 </span>
               </div>
             </div>
@@ -163,19 +189,19 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
               <div className="flex justify-between items-center text-xs pb-2 border-b border-slate-800/80">
                 <span className="text-slate-400">Entry Fee</span>
                 <span data-testid="detail-entry-fee" className="text-base font-bold text-slate-100">
-                  {formatIndianRupees(match.entryFee)}
+                  {formatIndianRupees(currentMatch.entryFee)}
                 </span>
               </div>
               <div className="flex justify-between items-center text-xs py-2 border-b border-slate-800/80">
                 <span className="text-slate-400">Kill Price</span>
                 <span data-testid="detail-kill-price" className="font-semibold text-slate-200">
-                  {formatIndianRupees(match.prizes.killPrice)} per kill
+                  {formatIndianRupees(currentMatch.prizes.killPrice)} per kill
                 </span>
               </div>
               <div className="flex justify-between items-center text-xs pt-2">
                 <span className="text-slate-400">Status</span>
-                <span className="font-bold text-emerald-400 uppercase">
-                  {match.status}
+                <span className="font-bold text-emerald-400">
+                  {formatMatchStatus(currentMatch.status)}
                 </span>
               </div>
 
@@ -190,13 +216,13 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
             </div>
 
             {/* Prize breakdown table */}
-            {match.prizes.positions && Object.keys(match.prizes.positions).length > 0 && (
+            {currentMatch.prizes.positions && Object.keys(currentMatch.prizes.positions).length > 0 && (
               <div className="rounded-xl bg-slate-800/40 p-3.5 border border-slate-800 text-xs">
                 <div className="font-semibold text-slate-300 flex items-center gap-1.5 mb-2">
                   <Trophy className="h-4 w-4 text-amber-400" /> Position Prizes
                 </div>
                 <div className="space-y-1 text-slate-400">
-                  {Object.entries(match.prizes.positions).map(([pos, amt]) => (
+                  {Object.entries(currentMatch.prizes.positions).map(([pos, amt]) => (
                     <div key={pos} className="flex justify-between py-0.5">
                       <span>Rank {pos}</span>
                       <span className="font-medium text-slate-200">
@@ -216,8 +242,8 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
               >
                 <div className="font-bold text-emerald-400 flex items-center justify-between">
                   <span>Room Access Credentials</span>
-                  <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-300 uppercase">
-                    {match.status}
+                  <span className="rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] text-emerald-300">
+                    {formatMatchStatus(currentMatch.status)}
                   </span>
                 </div>
 
@@ -225,14 +251,14 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                   <div>
                     <span className="text-[10px] text-slate-400 block">Room ID</span>
                     <span data-testid="room-id-value" className="font-mono text-sm font-bold text-slate-100">
-                      {match.roomId || 'Pending'}
+                      {currentMatch.roomId || 'Pending'}
                     </span>
                   </div>
-                  {match.roomId && (
+                  {currentMatch.roomId && (
                     <button
                       type="button"
                       data-testid="copy-room-id-btn"
-                      onClick={() => handleCopy(match.roomId, 'roomId')}
+                      onClick={() => handleCopy(currentMatch.roomId, 'roomId')}
                       className="flex items-center gap-1 rounded bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-slate-700"
                     >
                       {copiedField === 'roomId' ? (
@@ -257,11 +283,11 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                       data-testid="room-password-value"
                       className="font-mono text-sm font-bold text-slate-100"
                     >
-                      {passwordRevealed ? match.roomPassword || 'Pending' : '••••••••'}
+                      {passwordRevealed ? currentMatch.roomPassword || 'Pending' : '••••••••'}
                     </span>
                   </div>
                   <div className="flex items-center gap-1.5">
-                    {match.roomPassword && (
+                    {currentMatch.roomPassword && (
                       <>
                         <button
                           type="button"
@@ -275,7 +301,7 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                         <button
                           type="button"
                           data-testid="copy-room-password-btn"
-                          onClick={() => handleCopy(match.roomPassword, 'roomPassword')}
+                          onClick={() => handleCopy(currentMatch.roomPassword, 'roomPassword')}
                           className="flex items-center gap-1 rounded bg-slate-800 px-2.5 py-1 text-[11px] font-semibold text-slate-200 hover:bg-slate-700"
                         >
                           {copiedField === 'roomPassword' ? (
@@ -298,7 +324,7 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
             )}
 
             {/* Team Actions Section (if team mode and user is joined in team) */}
-            {isJoined && match.isInTeam && (
+            {isJoined && currentMatch.isInTeam && (
               <div
                 data-testid="my-team-section"
                 className="rounded-xl bg-slate-800/40 p-4 border border-slate-800 text-xs space-y-3"
@@ -393,7 +419,7 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
                   onClick={handleOpenJoinFlow}
                   className="w-full rounded-xl bg-emerald-500 py-3 text-xs font-bold text-slate-950 hover:bg-emerald-400 shadow-lg shadow-emerald-500/10"
                 >
-                  {isSolo ? 'Join Match' : `Form ${match.teamMode.toUpperCase()} Team`}
+                  {isSolo ? 'Join Match' : `Form ${currentMatch.teamMode.toUpperCase()} Team`}
                 </button>
               )}
             </div>
@@ -404,11 +430,14 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
       {/* Solo Join Dialog */}
       {soloDialogOpen && (
         <SoloJoinDialog
-          match={match}
+          match={currentMatch}
           isOpen={soloDialogOpen}
-          onClose={() => setSoloDialogOpen(false)}
+          onClose={() => {
+            setSoloDialogOpen(false);
+            handleRefresh();
+          }}
           onSuccess={() => {
-            onRefreshMatch();
+            handleRefresh();
           }}
         />
       )}
@@ -416,11 +445,14 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
       {/* Team Form Modal */}
       {teamFormOpen && (
         <TeamFormModal
-          match={match}
+          match={currentMatch}
           isOpen={teamFormOpen}
-          onClose={() => setTeamFormOpen(false)}
+          onClose={() => {
+            setTeamFormOpen(false);
+            handleRefresh();
+          }}
           onSuccess={() => {
-            onRefreshMatch();
+            handleRefresh();
           }}
         />
       )}
@@ -428,12 +460,15 @@ export const MatchDetailModal: React.FC<MatchDetailModalProps> = ({
       {/* Team Manage Modal */}
       {teamManageMode && (
         <TeamManageModal
-          matchId={match.id}
+          matchId={currentMatch.id}
           isOpen={!!teamManageMode}
           mode={teamManageMode}
-          onClose={() => setTeamManageMode(null)}
+          onClose={() => {
+            setTeamManageMode(null);
+            handleRefresh();
+          }}
           onSuccess={() => {
-            onRefreshMatch();
+            handleRefresh();
           }}
         />
       )}

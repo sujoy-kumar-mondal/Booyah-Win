@@ -13,6 +13,46 @@ export function getDbUrl(): string {
   return config.DATABASE_URL;
 }
 
+export const UNTRUSTED_CERT_SAFE_REASON =
+  "The database certificate is not trusted. Set DATABASE_SSL_CA, DATABASE_SSL_CA_BASE64 or DATABASE_SSL_CA_FILE to Supabase's CA certificate";
+
+export function isUntrustedCertificateError(err: any): boolean {
+  if (!err) return false;
+  const code = err.code || err.cause?.code;
+  const untrustedCodes = [
+    'SELF_SIGNED_CERT_IN_CHAIN',
+    'UNABLE_TO_VERIFY_LEAF_SIGNATURE',
+    'DEPTH_ZERO_SELF_SIGNED_CERT',
+    'CERT_UNTRUSTED',
+    'UNABLE_TO_GET_ISSUER_CERT',
+    'UNABLE_TO_GET_ISSUER_CERT_LOCALLY',
+  ];
+  if (code && untrustedCodes.includes(code)) return true;
+  const msg = String(err.message || '').toLowerCase();
+  return (
+    msg.includes('self-signed') ||
+    msg.includes('self signed') ||
+    msg.includes('unable to verify the first certificate') ||
+    msg.includes('unable to get local issuer certificate')
+  );
+}
+
+export function getDatabaseSslConfig(connectionString?: string): pg.PoolConfig['ssl'] | undefined {
+  const url = connectionString || getDbUrl();
+  const isRemote =
+    !url.includes('localhost') &&
+    !url.includes('127.0.0.1') &&
+    !url.includes('::1');
+
+  if (config.DATABASE_SSL || isRemote || !!config.DATABASE_SSL_CA) {
+    return {
+      rejectUnauthorized: true,
+      ca: config.DATABASE_SSL_CA ? config.DATABASE_SSL_CA : undefined,
+    };
+  }
+  return undefined;
+}
+
 export function getPool(): pg.Pool {
   if (!poolInstance) {
     const connectionString = getDbUrl();
@@ -22,18 +62,7 @@ export function getPool(): pg.Pool {
       );
     }
 
-    let ssl: pg.PoolConfig['ssl'] | undefined = undefined;
-    const isRemote =
-      !connectionString.includes('localhost') &&
-      !connectionString.includes('127.0.0.1') &&
-      !connectionString.includes('::1');
-
-    if (config.DATABASE_SSL || (config.NODE_ENV === 'production' && isRemote)) {
-      ssl = {
-        rejectUnauthorized: true,
-        ca: config.DATABASE_SSL_CA ? config.DATABASE_SSL_CA : undefined,
-      };
-    }
+    const ssl = getDatabaseSslConfig(connectionString);
 
     poolInstance = new Pool({
       connectionString,
@@ -51,10 +80,25 @@ export function getPool(): pg.Pool {
     });
 
     poolInstance.on('error', (err) => {
-      logger.error({ err }, 'Unexpected database pool error');
+      if (isUntrustedCertificateError(err)) {
+        logger.fatal(UNTRUSTED_CERT_SAFE_REASON);
+      } else {
+        logger.error({ err }, 'Unexpected database pool error');
+      }
     });
   }
   return poolInstance;
+}
+
+export async function assertDatabaseConnection(targetPool: pg.Pool = getPool()): Promise<void> {
+  try {
+    await targetPool.query('SELECT 1');
+  } catch (err: any) {
+    if (isUntrustedCertificateError(err)) {
+      throw new Error(UNTRUSTED_CERT_SAFE_REASON);
+    }
+    throw err;
+  }
 }
 
 export async function query<R extends QueryResultRow = any>(

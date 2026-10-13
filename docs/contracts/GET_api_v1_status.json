@@ -1,0 +1,9 @@
+{
+  "data": {
+    "maintenance": {
+      "enabled": false,
+      "message": "Under scheduled maintenance. Please check back shortly.",
+      "until": null
+    }
+  }
+}

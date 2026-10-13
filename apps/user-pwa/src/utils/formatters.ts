@@ -154,3 +154,55 @@ export function isTotalBelowFee(
   return totalPaise < feePaise;
 }
 
+/**
+ * Formats game mode for user display (e.g. "BATTLE_ROYALE" -> "BATTLE ROYALE", "battle_royale" -> "Battle Royale").
+ * Replaces underscores with spaces so no raw enum underscores are shown to players.
+ */
+export function formatGameMode(mode: string | null | undefined): string {
+  if (!mode) return '';
+  const withSpaces = mode.replace(/_/g, ' ').trim();
+  if (withSpaces === withSpaces.toLowerCase()) {
+    return withSpaces
+      .split(' ')
+      .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
+      .join(' ');
+  }
+  return withSpaces;
+}
+
+/**
+ * Formats weekly leaderboard date range in IST:
+ * e.g. "Mon, 13 Oct – Sun, 19 Oct IST"
+ */
+export function formatWeekRange(
+  weekStartIso: string | null | undefined,
+  weekEndIso: string | null | undefined
+): string {
+  if (!weekStartIso || !weekEndIso) return '';
+  try {
+    const s = new Date(weekStartIso);
+    const e = new Date(weekEndIso);
+    if (isNaN(s.getTime()) || isNaN(e.getTime())) return '';
+
+    const fmt = new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      weekday: 'short',
+      day: 'numeric',
+      month: 'short',
+    });
+    return `${fmt.format(s)} – ${fmt.format(e)} IST`;
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Formats match status for user display (e.g. "room_open" -> "ROOM OPEN", "upcoming" -> "UPCOMING", "live" -> "LIVE").
+ * Replaces underscores with spaces so no raw enum underscores are shown to players.
+ */
+export function formatMatchStatus(status: string | null | undefined): string {
+  if (!status) return '';
+  return status.replace(/_/g, ' ').trim().toUpperCase();
+}
+
+

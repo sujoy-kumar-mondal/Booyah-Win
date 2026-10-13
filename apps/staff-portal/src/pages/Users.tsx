@@ -1,6 +1,16 @@
 /**
- * User Management Page (Admin Only)
- * Section 16.3
+ * User Management & Directory Page
+ * Section 15 & Section 16.3
+ *
+ * Requirements:
+ * - Admin role: User management with balance adjustments, soft delete, full profile.
+ * - Employee role: Read-only user directory with 5-tab detail drawer:
+ *   1. Profile: strictly masked (mobile ******7890, upi ****1234@upi), no DOB/PAN/Aadhaar/referral code.
+ *   2. Wallets: string-formatted Indian rupees for addMoney, cashback, winning, total.
+ *   3. Transactions: recent ledger trace.
+ *   4. Matches: recent match participation.
+ *   5. Requests: pending deposit & withdrawal requests with 2-step approval statuses.
+ *   Daily view cap of 300 enforced server-side. Delete/adjust buttons hidden.
  */
 
 import React, { useState, useEffect, useRef } from 'react';
@@ -14,6 +24,17 @@ import {
   type AdminUserLedgerItemDto,
   type AdminUserMatchHistoryItemDto,
 } from '../api/admin.js';
+import {
+  getStaffUsers,
+  getStaffUserDetail,
+  type StaffUserListItem,
+  type StaffUserProfileDto,
+  type StaffUserLedgerItemDto,
+  type StaffUserMatchItemDto,
+  type StaffUserDepositItemDto,
+  type StaffUserWithdrawalItemDto,
+} from '../api/staffUsers.js';
+import { useStaffAuth } from '../context/StaffAuthContext.js';
 import { formatIndianRupees, formatISTDate } from '../utils/formatters.js';
 import { getFriendlyErrorMessage } from '../utils/errors.js';
 import {
@@ -30,11 +51,40 @@ import {
   ShieldAlert,
   CheckCircle,
   AlertTriangle,
+  User,
+  FileText,
+  ArrowDownLeft,
+  ArrowUpRight,
 } from 'lucide-react';
 
+type UserListItemType = AdminUserListItem | StaffUserListItem;
+
+type UserDetailType = {
+  profile: (AdminUserProfileDto | StaffUserProfileDto) & {
+    dateOfBirth?: string;
+    referralCode?: string;
+    referredBy?: string | null;
+    deletedReason?: string | null;
+  };
+  wallets: { addMoney: string; cashback: string; winning: string; total: string };
+  recentLedger: (AdminUserLedgerItemDto | StaffUserLedgerItemDto)[];
+  matchHistory?: (AdminUserMatchHistoryItemDto | StaffUserMatchItemDto)[];
+  recentMatches?: StaffUserMatchItemDto[];
+  depositHistory?: StaffUserDepositItemDto[];
+  withdrawalHistory?: StaffUserWithdrawalItemDto[];
+  pendingRequests?: {
+    deposits: StaffUserDepositItemDto[];
+    withdrawals: StaffUserWithdrawalItemDto[];
+  };
+};
+
 export const Users: React.FC = () => {
+  const { staff } = useStaffAuth();
+  const isEmployee = staff?.role === 'employee';
+  const isAdmin = !isEmployee;
+
   // Search & List state
-  const [users, setUsers] = useState<AdminUserListItem[]>([]);
+  const [users, setUsers] = useState<UserListItemType[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
@@ -47,21 +97,21 @@ export const Users: React.FC = () => {
 
   // User detail state
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null);
-  const [userDetail, setUserDetail] = useState<{
-    profile: AdminUserProfileDto;
-    wallets: { addMoney: string; cashback: string; winning: string; total: string };
-    recentLedger: AdminUserLedgerItemDto[];
-    matchHistory: AdminUserMatchHistoryItemDto[];
-  } | null>(null);
+  const [userDetail, setUserDetail] = useState<UserDetailType | null>(null);
   const [isDetailLoading, setIsDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState<string | null>(null);
 
-  // Delete modal state
+  // 5-Tab state for employee drawer
+  const [employeeTab, setEmployeeTab] = useState<
+    'profile' | 'wallets' | 'transactions' | 'matches' | 'requests'
+  >('profile');
+
+  // Delete modal state (Admin only)
   const [deleteTargetUser, setDeleteTargetUser] = useState<AdminUserListItem | null>(null);
   const [deleteReason, setDeleteReason] = useState('');
   const [deleteError, setDeleteError] = useState<string | null>(null);
 
-  // Balance adjustment modal state (Constraint 5)
+  // Balance adjustment modal state (Admin only, Constraint 5)
   const [adjustTargetUser, setAdjustTargetUser] = useState<AdminUserListItem | null>(null);
   const [adjustUserWallets, setAdjustUserWallets] = useState<{
     addMoney: string;
@@ -87,11 +137,13 @@ export const Users: React.FC = () => {
     setListError(null);
 
     try {
-      const data = await getAdminUsers({
-        q: query.trim() || undefined,
-        cursor,
-        limit: 20,
-      });
+      const data = isAdmin
+        ? await getAdminUsers({
+            q: query.trim() || undefined,
+            cursor,
+            limit: 20,
+          })
+        : await getStaffUsers(query.trim() || undefined, cursor, 20);
 
       // Constraint 8: Ignore stale search responses
       if (reqId !== latestSearchReqIdRef.current) return;
@@ -116,16 +168,17 @@ export const Users: React.FC = () => {
 
   useEffect(() => {
     fetchUsers(searchQuery);
-  }, [searchQuery]);
+  }, [searchQuery, isAdmin]);
 
   // Fetch single user detail
   const loadUserDetail = async (id: string) => {
     setSelectedUserId(id);
     setIsDetailLoading(true);
     setDetailError(null);
+    setEmployeeTab('profile');
     try {
-      const data = await getAdminUserDetail(id);
-      setUserDetail(data);
+      const data = isAdmin ? await getAdminUserDetail(id) : await getStaffUserDetail(id);
+      setUserDetail(data as UserDetailType);
     } catch (err) {
       setDetailError(getFriendlyErrorMessage(err, 'user'));
     } finally {
@@ -133,14 +186,14 @@ export const Users: React.FC = () => {
     }
   };
 
-  // Open Delete Modal
+  // Open Delete Modal (Admin only)
   const handleOpenDelete = (u: AdminUserListItem) => {
     setDeleteTargetUser(u);
     setDeleteReason('');
     setDeleteError(null);
   };
 
-  // Submit Delete
+  // Submit Delete (Admin only)
   const handleDeleteSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!deleteTargetUser || submitLockRef.current || isSubmitting) return;
@@ -174,7 +227,7 @@ export const Users: React.FC = () => {
     }
   };
 
-  // Open Adjust Modal (Constraint 5)
+  // Open Adjust Modal (Admin only, Constraint 5)
   const handleOpenAdjust = async (u: AdminUserListItem) => {
     setAdjustTargetUser(u);
     setAdjustWallet('add_money');
@@ -198,7 +251,7 @@ export const Users: React.FC = () => {
     }, 2000);
   };
 
-  // Submit Adjust
+  // Submit Adjust (Admin only)
   const handleAdjustSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!adjustTargetUser || submitLockRef.current || isSubmitting) return;
@@ -226,9 +279,13 @@ export const Users: React.FC = () => {
     setAdjustError(null);
 
     try {
+      const raw = adjustAmount.trim();
+      const [whole, frac = ''] = raw.split('.');
+      const normalizedAmount = `${whole}.${frac.padEnd(2, '0')}`;
+
       const res = await adjustUserBalance(adjustTargetUser.id, {
         wallet: adjustWallet,
-        amount: adjustAmount.trim(),
+        amount: normalizedAmount,
         reason: adjustReason.trim(),
       });
 
@@ -256,10 +313,12 @@ export const Users: React.FC = () => {
         <div>
           <h1 className="text-xl font-bold tracking-tight text-slate-100 flex items-center gap-2.5">
             <UserCheck className="h-6 w-6 text-emerald-400" />
-            User Management
+            {isAdmin ? 'User Management' : 'User Directory'}
           </h1>
           <p className="mt-1 text-xs text-slate-400">
-            Search registered users, inspect wallets, view match & ledger traces, and adjust balances.
+            {isAdmin
+              ? 'Search registered users, inspect wallets, view match & ledger traces, and adjust balances.'
+              : 'Search registered players, view profile info, wallets, ledger transactions, match history, and requests.'}
           </p>
         </div>
 
@@ -360,7 +419,7 @@ export const Users: React.FC = () => {
                           <div className="font-semibold text-slate-200">{u.name}</div>
                           <div className="text-[11px] text-slate-500">{u.email}</div>
                         </td>
-                        <td className="px-4 py-3 text-slate-300">{u.mobile}</td>
+                        <td className="px-4 py-3 text-slate-300 font-mono">{u.mobile}</td>
                         <td className="px-4 py-3">
                           <div className="font-mono text-slate-200">{u.ffId}</div>
                           <div className="text-[10px] text-slate-500">{u.ffName}</div>
@@ -380,28 +439,38 @@ export const Users: React.FC = () => {
                           )}
                         </td>
                         <td className="px-4 py-3 text-right" onClick={(e) => e.stopPropagation()}>
-                          <div className="inline-flex items-center gap-1">
-                            <button
-                              type="button"
-                              onClick={() => handleOpenAdjust(u)}
-                              data-testid={`adjust-balance-btn-${u.id}`}
-                              className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded-lg transition-colors"
-                              title="Adjust Balance"
-                            >
-                              <SlidersHorizontal className="h-3.5 w-3.5" />
-                            </button>
-                            {!u.isDeleted && (
+                          {isAdmin ? (
+                            <div className="inline-flex items-center gap-1">
                               <button
                                 type="button"
-                                onClick={() => handleOpenDelete(u)}
-                                data-testid={`delete-user-btn-${u.id}`}
-                                className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
-                                title="Delete User"
+                                onClick={() => handleOpenAdjust(u as AdminUserListItem)}
+                                data-testid={`adjust-balance-btn-${u.id}`}
+                                className="p-1.5 text-slate-400 hover:text-emerald-400 hover:bg-slate-800 rounded-lg transition-colors"
+                                title="Adjust Balance"
                               >
-                                <Trash2 className="h-3.5 w-3.5" />
+                                <SlidersHorizontal className="h-3.5 w-3.5" />
                               </button>
-                            )}
-                          </div>
+                              {!u.isDeleted && (
+                                <button
+                                  type="button"
+                                  onClick={() => handleOpenDelete(u as AdminUserListItem)}
+                                  data-testid={`delete-user-btn-${u.id}`}
+                                  className="p-1.5 text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 rounded-lg transition-colors"
+                                  title="Delete User"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              )}
+                            </div>
+                          ) : (
+                            <button
+                              type="button"
+                              onClick={() => loadUserDetail(u.id)}
+                              className="text-[11px] text-slate-400 hover:text-emerald-400 font-medium px-2 py-1 rounded transition-colors"
+                            >
+                              View
+                            </button>
+                          )}
                         </td>
                       </tr>
                     ))
@@ -434,14 +503,18 @@ export const Users: React.FC = () => {
               Loading player details...
             </div>
           ) : detailError ? (
-            <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-6 text-xs text-rose-400" data-testid="user-detail-error">
+            <div
+              className="rounded-2xl border border-rose-500/30 bg-rose-500/10 p-6 text-xs text-rose-400"
+              data-testid="user-detail-error"
+            >
               {detailError}
             </div>
           ) : !userDetail ? (
             <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-12 text-center text-xs text-slate-500">
               Select a player from the list to view profile, wallet breakdown, recent ledger, and match history.
             </div>
-          ) : (
+          ) : isAdmin ? (
+            /* ─── Admin Detail Layout (Full Profile & Actions) ─── */
             <div className="space-y-4">
               {/* Profile Card */}
               <div className="rounded-2xl border border-slate-800 bg-slate-900/80 p-5 space-y-4">
@@ -458,7 +531,9 @@ export const Users: React.FC = () => {
                         </span>
                       )}
                     </div>
-                    <p className="text-xs text-slate-400 mt-0.5">{userDetail.profile.email} • {userDetail.profile.mobile}</p>
+                    <p className="text-xs text-slate-400 mt-0.5">
+                      {userDetail.profile.email} • {userDetail.profile.mobile}
+                    </p>
                   </div>
                   <button
                     type="button"
@@ -475,7 +550,7 @@ export const Users: React.FC = () => {
                         deletedAt: userDetail.profile.deletedAt,
                         createdAt: userDetail.profile.createdAt,
                       };
-                      handleOpenAdjust(u);
+                      handleOpenAdjust(u as AdminUserListItem);
                     }}
                     data-testid="detail-adjust-balance-btn"
                     className="inline-flex items-center gap-1.5 rounded-xl border border-slate-700 bg-slate-800 px-3 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition-colors"
@@ -514,11 +589,11 @@ export const Users: React.FC = () => {
                   </div>
                   <div>
                     <span className="text-slate-500 text-[10px] uppercase font-semibold block">Date of Birth</span>
-                    <span className="text-slate-300">{userDetail.profile.dateOfBirth}</span>
+                    <span className="text-slate-300">{userDetail.profile.dateOfBirth || '—'}</span>
                   </div>
                   <div>
                     <span className="text-slate-500 text-[10px] uppercase font-semibold block">Referral Code</span>
-                    <span className="font-mono text-slate-300">{userDetail.profile.referralCode}</span>
+                    <span className="font-mono text-slate-300">{userDetail.profile.referralCode || '—'}</span>
                   </div>
                 </div>
               </div>
@@ -570,11 +645,18 @@ export const Users: React.FC = () => {
                       <div key={row.id} className="pt-1.5 flex items-center justify-between text-xs">
                         <div>
                           <div className="font-semibold text-slate-200 capitalize">{row.type.replace('_', ' ')}</div>
-                          <div className="text-[10px] text-slate-500">{formatISTDate(row.createdAt)} • {row.wallet}</div>
+                          <div className="text-[10px] text-slate-500">
+                            {formatISTDate(row.createdAt)} • {row.wallet}
+                          </div>
                         </div>
                         <div className="text-right">
-                          <div className={`font-mono font-bold ${row.amount.startsWith('-') ? 'text-rose-400' : 'text-emerald-400'}`}>
-                            {row.amount.startsWith('-') ? '' : '+'}{formatIndianRupees(row.amount)}
+                          <div
+                            className={`font-mono font-bold ${
+                              row.amount.startsWith('-') ? 'text-rose-400' : 'text-emerald-400'
+                            }`}
+                          >
+                            {row.amount.startsWith('-') ? '' : '+'}
+                            {formatIndianRupees(row.amount)}
                           </div>
                           <div className="text-[10px] text-slate-500">Bal: {formatIndianRupees(row.balanceAfter)}</div>
                         </div>
@@ -591,7 +673,7 @@ export const Users: React.FC = () => {
                   Match Participation History
                 </span>
                 <div className="max-h-48 overflow-y-auto space-y-1.5 pr-1 divide-y divide-slate-800/40">
-                  {userDetail.matchHistory.length === 0 ? (
+                  {(!userDetail.matchHistory || userDetail.matchHistory.length === 0) ? (
                     <p className="text-center py-4 text-[11px] text-slate-500">No match participation recorded.</p>
                   ) : (
                     userDetail.matchHistory.map((m) => (
@@ -614,12 +696,359 @@ export const Users: React.FC = () => {
                 </div>
               </div>
             </div>
+          ) : (
+            /* ─── Employee 5-Tab Read-Only Drawer Layout (Section 15) ─── */
+            <div className="rounded-2xl border border-slate-800 bg-slate-900/80 overflow-hidden shadow-xl">
+              {/* Header */}
+              <div className="p-4 border-b border-slate-800 bg-slate-900/90 flex items-start justify-between">
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h2 className="text-base font-bold text-slate-100">{userDetail.profile.name}</h2>
+                    {userDetail.profile.isDeleted ? (
+                      <span
+                        data-testid="detail-deleted-badge"
+                        className="rounded px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-rose-500/10 text-rose-400 border border-rose-500/30"
+                      >
+                        Deleted
+                      </span>
+                    ) : (
+                      <span className="rounded px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider bg-emerald-500/10 text-emerald-400 border border-emerald-500/30">
+                        Active
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-slate-400 mt-0.5">
+                    {userDetail.profile.email} • <span className="font-mono">{userDetail.profile.mobile}</span>
+                  </p>
+                </div>
+                <div className="text-right">
+                  <span className="text-[10px] uppercase font-bold text-slate-500 block">Total Balance</span>
+                  <span className="text-sm font-bold text-emerald-400" data-testid="user-wallet-total">
+                    {formatIndianRupees(userDetail.wallets.total)}
+                  </span>
+                </div>
+              </div>
+
+              {/* 5-Tab Navigation Bar */}
+              <div className="flex border-b border-slate-800 bg-slate-950/40 text-xs font-semibold px-2">
+                <button
+                  type="button"
+                  onClick={() => setEmployeeTab('profile')}
+                  data-testid="tab-profile"
+                  className={`flex items-center gap-1.5 px-3 py-2.5 border-b-2 transition-colors ${
+                    employeeTab === 'profile'
+                      ? 'border-emerald-400 text-emerald-400 font-bold'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <User className="h-3.5 w-3.5" />
+                  Profile
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEmployeeTab('wallets')}
+                  data-testid="tab-wallets"
+                  className={`flex items-center gap-1.5 px-3 py-2.5 border-b-2 transition-colors ${
+                    employeeTab === 'wallets'
+                      ? 'border-emerald-400 text-emerald-400 font-bold'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Wallet className="h-3.5 w-3.5" />
+                  Wallets
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEmployeeTab('transactions')}
+                  data-testid="tab-transactions"
+                  className={`flex items-center gap-1.5 px-3 py-2.5 border-b-2 transition-colors ${
+                    employeeTab === 'transactions'
+                      ? 'border-emerald-400 text-emerald-400 font-bold'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <History className="h-3.5 w-3.5" />
+                  Transactions
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEmployeeTab('matches')}
+                  data-testid="tab-matches"
+                  className={`flex items-center gap-1.5 px-3 py-2.5 border-b-2 transition-colors ${
+                    employeeTab === 'matches'
+                      ? 'border-emerald-400 text-emerald-400 font-bold'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <Swords className="h-3.5 w-3.5" />
+                  Matches
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEmployeeTab('requests')}
+                  data-testid="tab-requests"
+                  className={`flex items-center gap-1.5 px-3 py-2.5 border-b-2 transition-colors ${
+                    employeeTab === 'requests'
+                      ? 'border-emerald-400 text-emerald-400 font-bold'
+                      : 'border-transparent text-slate-400 hover:text-slate-200'
+                  }`}
+                >
+                  <FileText className="h-3.5 w-3.5" />
+                  Requests
+                </button>
+              </div>
+
+              {/* Tab Content */}
+              <div className="p-4" data-testid="employee-tab-content">
+                {/* 1. Profile Tab (Strict Allowlist: Name, Email, Masked Mobile, FF ID, FF Name, Masked UPI, CreatedAt, Status; NO DOB, NO PAN, NO Aadhaar, NO Referral) */}
+                {employeeTab === 'profile' && (
+                  <div className="space-y-4" data-testid="employee-profile-tab">
+                    {userDetail.profile.isDeleted && (
+                      <div
+                        data-testid="detail-deleted-info-box"
+                        className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-300 space-y-1"
+                      >
+                        <div className="font-semibold flex items-center gap-1.5 text-rose-200">
+                          <ShieldAlert className="h-3.5 w-3.5" />
+                          Account Terminated
+                        </div>
+                        <div className="text-[10px] text-rose-400/80">
+                          Deleted on: {formatISTDate(userDetail.profile.deletedAt)}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="grid grid-cols-2 gap-3 text-xs">
+                      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                        <span className="text-slate-500 text-[10px] uppercase font-semibold block">Full Name</span>
+                        <span className="text-slate-200 font-medium">{userDetail.profile.name}</span>
+                      </div>
+                      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                        <span className="text-slate-500 text-[10px] uppercase font-semibold block">Email</span>
+                        <span className="text-slate-200 font-medium">{userDetail.profile.email}</span>
+                      </div>
+                      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                        <span className="text-slate-500 text-[10px] uppercase font-semibold block">Masked Mobile</span>
+                        <span className="font-mono text-slate-200">{userDetail.profile.mobile}</span>
+                      </div>
+                      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                        <span className="text-slate-500 text-[10px] uppercase font-semibold block">Masked UPI ID</span>
+                        <span className="font-mono text-slate-200">{userDetail.profile.upiId || '—'}</span>
+                      </div>
+                      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                        <span className="text-slate-500 text-[10px] uppercase font-semibold block">Free Fire ID / IGN</span>
+                        <span className="font-mono text-slate-200">{userDetail.profile.ffId}</span>{' '}
+                        <span className="text-slate-400">({userDetail.profile.ffName})</span>
+                      </div>
+                      <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-3">
+                        <span className="text-slate-500 text-[10px] uppercase font-semibold block">Registration Date</span>
+                        <span className="text-slate-300">{formatISTDate(userDetail.profile.createdAt)}</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 2. Wallets Tab */}
+                {employeeTab === 'wallets' && (
+                  <div className="space-y-4" data-testid="employee-wallets-tab">
+                    <div className="grid grid-cols-2 gap-3">
+                      <div className="rounded-xl border border-slate-800 bg-slate-950 p-3 text-center">
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold block">Add Money</span>
+                        <span className="text-sm font-bold text-slate-200" data-testid="user-wallet-addMoney">
+                          {formatIndianRupees(userDetail.wallets.addMoney)}
+                        </span>
+                      </div>
+                      <div className="rounded-xl border border-slate-800 bg-slate-950 p-3 text-center">
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold block">Cashback</span>
+                        <span className="text-sm font-bold text-slate-200" data-testid="user-wallet-cashback">
+                          {formatIndianRupees(userDetail.wallets.cashback)}
+                        </span>
+                      </div>
+                      <div className="rounded-xl border border-slate-800 bg-slate-950 p-3 text-center">
+                        <span className="text-[10px] text-slate-500 uppercase font-semibold block">Winning</span>
+                        <span className="text-sm font-bold text-emerald-400" data-testid="user-wallet-winning">
+                          {formatIndianRupees(userDetail.wallets.winning)}
+                        </span>
+                      </div>
+                      <div className="rounded-xl border border-emerald-500/30 bg-emerald-500/5 p-3 text-center">
+                        <span className="text-[10px] text-emerald-400 uppercase font-semibold block">Total Balance</span>
+                        <span className="text-sm font-bold text-emerald-400">
+                          {formatIndianRupees(userDetail.wallets.total)}
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 3. Transactions Tab */}
+                {employeeTab === 'transactions' && (
+                  <div className="space-y-3" data-testid="employee-transactions-tab">
+                    <div className="max-h-72 overflow-y-auto space-y-2 pr-1 divide-y divide-slate-800/40">
+                      {userDetail.recentLedger.length === 0 ? (
+                        <p className="text-center py-6 text-[11px] text-slate-500">No ledger transactions recorded.</p>
+                      ) : (
+                        userDetail.recentLedger.map((row) => (
+                          <div key={row.id} className="pt-2 flex items-center justify-between text-xs">
+                            <div>
+                              <div className="font-semibold text-slate-200 capitalize">{row.type.replace('_', ' ')}</div>
+                              <div className="text-[10px] text-slate-500">
+                                {formatISTDate(row.createdAt)} • {row.wallet}
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <div
+                                className={`font-mono font-bold ${
+                                  row.amount.startsWith('-') ? 'text-rose-400' : 'text-emerald-400'
+                                }`}
+                              >
+                                {row.amount.startsWith('-') ? '' : '+'}
+                                {formatIndianRupees(row.amount)}
+                              </div>
+                              <div className="text-[10px] text-slate-500">
+                                Bal: {formatIndianRupees(row.balanceAfter)}
+                              </div>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* 4. Matches Tab */}
+                {employeeTab === 'matches' && (() => {
+                  const matches = userDetail.recentMatches || userDetail.matchHistory || [];
+                  return (
+                    <div className="space-y-3" data-testid="employee-matches-tab">
+                      <div className="max-h-72 overflow-y-auto space-y-2 pr-1 divide-y divide-slate-800/40">
+                        {matches.length === 0 ? (
+                          <p className="text-center py-6 text-[11px] text-slate-500">No match participation recorded.</p>
+                        ) : (
+                          matches.map((m) => (
+                            <div key={m.matchId} className="pt-2 flex items-center justify-between text-xs">
+                              <div>
+                                <div className="font-mono font-bold text-slate-200">BW-MAT-{m.matchId}</div>
+                                <div className="text-[10px] text-slate-500 capitalize">
+                                  {m.gameMode.replace('_', ' ')} • {m.teamMode}
+                                </div>
+                                <div className="text-[10px] text-slate-400">
+                                  {formatISTDate(m.startTime || (m as any).joinedAt)}
+                                </div>
+                              </div>
+                              <div className="text-right">
+                                <div className="text-[11px] font-semibold text-slate-300">
+                                  {m.displayStatus} ({m.kills} kills)
+                                </div>
+                                <div className="text-[10px] text-emerald-400">
+                                  Payout: {formatIndianRupees(m.payout)}
+                                </div>
+                              </div>
+                            </div>
+                          ))
+                        )}
+                      </div>
+                    </div>
+                  );
+                })()}
+
+                {/* 5. Requests Tab (Two-step approval statuses) */}
+                {employeeTab === 'requests' && (() => {
+                  const deposits = userDetail.pendingRequests?.deposits || userDetail.depositHistory || [];
+                  const withdrawals = userDetail.pendingRequests?.withdrawals || userDetail.withdrawalHistory || [];
+                  return (
+                    <div className="space-y-4" data-testid="employee-requests-tab">
+                      {/* Deposits */}
+                      <div>
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 mb-2">
+                          <ArrowDownLeft className="h-3.5 w-3.5 text-emerald-400" />
+                          Pending Deposits
+                        </span>
+                        <div className="space-y-1.5">
+                          {deposits.length === 0 ? (
+                            <p className="text-center py-2 text-[11px] text-slate-500">No pending deposits.</p>
+                          ) : (
+                            deposits.map((d: any) => (
+                              <div
+                                key={d.id}
+                                className="rounded-xl border border-slate-800 bg-slate-950 p-2.5 flex items-center justify-between text-xs"
+                              >
+                                <div>
+                                  <span className="font-mono font-bold text-slate-200">DEP-{d.id}</span>
+                                  <div className="text-[10px] text-slate-500">{formatISTDate(d.createdAt)}</div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="font-bold text-emerald-400">{formatIndianRupees(d.amount)}</div>
+                                  <span
+                                    className={`inline-block rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                                      d.status === 'employee_approved'
+                                        ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                        : d.status === 'approved'
+                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                        : d.status === 'rejected'
+                                        ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                    }`}
+                                  >
+                                    {d.status.replace('_', ' ')}
+                                  </span>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+
+                      {/* Withdrawals */}
+                      <div className="border-t border-slate-800 pt-3">
+                        <span className="text-[11px] font-bold uppercase tracking-wider text-slate-400 flex items-center gap-1.5 mb-2">
+                          <ArrowUpRight className="h-3.5 w-3.5 text-amber-400" />
+                          Pending Withdrawals
+                        </span>
+                        <div className="space-y-1.5">
+                          {withdrawals.length === 0 ? (
+                            <p className="text-center py-2 text-[11px] text-slate-500">No pending withdrawals.</p>
+                          ) : (
+                            withdrawals.map((w: any) => (
+                              <div
+                                key={w.id}
+                                className="rounded-xl border border-slate-800 bg-slate-950 p-2.5 flex items-center justify-between text-xs"
+                              >
+                                <div>
+                                  <span className="font-mono font-bold text-slate-200">WDR-{w.id}</span>
+                                  <div className="text-[10px] text-slate-500">{formatISTDate(w.createdAt)}</div>
+                                </div>
+                                <div className="text-right">
+                                  <div className="font-bold text-slate-200">{formatIndianRupees(w.amount)}</div>
+                                  <span
+                                    className={`inline-block rounded px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider ${
+                                      w.status === 'employee_approved'
+                                        ? 'bg-blue-500/10 text-blue-400 border border-blue-500/20'
+                                        : w.status === 'approved'
+                                        ? 'bg-emerald-500/10 text-emerald-400 border border-emerald-500/20'
+                                        : w.status === 'rejected'
+                                        ? 'bg-rose-500/10 text-rose-400 border border-rose-500/20'
+                                        : 'bg-amber-500/10 text-amber-400 border border-amber-500/20'
+                                    }`}
+                                  >
+                                    {w.status.replace('_', ' ')}
+                                  </span>
+                                </div>
+                              </div>
+                            ))
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+            </div>
           )}
         </div>
       </div>
 
-      {/* ─── Delete User Modal ─── */}
-      {deleteTargetUser && (
+      {/* ─── Delete User Modal (Admin only) ─── */}
+      {isAdmin && deleteTargetUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" data-testid="delete-user-modal">
           <div className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4">
             <div className="flex items-center gap-3 text-rose-400">
@@ -685,8 +1114,8 @@ export const Users: React.FC = () => {
         </div>
       )}
 
-      {/* ─── Balance Adjustment Modal (Constraint 5) ─── */}
-      {adjustTargetUser && (
+      {/* ─── Balance Adjustment Modal (Admin only, Constraint 5) ─── */}
+      {isAdmin && adjustTargetUser && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm" data-testid="adjust-balance-modal">
           <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4">
             <div className="flex items-center justify-between pb-3 border-b border-slate-800">

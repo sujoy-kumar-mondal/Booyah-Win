@@ -1,11 +1,12 @@
 import { Router } from 'express';
 import rateLimit from 'express-rate-limit';
 import { ErrorCodes } from '@booyah/shared';
-import { authenticateUser, requireUser } from '../../middleware/auth.js';
+import { authenticateUser, requireUser, authenticateOptionalUser } from '../../middleware/auth.js';
 import { AppError } from '../../middleware/errorHandler.js';
 import { idParamHandler } from '../../middleware/validate.js';
 import { MatchesController } from './matches.controller.js';
 import { TeamsController } from './teams.controller.js';
+import { maintenanceGuard } from '../../middleware/maintenance.js';
 
 export const matchesRouter = Router();
 
@@ -48,14 +49,17 @@ export const teamManageRateLimit = rateLimit({
   },
 });
 
-matchesRouter.use(authenticateUser, requireUser);
 matchesRouter.param('id', idParamHandler);
 
-matchesRouter.get('/', MatchesController.listMatches);
-matchesRouter.get('/:id', MatchesController.getMatch);
-matchesRouter.post('/:id/join', joinRateLimit, MatchesController.joinMatch);
+// Public / optionally authenticated read endpoints (shows matches to logged-out users)
+matchesRouter.get('/', authenticateOptionalUser, MatchesController.listMatches);
+matchesRouter.get('/:id', authenticateOptionalUser, MatchesController.getMatch);
 
-// Milestone 6 team endpoints
-matchesRouter.post('/:id/teams', teamCreateRateLimit, TeamsController.createTeam);
-matchesRouter.post('/:id/teams/mine/replace', teamManageRateLimit, TeamsController.replaceInvite);
-matchesRouter.delete('/:id/teams/mine', teamManageRateLimit, TeamsController.disbandTeam);
+// Authenticated mutating endpoints
+matchesRouter.post('/:id/join', authenticateUser, requireUser, maintenanceGuard, joinRateLimit, MatchesController.joinMatch);
+
+// Milestone 6 team endpoints (strictly authenticated)
+matchesRouter.post('/:id/teams', authenticateUser, requireUser, maintenanceGuard, teamCreateRateLimit, TeamsController.createTeam);
+matchesRouter.post('/:id/teams/mine/replace', authenticateUser, requireUser, maintenanceGuard, teamManageRateLimit, TeamsController.replaceInvite);
+matchesRouter.delete('/:id/teams/mine', authenticateUser, requireUser, maintenanceGuard, teamManageRateLimit, TeamsController.disbandTeam);
+

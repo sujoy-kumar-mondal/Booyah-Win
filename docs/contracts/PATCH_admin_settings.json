@@ -10,7 +10,10 @@
       "support_hours": "10:00 AM - 10:00 PM IST",
       "payment_upi_id": "",
       "payment_qr_url": "",
-      "payment_qr_key": ""
+      "payment_qr_key": "",
+      "maintenance_enabled": "false",
+      "maintenance_message": "Under scheduled maintenance. Please check back shortly.",
+      "maintenance_until": ""
     }
   }
 }

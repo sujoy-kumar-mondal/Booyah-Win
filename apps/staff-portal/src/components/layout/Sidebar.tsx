@@ -35,6 +35,7 @@ export const Sidebar: React.FC<{ isOpen?: boolean; onClose?: () => void }> = ({
     { label: 'Matches', path: '/matches', icon: Swords },
     { label: 'Deposit Queue', path: '/deposits', icon: ArrowDownToLine },
     { label: 'Withdrawal Queue', path: '/withdrawals', icon: ArrowUpRight },
+    { label: 'Users', path: '/users', icon: UserCheck },
   ];
 
   // Admin navigation items - Milestone 10c real pages
@@ -42,7 +43,6 @@ export const Sidebar: React.FC<{ isOpen?: boolean; onClose?: () => void }> = ({
     { label: 'Results Approval', path: '/results', icon: Trophy },
     { label: 'Employees', path: '/employees', icon: Users },
     { label: 'Entry Tiers', path: '/tiers', icon: Layers },
-    { label: 'Users', path: '/users', icon: UserCheck },
     { label: 'Settings', path: '/settings', icon: Settings },
     { label: 'Audit Logs', path: '/audit-logs', icon: FileText },
   ];

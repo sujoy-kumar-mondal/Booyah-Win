@@ -226,3 +226,72 @@ export function requireUser(req: Request, res: Response, next: NextFunction): vo
   }
   next();
 }
+
+/**
+ * Middleware: optionally authenticates a user token.
+ * If valid Bearer token is present, populates req.user.
+ * If no token or invalid/expired token, req.user remains undefined and continues without throwing an error.
+ */
+export async function authenticateOptionalUser(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    const token = extractBearerToken(req);
+    if (!token) {
+      return next();
+    }
+
+    let payload;
+    try {
+      payload = verifySessionToken(token);
+    } catch {
+      return next();
+    }
+
+    if (payload.typ !== 'user') {
+      return next();
+    }
+
+    const sessionRes = await query(
+      'SELECT id FROM sessions WHERE account_type = $1 AND account_id = $2',
+      [payload.typ, payload.sub]
+    );
+
+    if (sessionRes.rowCount === 0 || sessionRes.rows[0].id !== payload.sid) {
+      return next();
+    }
+
+    const userRes = await query(
+      `SELECT id, email, name, mobile, ff_id, ff_name, upi_id, to_char(date_of_birth, 'YYYY-MM-DD') as date_of_birth,
+              referral_code, referred_by, deleted_at
+       FROM users WHERE id = $1`,
+      [payload.sub]
+    );
+
+    if (userRes.rowCount === 0 || userRes.rows[0].deleted_at !== null) {
+      return next();
+    }
+
+    const row = userRes.rows[0];
+    req.user = {
+      id: row.id.toString(),
+      email: row.email,
+      name: row.name,
+      mobile: row.mobile,
+      ffId: row.ff_id,
+      ffName: row.ff_name,
+      upiId: row.upi_id,
+      dateOfBirth: row.date_of_birth,
+      referralCode: row.referral_code,
+      referredBy: row.referred_by ? row.referred_by.toString() : null,
+    };
+    req.sessionId = payload.sid;
+
+    next();
+  } catch {
+    next();
+  }
+}
+

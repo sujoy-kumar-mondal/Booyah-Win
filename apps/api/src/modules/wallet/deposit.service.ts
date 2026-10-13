@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Deposit service – user-facing.
  *
  * Change #1: wallet row is locked FOR UPDATE BEFORE counting pending deposits,
@@ -27,7 +27,7 @@ export interface DepositDto {
   amount: string;
   utr: string;
   screenshotUrl: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'employee_approved' | 'approved' | 'rejected';
   rejectReason: string | null;
   needsAdmin: boolean;
   createdAt: string;
@@ -147,7 +147,7 @@ export async function submitDeposit(
       const pendingRes = await client.query(
         `SELECT count(*)::int AS c
          FROM deposit_requests
-         WHERE user_id = $1 AND status = 'pending'`,
+         WHERE user_id = $1 AND status IN ('pending', 'employee_approved')`,
         [userId]
       );
       if (pendingRes.rows[0].c >= MAX_PENDING) {

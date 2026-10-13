@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Wallet Service — THE ONLY CODE ALLOWED TO CHANGE BALANCES.
  *
  * Rules:
@@ -20,6 +20,7 @@ import {
   ErrorCodes,
 } from '@booyah/shared';
 import { AppError } from '../../middleware/errorHandler.js';
+import { RULES } from '../../config/rules.js';
 
 // ─── Types ────────────────────────────────────────────────────────────────────
 
@@ -219,7 +220,7 @@ export async function allocateEntryFee(
   }
   const w = walletPaise(walletRes.rows[0]);
 
-  const cashbackCap  = Math.floor(feePaise * 5 / 100);
+  const cashbackCap  = Math.floor(feePaise * RULES.CASHBACK_ENTRY_FEE_CAP_PERCENT / 100);
   const cashbackPart = Math.min(w.cashback, cashbackCap);
 
   let remaining = feePaise - cashbackPart;

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { History, Swords, Clock, AlertCircle, ChevronDown } from 'lucide-react';
 import { fetchMatchHistory, type MatchHistoryItem } from '../../api/matches.js';
-import { formatIndianRupees, formatISTDateTime } from '../../utils/formatters.js';
+import { formatIndianRupees, formatISTDateTime, formatGameMode } from '../../utils/formatters.js';
 
 export const MatchHistory: React.FC = () => {
   const [items, setItems] = useState<MatchHistoryItem[]>([]);
@@ -147,7 +147,7 @@ export const MatchHistory: React.FC = () => {
                 <div>
                   <div className="flex items-center gap-1.5">
                     <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-300">
-                      {item.gameMode}
+                      {formatGameMode(item.gameMode)}
                     </span>
                     <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-300">
                       {item.teamMode}

@@ -408,7 +408,7 @@ describe('Milestone 5: Matches Lifecycle, Solo Join & Refunds', () => {
   // ─── 7. Invalid status transitions return 409 INVALID_TRANSITION ───────────
   it('invalid status transitions return 409 INVALID_TRANSITION', async () => {
     const admin = await createStaff('admin');
-    const tierId = await createSoloBRTier();
+    const tierId = await createSoloBRTier({ minPlayers: 0 });
     const startTime = new Date(Date.now() + 3600000).toISOString();
     const match = await createMatchStaff(admin.id, { tierId, startTime });
 
@@ -486,6 +486,14 @@ describe('Milestone 5: Matches Lifecycle, Solo Join & Refunds', () => {
     expect(detail.id).toBe(match.id);
     expect(detail.hasJoined).toBe(false);
     expect(detail.roomId).toBeUndefined();
+
+    const detailU1 = await getMatchUser(u1.id, match.id);
+    expect(detailU1.hasJoined).toBe(true);
+
+    const listU1 = await listMatchesUser(u1.id);
+    const matchInList = listU1.find((m) => m.id === match.id);
+    expect(matchInList?.hasJoined).toBe(true);
+    expect(matchInList?.joinedPlayers).toBe(1);
     // Must NOT contain player arrays or rosters
     expect((detail as any).players).toBeUndefined();
     expect((detail as any).playerList).toBeUndefined();
@@ -581,6 +589,13 @@ describe('Milestone 5: Matches Lifecycle, Solo Join & Refunds', () => {
     // Last ledger row's total_after matches total wallet balance (3050 paise)
     const lastRow = ledgerRows.rows[ledgerRows.rows.length - 1];
     expect(stringToPaise(lastRow.total_after.toString())).toBe(3050);
+
+    // Cancelled match displays how many users were joined instead of 0
+    const staffMatches = await listMatchesStaff({ status: 'cancelled' });
+    const cancelledMatch = staffMatches.items.find((m) => m.id === match.id);
+    expect(cancelledMatch).toBeDefined();
+    expect(cancelledMatch?.joinedCount).toBe(1);
+    expect(cancelledMatch?.seatsTaken).toBe(1);
   });
 
   // ─── 14. Referral credited once on first join ───────────────────────────────
@@ -613,7 +628,7 @@ describe('Milestone 5: Matches Lifecycle, Solo Join & Refunds', () => {
   it('employee cannot cancel a live match (403), admin can (200)', async () => {
     const admin = await createStaff('admin');
     const employee = await createStaff('employee');
-    const tierId = await createSoloBRTier();
+    const tierId = await createSoloBRTier({ minPlayers: 0 });
     const startTime = new Date(Date.now() + 3600000).toISOString();
 
     const match = await createMatchStaff(admin.id, { tierId, startTime });

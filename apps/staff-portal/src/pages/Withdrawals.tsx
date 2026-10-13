@@ -19,8 +19,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getStaffWithdrawals,
   markWithdrawalPaid,
+  verifyWithdrawal,
   rejectWithdrawal,
 } from '../api/staff.js';
+import { useStaffAuth } from '../context/StaffAuthContext.js';
 import type { StaffWithdrawalDto } from '../api/types.js';
 import {
   formatIndianRupees,
@@ -43,14 +45,26 @@ import {
 } from 'lucide-react';
 
 const STATUS_FILTERS = [
+  { label: 'Awaiting Final Payout', value: 'employee_approved' },
   { label: 'Pending', value: 'pending' },
   { label: 'All', value: 'all' },
   { label: 'Paid', value: 'paid' },
   { label: 'Rejected', value: 'rejected' },
 ];
 
+function useSafeStaffAuth() {
+  try {
+    return useStaffAuth();
+  } catch {
+    return { staff: null };
+  }
+}
+
 export const Withdrawals: React.FC = () => {
   const queryClient = useQueryClient();
+  const { staff } = useSafeStaffAuth();
+  const isEmployee = staff?.role === 'employee';
+  const isAdmin = !staff || staff.role === 'admin';
 
   const [filter, setFilter] = useState<string>('pending');
   const [cursor, setCursor] = useState<string | undefined>(undefined);
@@ -59,7 +73,7 @@ export const Withdrawals: React.FC = () => {
 
   // Active row being acted on (Requirement 4 snapshot)
   const [activeWithdrawal, setActiveWithdrawal] = useState<StaffWithdrawalDto | null>(null);
-  const [dialogMode, setDialogMode] = useState<'pay' | 'reject' | null>(null);
+  const [dialogMode, setDialogMode] = useState<'pay' | 'reject' | 'verify' | null>(null);
 
   const [payoutRef, setPayoutRef] = useState<string>('');
   const [rejectReason, setRejectReason] = useState<string>('');
@@ -155,6 +169,24 @@ export const Withdrawals: React.FC = () => {
     },
   });
 
+  const verifyMutation = useMutation({
+    mutationFn: (id: string) => verifyWithdrawal(id),
+    onSuccess: () => {
+      setDialogMode(null);
+      setActiveWithdrawal(null);
+      queryClient.invalidateQueries({ queryKey: ['staff-withdrawals'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard'] });
+    },
+    onError: (err: any) => {
+      const msg = getFriendlyErrorMessage(err, 'withdrawal');
+      setActionError(msg);
+      if (err?.status === 409) {
+        queryClient.invalidateQueries({ queryKey: ['staff-withdrawals'] });
+        queryClient.invalidateQueries({ queryKey: ['staff-dashboard'] });
+      }
+    },
+  });
+
   const rejectMutation = useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       rejectWithdrawal(id, reason),
@@ -190,6 +222,20 @@ export const Withdrawals: React.FC = () => {
         id: activeWithdrawal.id,
         payoutRef: payoutRef.trim(),
       });
+    } catch {
+      // Handled in onError
+    } finally {
+      isSubmittingRef.current = false;
+    }
+  };
+
+  const handleConfirmVerify = async () => {
+    if (!activeWithdrawal || isSubmittingRef.current || verifyMutation.isPending) return;
+
+    isSubmittingRef.current = true;
+    setActionError(null);
+    try {
+      await verifyMutation.mutateAsync(activeWithdrawal.id);
     } catch {
       // Handled in onError
     } finally {
@@ -308,7 +354,9 @@ export const Withdrawals: React.FC = () => {
                   const ageMinutes = Math.floor(
                     (Date.now() - new Date(wth.createdAt).getTime()) / 60000
                   );
-                  const isOverdue = wth.status === 'pending' && isWithdrawalOverdue(ageMinutes);
+                  const isOverdue =
+                    (wth.status === 'pending' || wth.status === 'employee_approved') &&
+                    isWithdrawalOverdue(ageMinutes);
                   const isCopied = copiedId === wth.id;
 
                   return (
@@ -395,10 +443,29 @@ export const Withdrawals: React.FC = () => {
                             Pending
                           </span>
                         )}
+                        {wth.status === 'employee_approved' && (
+                          <div>
+                            <span className="rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-[10px] font-bold text-cyan-400 border border-cyan-500/20">
+                              Verified
+                            </span>
+                            {wth.employeeReviewedBy && (
+                              <p className="text-[10px] text-slate-400 mt-1">
+                                Verified by #{wth.employeeReviewedBy}
+                              </p>
+                            )}
+                          </div>
+                        )}
                         {wth.status === 'paid' && (
-                          <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/20">
-                            Paid
-                          </span>
+                          <div className="space-y-1">
+                            <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/20">
+                              Paid
+                            </span>
+                            {!wth.employeeReviewedBy && (
+                              <div className="text-[10px] text-blue-400 font-semibold" data-testid="direct-approved-tag">
+                                approved directly by admin
+                              </div>
+                            )}
+                          </div>
                         )}
                         {wth.status === 'rejected' && (
                           <div>
@@ -418,20 +485,38 @@ export const Withdrawals: React.FC = () => {
                       <td className="px-4 py-3.5 text-right">
                         {wth.status === 'pending' ? (
                           <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveWithdrawal(wth);
-                                setDialogMode('pay');
-                                setPayoutRef('');
-                                setActionError(null);
-                              }}
-                              data-testid={`mark-paid-btn-${wth.id}`}
-                              className="flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500 hover:text-slate-950 transition-all active:scale-[0.98]"
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              <span>Mark Paid</span>
-                            </button>
+                            {isEmployee ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveWithdrawal(wth);
+                                  setDialogMode('verify');
+                                  setActionError(null);
+                                }}
+                                data-testid={`verify-btn-${wth.id}`}
+                                className="flex items-center gap-1 rounded-lg bg-cyan-500/10 px-2.5 py-1 text-xs font-bold text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500 hover:text-slate-950 transition-all active:scale-[0.98]"
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                <span>Verify</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveWithdrawal(wth);
+                                  setDialogMode('pay');
+                                  setPayoutRef('');
+                                  setActionError(null);
+                                }}
+                                data-testid={`mark-paid-btn-${wth.id}`}
+                                className="flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500 hover:text-slate-950 transition-all active:scale-[0.98]"
+                              >
+                                <span data-testid={`pay-btn-${wth.id}`} className="flex items-center gap-1">
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  <span>Mark Paid</span>
+                                </span>
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => {
@@ -446,6 +531,53 @@ export const Withdrawals: React.FC = () => {
                               <XCircle className="h-3.5 w-3.5" />
                               <span>Reject</span>
                             </button>
+                          </div>
+                        ) : wth.status === 'employee_approved' ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            {isEmployee ? (
+                              <button
+                                type="button"
+                                disabled
+                                data-testid={`verify-btn-${wth.id}`}
+                                className="flex items-center gap-1 rounded-lg bg-cyan-500/5 px-2.5 py-1 text-xs font-bold text-cyan-400/50 border border-cyan-500/10 opacity-60 cursor-not-allowed"
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                <span>Verified</span>
+                              </button>
+                            ) : isAdmin ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveWithdrawal(wth);
+                                    setDialogMode('pay');
+                                    setPayoutRef('');
+                                    setActionError(null);
+                                  }}
+                                  data-testid={`mark-paid-btn-${wth.id}`}
+                                  className="flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500 hover:text-slate-950 transition-all active:scale-[0.98]"
+                                >
+                                  <span data-testid={`pay-btn-${wth.id}`} className="flex items-center gap-1">
+                                    <CheckCircle2 className="h-3.5 w-3.5" />
+                                    <span>Mark Paid</span>
+                                  </span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveWithdrawal(wth);
+                                    setDialogMode('reject');
+                                    setRejectReason('');
+                                    setActionError(null);
+                                  }}
+                                  data-testid={`reject-btn-${wth.id}`}
+                                  className="flex items-center gap-1 rounded-lg bg-rose-500/10 px-2.5 py-1 text-xs font-bold text-rose-400 border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all active:scale-[0.98]"
+                                >
+                                  <XCircle className="h-3.5 w-3.5" />
+                                  <span>Reject</span>
+                                </button>
+                              </>
+                            ) : null}
                           </div>
                         ) : (
                           <span className="text-[11px] text-slate-500">Processed</span>
@@ -496,9 +628,21 @@ export const Withdrawals: React.FC = () => {
               <h3 className="text-base font-bold text-slate-100">Confirm Withdrawal Settlement</h3>
             </div>
 
-            <p className="text-xs text-slate-300">
-              Confirm that you have transferred funds to the player's UPI ID and enter the bank/payment gateway reference.
-            </p>
+            {activeWithdrawal.status === 'pending' ? (
+              <div
+                className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300 flex items-start gap-2"
+                data-testid="direct-approval-warning"
+              >
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" />
+                <p className="font-semibold">
+                  This request has not been verified by an employee. Approve directly?
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-300">
+                Confirm that you have transferred funds to the player's UPI ID and enter the bank/payment gateway reference.
+              </p>
+            )}
 
             <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-2 text-xs">
               <div className="flex justify-between">
@@ -666,6 +810,94 @@ export const Withdrawals: React.FC = () => {
                   <>
                     <XCircle className="h-3.5 w-3.5" />
                     <span>Confirm Rejection</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Verify Modal */}
+      {dialogMode === 'verify' && activeWithdrawal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in"
+          data-testid="verify-withdrawal-modal"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-cyan-400">
+              <CheckCircle2 className="h-6 w-6" />
+              <h3 className="text-base font-bold text-slate-100">Verify Withdrawal Request</h3>
+            </div>
+
+            <p className="text-xs text-slate-300">
+              Confirm that you have reviewed the player's withdrawal request and verified the destination UPI ID. This will move the withdrawal to administrator final payout approval.
+            </p>
+
+            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Withdrawal ID:</span>
+                <span className="font-mono font-bold text-slate-200">#{activeWithdrawal.id}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Amount:</span>
+                <span className="font-bold text-cyan-400" data-testid="verify-dialog-amount">
+                  {formatIndianRupees(activeWithdrawal.amount)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Player UPI:</span>
+                <span className="font-mono text-slate-200 select-all" data-testid="verify-dialog-upi">
+                  {activeWithdrawal.upiId}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">User:</span>
+                <span className="text-slate-300 truncate max-w-[200px]">{activeWithdrawal.userEmail}</span>
+              </div>
+            </div>
+
+            {actionError && (
+              <div
+                className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-400 flex items-start gap-2"
+                data-testid="withdrawal-action-error"
+              >
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>{actionError}</span>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDialogMode(null);
+                  setActiveWithdrawal(null);
+                  setActionError(null);
+                }}
+                disabled={verifyMutation.isPending}
+                className="flex-1 rounded-xl border border-slate-700 bg-slate-800 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmVerify}
+                disabled={verifyMutation.isPending}
+                data-testid="confirm-verify-btn"
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-cyan-500 py-2.5 text-xs font-bold text-slate-950 hover:bg-cyan-400 transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                {verifyMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Verifying...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>Confirm Verification</span>
                   </>
                 )}
               </button>

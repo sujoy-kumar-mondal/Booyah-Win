@@ -222,16 +222,15 @@ A refund (match cancelled, team disbanded, invite expired) credits **exactly** t
 ### 7.1 User flow
 1. User opens Add Money: sees payment QR image, the UPI ID text, min/max limits (`GET /payment-info`).
 2. Pays outside the app, then fills the form: **amount**, **transaction ID (UTR)**, **payment screenshot**.
-3. `POST /wallet/deposits` (multipart). Rules: amount within min/max; UTR unique (409 `UTR_EXISTS`); screenshot required; max **3 pending deposits** per user.
-4. Status shown as Pending with the text "Verified within 30 minutes". `GET /wallet/deposits` lists own requests with status and rejection reason.
+3. `POST /wallet/deposits` (multipart). Rules: amount within min/max; UTR unique (409 `UTR_EXISTS`); screenshot required; max **3 pending deposits** per user (covers `pending` and `employee_approved`).
+4. Status shown with stages: Under review, Verified by staff, waiting for final approval, Approved, or Rejected (with reason). Confirmation text: "Usually reviewed within 30 minutes, final approval can take a bit longer". `GET /wallet/deposits` lists own requests with status and rejection reason (no staff identities exposed).
 
 ### 7.2 Staff flow
-- `GET /staff/deposits?status=pending` (oldest first; highlight anything pending over 30 minutes). Screenshot via signed URL.
-- `POST /staff/deposits/:id/approve`:
-  - If `needs_admin` is true (amount ≥ `admin_approval_threshold`, set at creation) and caller is not admin → 403 `ADMIN_APPROVAL_REQUIRED`.
-  - One transaction: lock deposit `FOR UPDATE`, require `status='pending'`, credit `add_money`, ledger `add_money`, set status approved + `reviewed_by`, trigger referral reward check (6.3), write audit log.
-- `POST /staff/deposits/:id/reject` `{ reason }` (reason required, min 5 chars).
-- A staff member cannot approve a deposit that belongs to their own user account if they also have one (compare emails). Return 403.
+- Two-step flow: `pending` -> `employee_approved` -> `approved` (or `rejected` at either stage).
+- `POST /staff/deposits/:id/verify`: Employee verifies pending deposit (`employee_approved`). Admin calling `/verify` gets 403 `ADMINS_APPROVE_DIRECTLY`.
+- `POST /staff/deposits/:id/approve`: Admin-only final approval (employees get 403 `FORBIDDEN`). Admins can approve from `employee_approved` or directly from `pending` (audited as `deposit_approved_direct`). One transaction: lock deposit `FOR UPDATE`, credit `add_money`, ledger `add_money`, set status approved + `reviewed_by`, trigger referral reward check (6.3), write audit log.
+- `POST /staff/deposits/:id/reject` `{ reason }` (reason required, min 5 chars). Employees may reject only pending deposits; only admin may reject employee_approved deposits (403 for employee).
+- Self-processing guard: staff cannot verify, approve, or reject deposits for their own account (compare emails, return 403 `FORBIDDEN`).
 
 ---
 
@@ -242,16 +241,17 @@ A refund (match cancelled, team disbanded, invite expired) credits **exactly** t
   - `amount ≥ 50` and `≤ winning` balance.
   - The UPI screen shows the saved UPI ID and requires the user to **re-enter and confirm** it. The server checks `upiId` equals the user's stored UPI (case-insensitive) and `confirm === true`.
   - Blocked for **48 hours after the last UPI change** (`users.upi_changed_at`): 403 `UPI_RECENTLY_CHANGED`.
-  - Only **one pending withdrawal** at a time (409 `WITHDRAWAL_PENDING`).
+  - Only **one active withdrawal** at a time (`pending` or `employee_approved`: 409 `WITHDRAWAL_PENDING`).
   - One transaction: debit `winning`, ledger `withdrawal_hold`, insert request with `upi_id` snapshot, status `pending`.
 - Message: "Withdrawals are settled within 24 hours."
 
 ### 8.2 Staff flow
-- `GET /staff/withdrawals?status=pending` (oldest first, show UPI ID with copy button).
-- `POST /staff/withdrawals/:id/mark-paid` `{ payoutRef }`: employee pays via their UPI app first, then records the UPI reference. Status `paid`. (No extra ledger row; the hold row is the user's visible withdrawal.)
-- `POST /staff/withdrawals/:id/reject` `{ reason }`: credit amount back to `winning`, ledger `withdrawal_refund`, status `rejected`.
-- Withdrawals ≥ `admin_approval_threshold` can only be marked paid by admin.
-- All actions are audit logged.
+- Two-step flow: `pending` -> `employee_approved` -> `paid` (or `rejected` at either stage).
+- `POST /staff/withdrawals/:id/verify`: Employee verifies pending withdrawal (`employee_approved`). Admin calling `/verify` gets 403 `ADMINS_APPROVE_DIRECTLY`.
+- `POST /staff/withdrawals/:id/mark-paid` `{ payoutRef }`: Admin-only final approval (employees get 403 `FORBIDDEN`). Admins can mark paid from `employee_approved` or directly from `pending` (audited as `withdrawal_paid_direct`). Required `payoutRef`. Status `paid`.
+- `POST /staff/withdrawals/:id/reject` `{ reason }`: credit amount back to `winning`, ledger `withdrawal_refund`, status `rejected`. Employees may reject only pending withdrawals; only admin may reject employee_approved withdrawals (403 for employee).
+- Self-processing guard: staff cannot verify, mark paid, or reject withdrawals for their own account (compare emails, return 403 `FORBIDDEN`).
+- All actions are audit logged in the same transaction.
 
 ---
 
@@ -449,8 +449,10 @@ Pages (all require staff login):
 2. **Matches:** list with filters, Create Match form (11.2), match detail (players, teams), actions: Open Room (room ID + password), Go Live, Cancel (reason), Add Result (12.1).
 3. **Deposits queue** (Section 7.2).
 4. **Withdrawals queue** (Section 8.2).
+5. **Users list and detail drawer** (read-only): list and search users, detail drawer with 5 tabs (Profile, Wallets, Transactions, Matches, Requests). Profile data is strictly masked (`******7890` for mobile, `****1234@upi` for UPI) and limited by an explicit allowlist (no DOB, PAN, Aadhaar, or referral tree). Distinct user views are capped at 300 per day per employee.
+6. **Maintenance Banner**: Staff portal displays a thin persistent top banner when maintenance mode is active showing the maintenance status and end time in IST.
 
-Employees **cannot**: view PAN/Aadhaar, create tiers, approve results, adjust balances, delete users, manage staff.
+Employees **cannot**: view PAN/Aadhaar/DOB, create tiers, approve results, adjust balances, delete users, manage staff.
 
 ---
 
@@ -476,10 +478,10 @@ Admin sees everything employees see, plus:
 ### 16.4 Result approvals: Section 12.3. Reversal: 12.5.
 
 ### 16.5 Settings
-Edit `app_settings`: support contact, payment QR image (upload via `POST /admin/settings/payment-qr` writing `payment_qr_key`; `PATCH /admin/settings` rejects `payment_qr_key`), payment UPI ID, min/max deposit, admin approval threshold.
+Edit `app_settings`: support contact, payment QR image (upload via `POST /admin/settings/payment-qr` writing `payment_qr_key`; `PATCH /admin/settings` rejects `payment_qr_key`), payment UPI ID, min/max deposit, admin approval threshold, and maintenance mode (`maintenance_enabled`, `maintenance_message`, `maintenance_until`). Admin settings UI features a dedicated Maintenance card with toggle, plain text preview, IST date/time inputs (`+05:30`), past time warning, and confirmation modal before saving toggle change.
 
 ### 16.6 Audit log
-`GET /admin/audit-logs?staffId=&action=&from=&to=`. Every staff action that touches money, matches, users or staff writes an `audit_logs` row (who, action, target, details JSON).
+`GET /admin/audit-logs?staffId=&action=&from=&to=`. Every staff action that touches money, matches, users or staff writes an `audit_logs` row (who, action, target, details JSON), including `user_viewed` on staff user detail views and `user_view_limit_exceeded` when the employee daily cap is exceeded.
 
 ---
 
@@ -568,6 +570,8 @@ The AI must write and pass these before moving on:
 10. **Profile:** editable fields with cooldown hints ("Next change available on ..."), locked fields shown greyed out.
 11. **Support:** shared contact details.
 12. **Global:** "logged out on another device" dialog, low-balance prompt, offline notice (PWA).
+13. **Leaderboard:** Weekly top 50 players by match winnings with IST week reset (Monday 12:00 AM IST), user's current rank card, visible-tab polling (at most 60s), and guest header with Login/Register.
+14. **Referral:** Invite friends screen with referral code copy, WhatsApp share, referral count summary (referred count, bonuses earned, total earned), and rules notice.
 
 ### 21.2 Staff Portal
 - Login (OTP), role-based sidebar.
@@ -578,7 +582,7 @@ The AI must write and pass these before moving on:
 
 ## 22. Error Codes
 
-`UNAUTHENTICATED`, `SESSION_REPLACED`, `FORBIDDEN`, `ADMIN_APPROVAL_REQUIRED`, `VALIDATION_ERROR`, `INVALID_OTP`, `OTP_RATE_LIMITED`, `EMAIL_EXISTS`, `MOBILE_EXISTS`, `FF_ID_EXISTS`, `UPI_EXISTS`, `INVALID_REFERRAL`, `FIELD_COOLDOWN`, `IN_ACTIVE_MATCH`, `LOW_BALANCE`, `UTR_EXISTS`, `DEPOSIT_LIMIT`, `WITHDRAWAL_PENDING`, `UPI_RECENTLY_CHANGED`, `MATCH_FULL`, `ALREADY_JOINED`, `MATCH_NOT_JOINABLE`, `TEAM_INVALID`, `INVITE_EXPIRED`, `RESULT_INVALID`, `RESULT_LOCKED`, `NOT_FOUND`, `RATE_LIMITED`, `INTERNAL_ERROR`, `INVALID_TRANSITION`, `DATABASE_BUSY`.
+`UNAUTHENTICATED`, `SESSION_REPLACED`, `FORBIDDEN`, `ADMIN_APPROVAL_REQUIRED`, `VALIDATION_ERROR`, `INVALID_OTP`, `OTP_RATE_LIMITED`, `EMAIL_EXISTS`, `MOBILE_EXISTS`, `FF_ID_EXISTS`, `UPI_EXISTS`, `INVALID_REFERRAL`, `FIELD_COOLDOWN`, `IN_ACTIVE_MATCH`, `LOW_BALANCE`, `UTR_EXISTS`, `DEPOSIT_LIMIT`, `WITHDRAWAL_PENDING`, `UPI_RECENTLY_CHANGED`, `MATCH_FULL`, `ALREADY_JOINED`, `MATCH_NOT_JOINABLE`, `TEAM_INVALID`, `INVITE_EXPIRED`, `RESULT_INVALID`, `RESULT_LOCKED`, `NOT_FOUND`, `RATE_LIMITED`, `INTERNAL_ERROR`, `INVALID_TRANSITION`, `DATABASE_BUSY`, `ADMINS_APPROVE_DIRECTLY`, `MAINTENANCE_MODE`.
 
 ---
 

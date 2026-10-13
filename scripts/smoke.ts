@@ -151,9 +151,33 @@ const smokeCalls: SmokeCall[] = [
   },
   {
     app: 'staff-portal',
+    endpoint: '/staff/deposits/:id/verify',
+    fixture: 'POST_staff_deposits_id_verify.json',
+    guard: staffGuards.staffActionResponseGuard,
+  },
+  {
+    app: 'staff-portal',
+    endpoint: '/staff/deposits/:id/approve',
+    fixture: 'POST_staff_deposits_id_approve.json',
+    guard: staffGuards.staffActionResponseGuard,
+  },
+  {
+    app: 'staff-portal',
     endpoint: '/staff/withdrawals',
     fixture: 'GET_staff_withdrawals.json',
     guard: staffGuards.withdrawalListResponseGuard,
+  },
+  {
+    app: 'staff-portal',
+    endpoint: '/staff/withdrawals/:id/verify',
+    fixture: 'POST_staff_withdrawals_id_verify.json',
+    guard: staffGuards.staffActionResponseGuard,
+  },
+  {
+    app: 'staff-portal',
+    endpoint: '/staff/withdrawals/:id/mark-paid',
+    fixture: 'POST_staff_withdrawals_id_mark-paid.json',
+    guard: staffGuards.staffActionResponseGuard,
   },
   {
     app: 'staff-portal',
@@ -251,8 +275,32 @@ const smokeCalls: SmokeCall[] = [
     fixture: 'GET_admin_audit-logs.json',
     guard: staffGuards.adminAuditLogsResponseGuard,
   },
+  {
+    app: 'staff-portal',
+    endpoint: '/status',
+    fixture: 'GET_api_v1_status.json',
+    guard: staffGuards.statusResponseGuard,
+  },
+  {
+    app: 'staff-portal',
+    endpoint: '/staff/users',
+    fixture: 'GET_staff_users.json',
+    guard: staffGuards.staffUserListResponseGuard,
+  },
+  {
+    app: 'staff-portal',
+    endpoint: '/staff/users/:id',
+    fixture: 'GET_staff_users_id.json',
+    guard: staffGuards.staffUserDetailResponseGuard,
+  },
 
   // User PWA Endpoints
+  {
+    app: 'user-pwa',
+    endpoint: '/api/v1/status',
+    fixture: 'GET_api_v1_status.json',
+    guard: pwaGuards.statusResponseGuard,
+  },
   {
     app: 'user-pwa',
     endpoint: '/api/v1/me',
@@ -378,6 +426,30 @@ const smokeCalls: SmokeCall[] = [
     endpoint: '/api/v1/support',
     fixture: 'GET_api_v1_support.json',
     guard: pwaGuards.userSupportInfoResponseGuard,
+  },
+  {
+    app: 'user-pwa',
+    endpoint: '/api/v1/leaderboard',
+    fixture: 'GET_api_v1_leaderboard__populated.json',
+    guard: pwaGuards.leaderboardResponseGuard,
+  },
+  {
+    app: 'user-pwa',
+    endpoint: '/api/v1/me/leaderboard-rank',
+    fixture: 'GET_api_v1_me_leaderboard-rank__ranked.json',
+    guard: pwaGuards.leaderboardRankResponseGuard,
+  },
+  {
+    app: 'user-pwa',
+    endpoint: '/api/v1/rules',
+    fixture: 'GET_api_v1_rules.json',
+    guard: pwaGuards.rulesResponseGuard,
+  },
+  {
+    app: 'user-pwa',
+    endpoint: '/api/v1/me/referral-summary',
+    fixture: 'GET_api_v1_me_referral-summary.json',
+    guard: pwaGuards.referralSummaryResponseGuard,
   },
 ];
 

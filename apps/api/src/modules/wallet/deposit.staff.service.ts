@@ -1,7 +1,12 @@
 /**
- * Deposit staff service – approve / reject.
+ * Deposit staff service – verify / approve / reject flow.
  *
- * Change #6 – approval lock order:
+ * Two-step approval flow:
+ *   pending -> employee_approved -> approved
+ *   or direct admin approval: pending -> approved (audited as deposit_approved_direct)
+ *   rejection supported at either stage (employee can reject only pending; admin can reject both).
+ *
+ * Approval lock order:
  *   1. Non-locking SELECT on deposit to get user_id
  *   2. Non-locking SELECT on referrals to find referrer_id
  *   3. SELECT deposit FOR UPDATE + re-verify status
@@ -21,7 +26,6 @@ import { query, withTransaction } from '../../db/index.js';
 import { AppError } from '../../middleware/errorHandler.js';
 import { writeAuditLog } from '../../utils/audit.js';
 import { getSignedUrl } from '../../utils/storage.js';
-import { getDepositSettings } from './deposit.service.js';
 import { creditWallet, creditReferralReward } from './wallet.service.js';
 
 export interface StaffDepositDto {
@@ -31,34 +35,38 @@ export interface StaffDepositDto {
   amount: string;
   utr: string;
   screenshotUrl: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'employee_approved' | 'approved' | 'rejected';
   rejectReason: string | null;
   needsAdmin: boolean;
   pendingMinutes: number | null;
   createdAt: string;
   reviewedAt: string | null;
   reviewedBy: string | null;
+  employeeReviewedAt: string | null;
+  employeeReviewedBy: string | null;
 }
 
 async function enrichRow(row: any): Promise<StaffDepositDto> {
   const signedUrl = await getSignedUrl(row.screenshot_url, 60);
-  const pendingMinutes = row.status === 'pending'
+  const pendingMinutes = (row.status === 'pending' || row.status === 'employee_approved')
     ? Math.floor((Date.now() - new Date(row.created_at).getTime()) / 60000)
     : null;
   return {
-    id:            row.id.toString(),
-    userId:        row.user_id.toString(),
-    userEmail:     row.user_email,
-    amount:        paiseToString(stringToPaise(row.amount.toString())),
-    utr:           row.utr,
-    screenshotUrl: signedUrl,
-    status:        row.status,
-    rejectReason:  row.reject_reason ?? null,
-    needsAdmin:    row.needs_admin,
+    id:                 row.id.toString(),
+    userId:             row.user_id.toString(),
+    userEmail:          row.user_email,
+    amount:             paiseToString(stringToPaise(row.amount.toString())),
+    utr:                row.utr,
+    screenshotUrl:      signedUrl,
+    status:             row.status,
+    rejectReason:       row.reject_reason ?? null,
+    needsAdmin:         row.needs_admin,
     pendingMinutes,
-    createdAt:     row.created_at.toISOString(),
-    reviewedAt:    row.reviewed_at ? row.reviewed_at.toISOString() : null,
-    reviewedBy:    row.reviewed_by ? row.reviewed_by.toString() : null,
+    createdAt:          row.created_at.toISOString(),
+    reviewedAt:         row.reviewed_at ? row.reviewed_at.toISOString() : null,
+    reviewedBy:         row.reviewed_by ? row.reviewed_by.toString() : null,
+    employeeReviewedAt: row.employee_reviewed_at ? row.employee_reviewed_at.toISOString() : null,
+    employeeReviewedBy: row.employee_reviewed_by ? row.employee_reviewed_by.toString() : null,
   };
 }
 
@@ -73,7 +81,8 @@ export async function listDepositsStaff(params: {
   let sql = `
     SELECT dr.id, dr.user_id, u.email AS user_email, dr.amount, dr.utr,
            dr.screenshot_url, dr.status, dr.reject_reason, dr.needs_admin,
-           dr.created_at, dr.reviewed_at, dr.reviewed_by
+           dr.created_at, dr.reviewed_at, dr.reviewed_by,
+           dr.employee_reviewed_at, dr.employee_reviewed_by
     FROM deposit_requests dr
     JOIN users u ON u.id = dr.user_id
     WHERE 1=1
@@ -104,13 +113,88 @@ export async function listDepositsStaff(params: {
   return { items, nextCursor };
 }
 
-/** Approve a deposit (change #6 lock order). */
+/** Verify a deposit (Step 1 by Employee). */
+export async function verifyDeposit(
+  staffId: string,
+  staffEmail: string,
+  staffRole: string,
+  depositId: string
+): Promise<void> {
+  // Requirement 4: /verify is for employees only; admin gets 403 ADMINS_APPROVE_DIRECTLY
+  if (staffRole === 'admin') {
+    throw new AppError(
+      ErrorCodes.ADMINS_APPROVE_DIRECTLY,
+      'Admins approve directly',
+      403
+    );
+  }
+
+  await withTransaction(async (client: PoolClient) => {
+    const depRes = await client.query(
+      `SELECT dr.id, dr.user_id, dr.status, u.email AS user_email
+       FROM deposit_requests dr
+       JOIN users u ON u.id = dr.user_id
+       WHERE dr.id = $1
+       FOR UPDATE OF dr`,
+      [depositId]
+    );
+
+    if (!depRes.rowCount) {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'Deposit not found', 404);
+    }
+
+    const dep = depRes.rows[0];
+
+    if (dep.status !== 'pending') {
+      throw new AppError(
+        ErrorCodes.VALIDATION_ERROR,
+        `Deposit already ${dep.status}`,
+        409
+      );
+    }
+
+    // Staff cannot verify own deposit
+    if (dep.user_email.toLowerCase() === staffEmail.toLowerCase()) {
+      throw new AppError(
+        ErrorCodes.FORBIDDEN,
+        'Staff cannot verify their own deposit',
+        403
+      );
+    }
+
+    await client.query(
+      `UPDATE deposit_requests
+       SET status = 'employee_approved', employee_reviewed_by = $1, employee_reviewed_at = now()
+       WHERE id = $2`,
+      [staffId, depositId]
+    );
+
+    await writeAuditLog(client, {
+      staffId,
+      action: 'deposit_verified',
+      targetType: 'deposit_requests',
+      targetId: depositId,
+      details: { stage: 'employee_approved', userId: dep.user_id.toString() },
+    });
+  });
+}
+
+/** Final approve a deposit (Admin only). */
 export async function approveDeposit(
   staffId: string,
   staffEmail: string,
   staffRole: string,
   depositId: string
 ): Promise<void> {
+  // Only admin may execute final approval
+  if (staffRole !== 'admin') {
+    throw new AppError(
+      ErrorCodes.FORBIDDEN,
+      'Only administrators can approve deposits',
+      403
+    );
+  }
+
   await withTransaction(async (client: PoolClient) => {
     // ── Step 1: non-locking read to get user_id ──────────────────────────────
     const peekRes = await client.query(
@@ -145,22 +229,11 @@ export async function approveDeposit(
     }
     const dep = depRes.rows[0];
 
-    if (dep.status !== 'pending') {
+    if (dep.status !== 'pending' && dep.status !== 'employee_approved') {
       throw new AppError(
         ErrorCodes.VALIDATION_ERROR,
         `Deposit already ${dep.status}`,
         409
-      );
-    }
-
-    // Admin threshold check (re-read at approval time)
-    const { thresholdPaise } = await getDepositSettings(client);
-    const amountPaise = stringToPaise(dep.amount.toString());
-    if ((dep.needs_admin || amountPaise >= thresholdPaise) && staffRole !== 'admin') {
-      throw new AppError(
-        ErrorCodes.ADMIN_APPROVAL_REQUIRED,
-        'This deposit requires admin approval',
-        403
       );
     }
 
@@ -172,6 +245,9 @@ export async function approveDeposit(
         403
       );
     }
+
+    const amountPaise = stringToPaise(dep.amount.toString());
+    const isDirect = dep.status === 'pending';
 
     // ── Step 4: lock both wallets in ascending user_id ────────────────────────
     const lockIds = referrerId
@@ -192,6 +268,7 @@ export async function approveDeposit(
     await creditReferralReward(client, userId);
 
     // ── Step 7: mark approved + audit ────────────────────────────────────────
+    // If direct approval from pending, employee_reviewed_by/employee_reviewed_at remain NULL
     await client.query(
       `UPDATE deposit_requests
        SET status = 'approved', reviewed_by = $1, reviewed_at = now()
@@ -201,20 +278,51 @@ export async function approveDeposit(
 
     await writeAuditLog(client, {
       staffId,
-      action: 'deposit_approved',
+      action: isDirect ? 'deposit_approved_direct' : 'deposit_approved',
       targetType: 'deposit_requests',
       targetId: depositId,
-      details: { amount: paiseToString(amountPaise), userId },
+      details: {
+        amount: paiseToString(amountPaise),
+        userId,
+        stage: dep.status,
+        direct: isDirect,
+      },
     });
   });
 }
 
-/** Reject a deposit. */
+/** Reject a deposit (Employee for pending; Admin for pending or employee_approved). */
 export async function rejectDeposit(
   staffId: string,
-  depositId: string,
-  reason: string
+  arg2: string,
+  arg3: string,
+  arg4?: string,
+  arg5?: string
 ): Promise<void> {
+  let staffEmail = '';
+  let staffRole = 'admin';
+  let depositId = '';
+  let reason = '';
+
+  if (arg4 !== undefined && arg5 !== undefined) {
+    // 5 arguments: (staffId, staffEmail, staffRole, depositId, reason)
+    staffEmail = arg2;
+    staffRole = arg3;
+    depositId = arg4;
+    reason = arg5;
+  } else if (arg4 !== undefined) {
+    // 4 arguments: (staffId, staffEmail, depositId, reason)
+    staffEmail = arg2;
+    depositId = arg3;
+    reason = arg4;
+    staffRole = 'admin';
+  } else {
+    // 3 arguments: (staffId, depositId, reason)
+    depositId = arg2;
+    reason = arg3;
+    staffRole = 'admin';
+  }
+
   if (!reason || reason.trim().length < 5) {
     throw new AppError(
       ErrorCodes.VALIDATION_ERROR,
@@ -225,15 +333,38 @@ export async function rejectDeposit(
 
   await withTransaction(async (client: PoolClient) => {
     const depRes = await client.query(
-      `SELECT id, status FROM deposit_requests WHERE id = $1 FOR UPDATE`,
+      `SELECT dr.id, dr.status, dr.user_id, u.email AS user_email
+       FROM deposit_requests dr
+       JOIN users u ON u.id = dr.user_id
+       WHERE dr.id = $1
+       FOR UPDATE OF dr`,
       [depositId]
     );
     if (!depRes.rowCount) {
       throw new AppError(ErrorCodes.NOT_FOUND, 'Deposit not found', 404);
     }
     const dep = depRes.rows[0];
-    if (dep.status !== 'pending') {
+
+    if (dep.status !== 'pending' && dep.status !== 'employee_approved') {
       throw new AppError(ErrorCodes.VALIDATION_ERROR, `Deposit already ${dep.status}`, 409);
+    }
+
+    // Requirement 3: Employees may reject only pending; admin may reject employee_approved
+    if (dep.status === 'employee_approved' && staffRole !== 'admin') {
+      throw new AppError(
+        ErrorCodes.FORBIDDEN,
+        'Only administrators can reject requests awaiting final approval',
+        403
+      );
+    }
+
+    // Staff cannot reject their own deposit
+    if (dep.user_email.toLowerCase() === staffEmail.toLowerCase()) {
+      throw new AppError(
+        ErrorCodes.FORBIDDEN,
+        'Staff cannot reject their own deposit',
+        403
+      );
     }
 
     await client.query(
@@ -248,7 +379,7 @@ export async function rejectDeposit(
       action: 'deposit_rejected',
       targetType: 'deposit_requests',
       targetId: depositId,
-      details: { reason: reason.trim() },
+      details: { reason: reason.trim(), stage: dep.status },
     });
   });
 }

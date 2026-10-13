@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { updateProfile } from '../api/user.js';
 import { formatCooldownMessage } from '../utils/formatters.js';
@@ -20,6 +21,8 @@ import {
   CheckCircle2,
   Copy,
   Clock,
+  Gift,
+  ChevronRight,
 } from 'lucide-react';
 
 export const Profile: React.FC = () => {
@@ -294,6 +297,18 @@ export const Profile: React.FC = () => {
               <Copy className="h-4 w-4" />
               {copiedReferral ? 'Copied!' : 'Copy'}
             </button>
+          </div>
+          <div className="mt-2.5">
+            <Link
+              to="/referral"
+              className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-950/20 px-3.5 py-2.5 text-xs font-bold text-emerald-400 hover:bg-emerald-950/30 transition"
+            >
+              <span className="flex items-center gap-2">
+                <Gift className="h-4 w-4" />
+                <span>View Full Referral Dashboard & Stats</span>
+              </span>
+              <ChevronRight className="h-4 w-4" />
+            </Link>
           </div>
         </div>
       </div>

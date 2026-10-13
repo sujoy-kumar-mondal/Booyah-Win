@@ -124,12 +124,12 @@ export const Dashboard: React.FC = () => {
                   <span className="text-3xl font-black text-slate-100" data-testid="deposit-count-value">
                     {metrics?.pendingDepositsCount ?? 0}
                   </span>
-                  <span className="text-xs text-slate-400 ml-2">requests pending</span>
+                  <span className="text-xs text-slate-400 ml-2">pending verification</span>
                 </div>
                 <div className="text-right">
                   <div className="text-[10px] uppercase font-semibold text-slate-400 flex items-center justify-end gap-1">
                     <Clock className="h-3 w-3" />
-                    Oldest Request
+                    Oldest Pending
                   </div>
                   <span
                     className={`text-sm font-bold ${
@@ -139,6 +139,34 @@ export const Dashboard: React.FC = () => {
                   >
                     {formatAgeMinutes(depAge)}
                   </span>
+                </div>
+              </div>
+
+              {/* Two-step: Awaiting Final Approval */}
+              <div className="mt-3 flex items-baseline justify-between rounded-xl bg-slate-950/40 p-3 border border-slate-800/60">
+                <div>
+                  <span className="text-lg font-bold text-slate-200" data-testid="employee-approved-deposits-count">
+                    {metrics?.employeeApprovedDepositsCount ?? 0}
+                  </span>
+                  <span className="text-[11px] text-slate-400 ml-2">awaiting final approval</span>
+                </div>
+                <div className="text-right flex items-center gap-2">
+                  <span
+                    className={`text-xs font-bold ${
+                      metrics?.isOldestEmployeeApprovedDepositOver30Min ? 'text-rose-400' : 'text-slate-300'
+                    }`}
+                    data-testid="employee-approved-deposits-age"
+                  >
+                    {formatAgeMinutes(metrics?.oldestEmployeeApprovedDepositAgeMinutes)}
+                  </span>
+                  {metrics?.isOldestEmployeeApprovedDepositOver30Min && (
+                    <span
+                      className="rounded bg-rose-500/20 px-1 py-0.5 text-[9px] font-bold text-rose-400 border border-rose-500/30"
+                      data-testid="employee-approved-deposits-overdue"
+                    >
+                      &gt;30m
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -193,12 +221,12 @@ export const Dashboard: React.FC = () => {
                   <span className="text-3xl font-black text-slate-100" data-testid="withdrawal-count-value">
                     {metrics?.pendingWithdrawalsCount ?? 0}
                   </span>
-                  <span className="text-xs text-slate-400 ml-2">requests pending</span>
+                  <span className="text-xs text-slate-400 ml-2">pending verification</span>
                 </div>
                 <div className="text-right">
                   <div className="text-[10px] uppercase font-semibold text-slate-400 flex items-center justify-end gap-1">
                     <Clock className="h-3 w-3" />
-                    Oldest Request
+                    Oldest Pending
                   </div>
                   <span
                     className={`text-sm font-bold ${
@@ -208,6 +236,34 @@ export const Dashboard: React.FC = () => {
                   >
                     {formatAgeMinutes(wthAge)}
                   </span>
+                </div>
+              </div>
+
+              {/* Two-step: Awaiting Final Approval */}
+              <div className="mt-3 flex items-baseline justify-between rounded-xl bg-slate-950/40 p-3 border border-slate-800/60">
+                <div>
+                  <span className="text-lg font-bold text-slate-200" data-testid="employee-approved-withdrawals-count">
+                    {metrics?.employeeApprovedWithdrawalsCount ?? 0}
+                  </span>
+                  <span className="text-[11px] text-slate-400 ml-2">awaiting payout</span>
+                </div>
+                <div className="text-right flex items-center gap-2">
+                  <span
+                    className={`text-xs font-bold ${
+                      metrics?.isOldestEmployeeApprovedWithdrawalOver24Hours ? 'text-rose-400' : 'text-slate-300'
+                    }`}
+                    data-testid="employee-approved-withdrawals-age"
+                  >
+                    {formatAgeMinutes(metrics?.oldestEmployeeApprovedWithdrawalAgeMinutes)}
+                  </span>
+                  {metrics?.isOldestEmployeeApprovedWithdrawalOver24Hours && (
+                    <span
+                      className="rounded bg-rose-500/20 px-1 py-0.5 text-[9px] font-bold text-rose-400 border border-rose-500/30"
+                      data-testid="employee-approved-withdrawals-overdue"
+                    >
+                      &gt;24h
+                    </span>
+                  )}
                 </div>
               </div>
 

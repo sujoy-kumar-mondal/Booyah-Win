@@ -25,10 +25,12 @@ const profileUpdateRateLimiter = rateLimit({
   },
 });
 
+import { maintenanceGuard } from '../../middleware/maintenance.js';
+
 // Profile endpoints
 usersRouter.get('/me', authenticateUser, UsersController.getProfile);
-usersRouter.patch('/me/profile', authenticateUser, profileUpdateRateLimiter, UsersController.updateProfile);
-usersRouter.patch('/profile', authenticateUser, profileUpdateRateLimiter, UsersController.updateProfile);
+usersRouter.patch('/me/profile', authenticateUser, maintenanceGuard, profileUpdateRateLimiter, UsersController.updateProfile);
+usersRouter.patch('/profile', authenticateUser, maintenanceGuard, profileUpdateRateLimiter, UsersController.updateProfile);
 
 // Match history endpoints
 usersRouter.get('/me/match-history', authenticateUser, UsersController.getMatchHistory);
@@ -36,3 +38,9 @@ usersRouter.get('/match-history', authenticateUser, UsersController.getMatchHist
 
 // Team invites
 usersRouter.get('/me/team-invites', authenticateUser, TeamsController.listUserInvites);
+
+// Leaderboard rank
+usersRouter.get('/me/leaderboard-rank', authenticateUser, UsersController.getLeaderboardRank);
+
+// Referral summary
+usersRouter.get('/me/referral-summary', authenticateUser, UsersController.getReferralSummary);

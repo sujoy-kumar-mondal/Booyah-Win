@@ -21,44 +21,46 @@ auditAdminRouter.get('/', async (req: Request, res: Response, next: NextFunction
     const { limit, staffId, action, from, to, cursor } = auditQuerySchema.parse(req.query);
 
     let sql = `
-      SELECT id, staff_id, action, target_type, target_id, details, created_at
-      FROM audit_logs
+      SELECT a.id, a.staff_id, a.action, a.target_type, a.target_id, a.details, a.created_at,
+             s.name AS staff_name
+      FROM audit_logs a
+      LEFT JOIN staff s ON a.staff_id = s.id
       WHERE 1=1
     `;
     const values: any[] = [];
     let pIdx = 1;
 
     if (staffId) {
-      sql += ` AND staff_id = $${pIdx}`;
+      sql += ` AND a.staff_id = $${pIdx}`;
       values.push(staffId);
       pIdx++;
     }
 
     if (action) {
-      sql += ` AND action = $${pIdx}`;
+      sql += ` AND a.action = $${pIdx}`;
       values.push(action);
       pIdx++;
     }
 
     if (from) {
-      sql += ` AND created_at >= $${pIdx}`;
+      sql += ` AND a.created_at >= $${pIdx}`;
       values.push(from);
       pIdx++;
     }
 
     if (to) {
-      sql += ` AND created_at <= $${pIdx}`;
+      sql += ` AND a.created_at <= $${pIdx}`;
       values.push(to);
       pIdx++;
     }
 
     if (cursor) {
-      sql += ` AND id < $${pIdx}`;
+      sql += ` AND a.id < $${pIdx}`;
       values.push(cursor);
       pIdx++;
     }
 
-    sql += ` ORDER BY id DESC LIMIT $${pIdx}`;
+    sql += ` ORDER BY a.id DESC LIMIT $${pIdx}`;
     values.push(limit + 1);
 
     const dbRes = await query(sql, values);
@@ -69,6 +71,7 @@ auditAdminRouter.get('/', async (req: Request, res: Response, next: NextFunction
     const items = rows.map((r) => ({
       id: r.id.toString(),
       staffId: r.staff_id ? r.staff_id.toString() : null,
+      staffName: r.staff_name ? r.staff_name : null,
       action: r.action,
       targetType: r.target_type,
       targetId: r.target_id ? r.target_id.toString() : null,

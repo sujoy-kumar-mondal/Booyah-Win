@@ -5,6 +5,7 @@ import { joinMatchSolo, fetchMatch, type MatchUserDto } from '../../api/matches.
 import { formatIndianRupees } from '../../utils/formatters.js';
 import { ApiError } from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
+import { useMaintenance } from '../../context/MaintenanceContext.js';
 
 interface SoloJoinDialogProps {
   match: MatchUserDto;
@@ -20,6 +21,7 @@ export const SoloJoinDialog: React.FC<SoloJoinDialogProps> = ({
   onSuccess,
 }) => {
   const { refreshProfile } = useAuth();
+  const { enabled: isMaintenance } = useMaintenance();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLowBalance, setIsLowBalance] = useState(false);
@@ -171,6 +173,12 @@ export const SoloJoinDialog: React.FC<SoloJoinDialogProps> = ({
               </div>
             )}
 
+            {isMaintenance && (
+              <p className="text-xs text-amber-400 text-center font-medium" data-testid="join-maintenance-warning">
+                Joining matches is disabled during maintenance.
+              </p>
+            )}
+
             <div className="flex items-center gap-3 pt-2">
               <button
                 type="button"
@@ -185,7 +193,7 @@ export const SoloJoinDialog: React.FC<SoloJoinDialogProps> = ({
                 type="button"
                 data-testid="confirm-join-btn"
                 onClick={handleConfirmJoin}
-                disabled={isSubmitting}
+                disabled={isSubmitting || isMaintenance}
                 className="flex-1 rounded-xl bg-emerald-500 py-2.5 text-xs font-bold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
               >
                 {isSubmitting ? 'Joining...' : 'Confirm & Join'}

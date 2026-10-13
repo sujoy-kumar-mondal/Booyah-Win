@@ -234,7 +234,28 @@ describe('Requirement 1, 2, 4: User PWA Strict Contract Parity & Guard Coverage'
           'ERROR_UNAUTHENTICATED.json',
           'ERROR_VALIDATION_ERROR.json',
           'ERROR_INVALID_TRANSITION.json',
+          'ERROR_MAINTENANCE_MODE.json',
         ],
+      },
+      statusResponseGuard: {
+        guard: userGuards.statusResponseGuard,
+        contracts: ['GET_api_v1_status.json'],
+      },
+      leaderboardResponseGuard: {
+        guard: userGuards.leaderboardResponseGuard,
+        contracts: ['GET_api_v1_leaderboard.json', 'GET_api_v1_leaderboard__populated.json'],
+      },
+      leaderboardRankResponseGuard: {
+        guard: userGuards.leaderboardRankResponseGuard,
+        contracts: ['GET_api_v1_me_leaderboard-rank.json', 'GET_api_v1_me_leaderboard-rank__ranked.json'],
+      },
+      rulesResponseGuard: {
+        guard: userGuards.rulesResponseGuard,
+        contracts: ['GET_api_v1_rules.json'],
+      },
+      referralSummaryResponseGuard: {
+        guard: userGuards.referralSummaryResponseGuard,
+        contracts: ['GET_api_v1_me_referral-summary.json'],
       },
     };
 
@@ -313,6 +334,12 @@ describe('Requirement 1, 2, 4: User PWA Strict Contract Parity & Guard Coverage'
       expect(matchesCode).toContain('userInviteActionResponseGuard');
       expect(matchesCode).toContain('userMatchHistoryResponseGuard');
       expect(supportCode).toContain('userSupportInfoResponseGuard');
+      const leaderboardCode = fs.readFileSync(path.resolve(__dirname, '../src/api/leaderboard.ts'), 'utf-8');
+      const rulesCode = fs.readFileSync(path.resolve(__dirname, '../src/api/rules.ts'), 'utf-8');
+      expect(leaderboardCode).toContain('leaderboardResponseGuard');
+      expect(leaderboardCode).toContain('leaderboardRankResponseGuard');
+      expect(rulesCode).toContain('rulesResponseGuard');
+      expect(rulesCode).toContain('referralSummaryResponseGuard');
     });
 
     for (const [guardName, entry] of Object.entries(guardToContractsMap)) {

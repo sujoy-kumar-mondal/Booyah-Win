@@ -75,19 +75,39 @@ export const RequestsList: React.FC<RequestsListProps> = ({ initialTab = 'deposi
 
   const renderStatusBadge = (status: string) => {
     switch (status) {
+      case 'employee_approved':
+        return (
+          <span className="flex items-center gap-1 rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-[11px] font-bold text-cyan-400 border border-cyan-500/20">
+            <Clock className="h-3 w-3" />
+            Verified by staff, waiting for final approval
+          </span>
+        );
+      case 'pending':
+        return (
+          <span className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-bold text-amber-400 border border-amber-500/20">
+            <Clock className="h-3 w-3" />
+            Under review
+          </span>
+        );
       case 'approved':
+        return (
+          <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400 border border-emerald-500/20">
+            <CheckCircle2 className="h-3 w-3" />
+            Approved
+          </span>
+        );
       case 'paid':
         return (
-          <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400 border border-emerald-500/20 capitalize">
+          <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400 border border-emerald-500/20">
             <CheckCircle2 className="h-3 w-3" />
-            {status}
+            Paid
           </span>
         );
       case 'rejected':
         return (
-          <span className="flex items-center gap-1 rounded-full bg-rose-500/10 px-2.5 py-0.5 text-[11px] font-bold text-rose-400 border border-rose-500/20 capitalize">
+          <span className="flex items-center gap-1 rounded-full bg-rose-500/10 px-2.5 py-0.5 text-[11px] font-bold text-rose-400 border border-rose-500/20">
             <XCircle className="h-3 w-3" />
-            {status}
+            Rejected
           </span>
         );
       default:

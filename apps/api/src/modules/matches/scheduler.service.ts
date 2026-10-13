@@ -89,7 +89,7 @@ export async function runSchedulerTick(): Promise<TickResultDto> {
     }
   });
 
-  // ── Job 3: Auto-cancel matches past start_time with fewer than min_players ───
+  // ── Job 3: Auto-cancel matches past start_time that are not live ─────────────
   await withTransaction(async (client: PoolClient) => {
     // Select matches where start_time <= now() and status IN ('upcoming', 'room_open')
     const matchesRes = await client.query<{
@@ -97,8 +97,9 @@ export async function runSchedulerTick(): Promise<TickResultDto> {
       game_mode: string;
       team_mode: string;
       min_players: number;
+      status: string;
     }>(
-      `SELECT id, game_mode, team_mode, min_players
+      `SELECT id, game_mode, team_mode, min_players, status
        FROM matches
        WHERE status IN ('upcoming', 'room_open')
          AND start_time <= now()
@@ -134,11 +135,15 @@ export async function runSchedulerTick(): Promise<TickResultDto> {
         isUnderfilled = Number(teamPlayersRes.rows[0].count) < match.min_players;
       }
 
-      if (isUnderfilled) {
+      // If underfilled OR if match has passed start_time and was not started (not live)
+      const shouldCancel = isUnderfilled || match.status === 'upcoming' || match.status === 'room_open';
+      const cancelReason = isUnderfilled ? 'Not enough players' : 'Match start time expired';
+
+      if (shouldCancel) {
         // Auto-cancel match
         await client.query(
-          `UPDATE matches SET status = 'cancelled', cancel_reason = 'Not enough players' WHERE id = $1`,
-          [matchId]
+          `UPDATE matches SET status = 'cancelled', cancel_reason = $1 WHERE id = $2`,
+          [cancelReason, matchId]
         );
 
         // Disband all teams in this match

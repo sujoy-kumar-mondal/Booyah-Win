@@ -8,7 +8,7 @@ import {
 export class MatchesController {
   static async listMatches(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const matches = await listMatchesUser(req.user!.id);
+      const matches = await listMatchesUser(req.user?.id);
       res.status(200).json({ data: { matches } });
     } catch (err) {
       next(err);
@@ -18,7 +18,7 @@ export class MatchesController {
   static async getMatch(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const { id } = req.params;
-      const match = await getMatchUser(req.user!.id, id);
+      const match = await getMatchUser(req.user?.id, id);
       res.status(200).json({ data: { match } });
     } catch (err) {
       next(err);

@@ -31,8 +31,14 @@ export interface DashboardMetricsDto {
   pendingDepositsCount: number;
   oldestPendingDepositAgeMinutes: number | null;
   isOldestDepositOver30Min: boolean;
+  employeeApprovedDepositsCount: number;
+  oldestEmployeeApprovedDepositAgeMinutes: number | null;
+  isOldestEmployeeApprovedDepositOver30Min: boolean;
   pendingWithdrawalsCount: number;
   oldestPendingWithdrawalAgeMinutes: number | null;
+  employeeApprovedWithdrawalsCount: number;
+  oldestEmployeeApprovedWithdrawalAgeMinutes: number | null;
+  isOldestEmployeeApprovedWithdrawalOver24Hours: boolean;
   liveMatchesCount: number;
   upcomingMatchesCount: number;
   roomOpenMatchesCount: number;
@@ -47,13 +53,15 @@ export interface StaffDepositDto {
   amount: string;
   utr: string;
   screenshotUrl: string;
-  status: 'pending' | 'approved' | 'rejected';
+  status: 'pending' | 'employee_approved' | 'approved' | 'rejected';
   rejectReason?: string | null;
   needsAdmin: boolean;
   pendingMinutes?: number | null;
   createdAt: string;
   reviewedAt?: string | null;
   reviewedBy?: string | null;
+  employeeReviewedAt?: string | null;
+  employeeReviewedBy?: string | null;
 }
 
 export interface DepositListResponse {
@@ -67,12 +75,14 @@ export interface StaffWithdrawalDto {
   userEmail: string;
   amount: string;
   upiId: string;
-  status: 'pending' | 'paid' | 'rejected';
+  status: 'pending' | 'employee_approved' | 'paid' | 'rejected';
   rejectReason?: string | null;
   payoutRef?: string | null;
   createdAt: string;
   processedAt?: string | null;
   processedBy?: string | null;
+  employeeReviewedAt?: string | null;
+  employeeReviewedBy?: string | null;
 }
 
 export interface WithdrawalListResponse {

@@ -19,8 +19,10 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   getStaffDeposits,
   approveDeposit,
+  verifyDeposit,
   rejectDeposit,
 } from '../api/staff.js';
+import { useStaffAuth } from '../context/StaffAuthContext.js';
 import type { StaffDepositDto } from '../api/types.js';
 import {
   formatIndianRupees,
@@ -44,14 +46,26 @@ import {
 } from 'lucide-react';
 
 const STATUS_FILTERS = [
+  { label: 'Awaiting Final Approval', value: 'employee_approved' },
   { label: 'Pending', value: 'pending' },
   { label: 'All', value: 'all' },
   { label: 'Approved', value: 'approved' },
   { label: 'Rejected', value: 'rejected' },
 ];
 
+function useSafeStaffAuth() {
+  try {
+    return useStaffAuth();
+  } catch {
+    return { staff: null };
+  }
+}
+
 export const Deposits: React.FC = () => {
   const queryClient = useQueryClient();
+  const { staff } = useSafeStaffAuth();
+  const isEmployee = staff?.role === 'employee';
+  const isAdmin = !staff || staff.role === 'admin';
 
   const [filter, setFilter] = useState<string>('pending');
   const [cursor, setCursor] = useState<string | undefined>(undefined);
@@ -60,7 +74,7 @@ export const Deposits: React.FC = () => {
 
   // Row being acted on (isolated snapshot per Requirement 4)
   const [activeDeposit, setActiveDeposit] = useState<StaffDepositDto | null>(null);
-  const [dialogMode, setDialogMode] = useState<'approve' | 'reject' | null>(null);
+  const [dialogMode, setDialogMode] = useState<'approve' | 'reject' | 'verify' | null>(null);
   const [rejectReason, setRejectReason] = useState<string>('');
   const [actionError, setActionError] = useState<string | null>(null);
 
@@ -138,6 +152,24 @@ export const Deposits: React.FC = () => {
     },
   });
 
+  const verifyMutation = useMutation({
+    mutationFn: (id: string) => verifyDeposit(id),
+    onSuccess: () => {
+      setDialogMode(null);
+      setActiveDeposit(null);
+      queryClient.invalidateQueries({ queryKey: ['staff-deposits'] });
+      queryClient.invalidateQueries({ queryKey: ['staff-dashboard'] });
+    },
+    onError: (err: any) => {
+      const msg = getFriendlyErrorMessage(err, 'deposit');
+      setActionError(msg);
+      if (err?.status === 409) {
+        queryClient.invalidateQueries({ queryKey: ['staff-deposits'] });
+        queryClient.invalidateQueries({ queryKey: ['staff-dashboard'] });
+      }
+    },
+  });
+
   const rejectMutation = useMutation({
     mutationFn: ({ id, reason }: { id: string; reason: string }) =>
       rejectDeposit(id, reason),
@@ -165,6 +197,20 @@ export const Deposits: React.FC = () => {
     setActionError(null);
     try {
       await approveMutation.mutateAsync(activeDeposit.id);
+    } catch {
+      // Handled in onError
+    } finally {
+      isSubmittingRef.current = false;
+    }
+  };
+
+  const handleConfirmVerify = async () => {
+    if (!activeDeposit || isSubmittingRef.current || verifyMutation.isPending) return;
+
+    isSubmittingRef.current = true;
+    setActionError(null);
+    try {
+      await verifyMutation.mutateAsync(activeDeposit.id);
     } catch {
       // Handled in onError
     } finally {
@@ -281,7 +327,9 @@ export const Deposits: React.FC = () => {
               </thead>
               <tbody className="divide-y divide-slate-800/60">
                 {allDeposits.map((dep) => {
-                  const isOverdue = dep.status === 'pending' && isDepositOverdue(dep.pendingMinutes);
+                  const isOverdue =
+                    (dep.status === 'pending' || dep.status === 'employee_approved') &&
+                    isDepositOverdue(dep.pendingMinutes);
                   return (
                     <tr
                       key={dep.id}
@@ -357,10 +405,29 @@ export const Deposits: React.FC = () => {
                             Pending
                           </span>
                         )}
+                        {dep.status === 'employee_approved' && (
+                          <div>
+                            <span className="rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-[10px] font-bold text-cyan-400 border border-cyan-500/20">
+                              Verified
+                            </span>
+                            {dep.employeeReviewedBy && (
+                              <p className="text-[10px] text-slate-400 mt-1">
+                                Verified by #{dep.employeeReviewedBy}
+                              </p>
+                            )}
+                          </div>
+                        )}
                         {dep.status === 'approved' && (
-                          <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/20">
-                            Approved
-                          </span>
+                          <div className="space-y-1">
+                            <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/20">
+                              Approved
+                            </span>
+                            {!dep.employeeReviewedBy && (
+                              <div className="text-[10px] text-blue-400 font-semibold" data-testid="direct-approved-tag">
+                                approved directly by admin
+                              </div>
+                            )}
+                          </div>
                         )}
                         {dep.status === 'rejected' && (
                           <div>
@@ -380,19 +447,35 @@ export const Deposits: React.FC = () => {
                       <td className="px-4 py-3.5 text-right">
                         {dep.status === 'pending' ? (
                           <div className="flex items-center justify-end gap-1.5">
-                            <button
-                              type="button"
-                              onClick={() => {
-                                setActiveDeposit(dep);
-                                setDialogMode('approve');
-                                setActionError(null);
-                              }}
-                              data-testid={`approve-btn-${dep.id}`}
-                              className="flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500 hover:text-slate-950 transition-all active:scale-[0.98]"
-                            >
-                              <CheckCircle2 className="h-3.5 w-3.5" />
-                              <span>Approve</span>
-                            </button>
+                            {isEmployee ? (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveDeposit(dep);
+                                  setDialogMode('verify');
+                                  setActionError(null);
+                                }}
+                                data-testid={`verify-btn-${dep.id}`}
+                                className="flex items-center gap-1 rounded-lg bg-cyan-500/10 px-2.5 py-1 text-xs font-bold text-cyan-400 border border-cyan-500/20 hover:bg-cyan-500 hover:text-slate-950 transition-all active:scale-[0.98]"
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                <span>Verify</span>
+                              </button>
+                            ) : (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  setActiveDeposit(dep);
+                                  setDialogMode('approve');
+                                  setActionError(null);
+                                }}
+                                data-testid={`approve-btn-${dep.id}`}
+                                className="flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500 hover:text-slate-950 transition-all active:scale-[0.98]"
+                              >
+                                <CheckCircle2 className="h-3.5 w-3.5" />
+                                <span>Approve</span>
+                              </button>
+                            )}
                             <button
                               type="button"
                               onClick={() => {
@@ -407,6 +490,42 @@ export const Deposits: React.FC = () => {
                               <XCircle className="h-3.5 w-3.5" />
                               <span>Reject</span>
                             </button>
+                          </div>
+                        ) : dep.status === 'employee_approved' ? (
+                          <div className="flex items-center justify-end gap-1.5">
+                            {isAdmin ? (
+                              <>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveDeposit(dep);
+                                    setDialogMode('approve');
+                                    setActionError(null);
+                                  }}
+                                  data-testid={`approve-btn-${dep.id}`}
+                                  className="flex items-center gap-1 rounded-lg bg-emerald-500/10 px-2.5 py-1 text-xs font-bold text-emerald-400 border border-emerald-500/20 hover:bg-emerald-500 hover:text-slate-950 transition-all active:scale-[0.98]"
+                                >
+                                  <CheckCircle2 className="h-3.5 w-3.5" />
+                                  <span>Final Approve</span>
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setActiveDeposit(dep);
+                                    setDialogMode('reject');
+                                    setRejectReason('');
+                                    setActionError(null);
+                                  }}
+                                  data-testid={`reject-btn-${dep.id}`}
+                                  className="flex items-center gap-1 rounded-lg bg-rose-500/10 px-2.5 py-1 text-xs font-bold text-rose-400 border border-rose-500/20 hover:bg-rose-500 hover:text-white transition-all active:scale-[0.98]"
+                                >
+                                  <XCircle className="h-3.5 w-3.5" />
+                                  <span>Reject</span>
+                                </button>
+                              </>
+                            ) : (
+                              <span className="text-[11px] text-slate-500">Awaiting admin</span>
+                            )}
                           </div>
                         ) : (
                           <span className="text-[11px] text-slate-500">Processed</span>
@@ -457,9 +576,21 @@ export const Deposits: React.FC = () => {
               <h3 className="text-base font-bold text-slate-100">Confirm Deposit Approval</h3>
             </div>
 
-            <p className="text-xs text-slate-300">
-              Are you sure you want to approve this deposit and credit the player's wallet?
-            </p>
+            {activeDeposit.status === 'pending' ? (
+              <div
+                className="rounded-xl border border-amber-500/30 bg-amber-500/10 p-3 text-xs text-amber-300 flex items-start gap-2"
+                data-testid="direct-approval-warning"
+              >
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5 text-amber-400" />
+                <p className="font-semibold">
+                  This request has not been verified by an employee. Approve directly?
+                </p>
+              </div>
+            ) : (
+              <p className="text-xs text-slate-300">
+                Are you sure you want to approve this verified deposit and credit the player's wallet?
+              </p>
+            )}
 
             <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-2 text-xs">
               <div className="flex justify-between">
@@ -611,6 +742,94 @@ export const Deposits: React.FC = () => {
                   <>
                     <XCircle className="h-3.5 w-3.5" />
                     <span>Confirm Rejection</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Verify Modal */}
+      {dialogMode === 'verify' && activeDeposit && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm animate-fade-in"
+          data-testid="verify-deposit-modal"
+          role="dialog"
+          aria-modal="true"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-cyan-400">
+              <CheckCircle2 className="h-6 w-6" />
+              <h3 className="text-base font-bold text-slate-100">Verify Deposit Request</h3>
+            </div>
+
+            <p className="text-xs text-slate-300">
+              Confirm that you have reviewed the payment screenshot and verified the UTR. This will move the deposit to administrator final approval.
+            </p>
+
+            <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 space-y-2 text-xs">
+              <div className="flex justify-between">
+                <span className="text-slate-400">Deposit ID:</span>
+                <span className="font-mono font-bold text-slate-200">#{activeDeposit.id}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">Amount:</span>
+                <span className="font-bold text-cyan-400" data-testid="verify-dialog-amount">
+                  {formatIndianRupees(activeDeposit.amount)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">UTR / Ref:</span>
+                <span className="font-mono text-slate-200 select-all" data-testid="verify-dialog-utr">
+                  {activeDeposit.utr}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-slate-400">User:</span>
+                <span className="text-slate-300 truncate max-w-[200px]">{activeDeposit.userEmail}</span>
+              </div>
+            </div>
+
+            {actionError && (
+              <div
+                className="rounded-xl border border-rose-500/30 bg-rose-500/10 p-3 text-xs text-rose-400 flex items-start gap-2"
+                data-testid="deposit-action-error"
+              >
+                <AlertTriangle className="h-4 w-4 shrink-0 mt-0.5" />
+                <span>{actionError}</span>
+              </div>
+            )}
+
+            <div className="flex gap-3 pt-2">
+              <button
+                type="button"
+                onClick={() => {
+                  setDialogMode(null);
+                  setActiveDeposit(null);
+                  setActionError(null);
+                }}
+                disabled={verifyMutation.isPending}
+                className="flex-1 rounded-xl border border-slate-700 bg-slate-800 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-700"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={handleConfirmVerify}
+                disabled={verifyMutation.isPending}
+                data-testid="confirm-verify-btn"
+                className="flex-1 flex items-center justify-center gap-1.5 rounded-xl bg-cyan-500 py-2.5 text-xs font-bold text-slate-950 hover:bg-cyan-400 transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                {verifyMutation.isPending ? (
+                  <>
+                    <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                    <span>Verifying...</span>
+                  </>
+                ) : (
+                  <>
+                    <CheckCircle2 className="h-3.5 w-3.5" />
+                    <span>Confirm Verification</span>
                   </>
                 )}
               </button>

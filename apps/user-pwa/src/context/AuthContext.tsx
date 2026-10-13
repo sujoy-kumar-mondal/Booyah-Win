@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useQueryClient } from '@tanstack/react-query';
 import {
@@ -61,10 +61,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   const [sessionDialogTitle, setSessionDialogTitle] = useState('Session Replaced');
   const [slowServerNotice, setSlowServerNotice] = useState(false);
 
+  const userRef = useRef<UserProfile | null>(null);
+
   const handleSessionTerminated = useCallback(
     (message: string, title = 'Session Expired') => {
       clearStoredToken();
       queryClient?.clear();
+      userRef.current = null;
       setToken(null);
       setUser(null);
       setWallets(null);
@@ -77,6 +80,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   );
 
   const updateSessionData = useCallback((data: GetMeData) => {
+    userRef.current = data.profile;
     setUser(data.profile);
     setWallets(data.wallets);
     setCooldowns(data.cooldowns);
@@ -87,8 +91,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       const data = await getMe();
       updateSessionData(data);
     } catch {
-      // If profile retrieval fails on boot, clear state
+      // If profile retrieval fails on boot, clear state silently
       clearStoredToken();
+      userRef.current = null;
       setToken(null);
       setUser(null);
       setWallets(null);
@@ -112,6 +117,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
   // Listen for session replacement & unauthenticated events from API client
   useEffect(() => {
     const unsubReplaced = onSessionReplaced(() => {
+      // Never show modal if user is logged out / has no active session
+      if (!userRef.current) {
+        clearStoredToken();
+        setToken(null);
+        return;
+      }
       handleSessionTerminated(
         'You were logged out because your account was used on another device.',
         'Session Replaced'
@@ -119,6 +130,12 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     });
 
     const unsubUnauth = onUnauthenticated(() => {
+      // Never show modal if user is logged out / has no active session
+      if (!userRef.current) {
+        clearStoredToken();
+        setToken(null);
+        return;
+      }
       handleSessionTerminated(
         'Your session has expired. Please log in again.',
         'Session Expired'
@@ -141,6 +158,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       setStoredToken(newToken);
       setToken(newToken);
       if (immediateUser) {
+        userRef.current = immediateUser;
         setUser(immediateUser);
       }
       await refreshProfile();
@@ -156,6 +174,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     } finally {
       clearStoredToken();
       queryClient?.clear();
+      userRef.current = null;
+      setSessionReplacedOpen(false);
       setToken(null);
       setUser(null);
       setWallets(null);

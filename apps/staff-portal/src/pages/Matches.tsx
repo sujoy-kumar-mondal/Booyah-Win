@@ -44,6 +44,7 @@ import {
   AlertCircle,
   ChevronRight,
   ShieldAlert,
+  AlertTriangle,
 } from 'lucide-react';
 
 export const Matches: React.FC = () => {
@@ -438,7 +439,11 @@ export const Matches: React.FC = () => {
               <tbody className="divide-y divide-slate-800/60 text-slate-300">
                 {matches.map((m: MatchStaffDto) => {
                   const isPasswordRevealed = !!revealedPasswords[m.id];
-                  const seatsDisplay = `${m.seatsTaken ?? m.joinedCount} / ${m.maxPlayers}`;
+                  const effectiveSeats =
+                    m.status === 'cancelled'
+                      ? (m.joinedCount || (m.seatsTaken ?? 0))
+                      : (m.seatsTaken ?? m.joinedCount);
+                  const seatsDisplay = `${effectiveSeats} / ${m.maxPlayers}`;
 
                   return (
                     <tr
@@ -472,7 +477,7 @@ export const Matches: React.FC = () => {
                       <td className="py-3.5 px-4 font-mono">
                         <span
                           className={`font-semibold ${
-                            (m.seatsTaken ?? m.joinedCount) >= m.maxPlayers
+                            effectiveSeats >= m.maxPlayers
                               ? 'text-amber-400'
                               : 'text-slate-300'
                           }`}
@@ -580,19 +585,25 @@ export const Matches: React.FC = () => {
                           {/* UPCOMING Actions */}
                           {m.status === 'upcoming' && (
                             <>
-                              <button
-                                onClick={() => {
-                                  setOpenRoomTarget(m);
-                                  setRoomIdInput(m.roomId || '');
-                                  setRoomPasswordInput(m.roomPassword || '');
-                                  setOpenRoomError(null);
-                                }}
-                                data-testid={`btn-open-room-${m.id}`}
-                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-300 hover:bg-blue-500/20 font-bold text-[11px] transition-colors"
-                              >
-                                <DoorOpen className="h-3 w-3" />
-                                Open Room
-                              </button>
+                              {!m.startTime || new Date(m.startTime).getTime() > Date.now() ? (
+                                <button
+                                  onClick={() => {
+                                    setOpenRoomTarget(m);
+                                    setRoomIdInput(m.roomId || '');
+                                    setRoomPasswordInput(m.roomPassword || '');
+                                    setOpenRoomError(null);
+                                  }}
+                                  data-testid={`btn-open-room-${m.id}`}
+                                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/30 text-blue-300 hover:bg-blue-500/20 font-bold text-[11px] transition-colors"
+                                >
+                                  <DoorOpen className="h-3 w-3" />
+                                  Open Room
+                                </button>
+                              ) : (
+                                <span className="inline-flex items-center gap-1 px-2 py-1 rounded bg-rose-500/10 border border-rose-500/30 text-rose-400 font-semibold text-[10px]">
+                                  Expired
+                                </span>
+                              )}
                               <button
                                 onClick={() => {
                                   setCancelTarget(m);
@@ -611,17 +622,31 @@ export const Matches: React.FC = () => {
                           {/* ROOM OPEN Actions */}
                           {m.status === 'room_open' && (
                             <>
-                              <button
-                                onClick={() => {
-                                  setGoLiveTarget(m);
-                                  setGoLiveError(null);
-                                }}
-                                data-testid={`btn-go-live-${m.id}`}
-                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20 font-bold text-[11px] transition-colors"
-                              >
-                                <Radio className="h-3 w-3 text-emerald-400 animate-pulse" />
-                                Go Live
-                              </button>
+                              {(() => {
+                                const isUnderfilled = (m.joinedCount ?? 0) < m.minPlayers;
+                                const underfilledReason = m.gameMode === 'clash_squad'
+                                  ? `Requires at least 2 confirmed teams (${m.minPlayers} players) to go live (currently ${m.joinedCount ?? 0})`
+                                  : `Match requires at least ${m.minPlayers} players to go live (currently ${m.joinedCount ?? 0}/${m.minPlayers})`;
+                                return (
+                                  <button
+                                    onClick={() => {
+                                      setGoLiveTarget(m);
+                                      setGoLiveError(null);
+                                    }}
+                                    disabled={isUnderfilled}
+                                    title={isUnderfilled ? underfilledReason : undefined}
+                                    data-testid={`btn-go-live-${m.id}`}
+                                    className={`flex items-center gap-1 px-2.5 py-1.5 rounded-lg border font-bold text-[11px] transition-colors ${
+                                      isUnderfilled
+                                        ? 'bg-slate-800/40 border-slate-700/50 text-slate-500 cursor-not-allowed'
+                                        : 'bg-emerald-500/10 border-emerald-500/30 text-emerald-300 hover:bg-emerald-500/20'
+                                    }`}
+                                  >
+                                    <Radio className={`h-3 w-3 ${isUnderfilled ? 'text-slate-500' : 'text-emerald-400 animate-pulse'}`} />
+                                    Go Live
+                                  </button>
+                                );
+                              })()}
                               <button
                                 onClick={() => {
                                   setCancelTarget(m);
@@ -824,36 +849,59 @@ export const Matches: React.FC = () => {
               Setting the match to <strong>LIVE</strong> locks the roster and enables result entry.
             </p>
 
-            <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-400 space-y-1">
-              <div>Seats Taken: <strong className="text-slate-200">{goLiveTarget.seatsTaken ?? goLiveTarget.joinedCount}</strong> / {goLiveTarget.maxPlayers}</div>
-              <div>Min Required: <strong className="text-slate-200">{goLiveTarget.minPlayers}</strong></div>
-            </div>
+            {(() => {
+              const isTargetUnderfilled = (goLiveTarget.joinedCount ?? 0) < goLiveTarget.minPlayers;
+              const underfilledReason = goLiveTarget.gameMode === 'clash_squad'
+                ? `Requires at least 2 confirmed teams (${goLiveTarget.minPlayers} players) to go live (currently ${goLiveTarget.joinedCount ?? 0})`
+                : `Match requires at least ${goLiveTarget.minPlayers} players to go live (currently ${goLiveTarget.joinedCount ?? 0}/${goLiveTarget.minPlayers})`;
+              return (
+                <>
+                  <div className="p-3 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-400 space-y-1">
+                    <div>Seats Taken: <strong className="text-slate-200">{goLiveTarget.seatsTaken ?? goLiveTarget.joinedCount}</strong> / {goLiveTarget.maxPlayers}</div>
+                    <div>Min Required: <strong className="text-slate-200">{goLiveTarget.minPlayers}</strong></div>
+                    <div>Enrolled Players: <strong className="text-slate-200">{goLiveTarget.joinedCount}</strong> / {goLiveTarget.minPlayers}</div>
+                  </div>
 
-            {goLiveError && (
-              <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
-                {goLiveError}
-              </div>
-            )}
+                  {isTargetUnderfilled && (
+                    <div className="p-3 rounded-xl bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs flex items-start gap-2">
+                      <AlertTriangle className="h-4 w-4 shrink-0 text-amber-400 mt-0.5" />
+                      <div>
+                        <strong className="block font-semibold">Minimum Players Requirement Not Fulfilled</strong>
+                        <p className="mt-0.5 text-slate-300">
+                          {underfilledReason}. Matches cannot go live until the minimum player requirement is fulfilled.
+                        </p>
+                      </div>
+                    </div>
+                  )}
 
-            <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
-              <button
-                type="button"
-                onClick={() => setGoLiveTarget(null)}
-                disabled={isSubmitting}
-                className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-400 hover:text-slate-200"
-              >
-                Cancel
-              </button>
-              <button
-                type="button"
-                onClick={handleGoLiveConfirm}
-                disabled={isSubmitting}
-                data-testid="btn-confirm-go-live"
-                className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-500 text-slate-950 hover:bg-emerald-400 disabled:opacity-50 transition-colors"
-              >
-                {isSubmitting ? 'Starting...' : 'Confirm Go Live'}
-              </button>
-            </div>
+                  {goLiveError && (
+                    <div className="p-3 rounded-xl bg-rose-500/10 border border-rose-500/20 text-rose-300 text-xs">
+                      {goLiveError}
+                    </div>
+                  )}
+
+                  <div className="flex items-center justify-end gap-2 pt-2 border-t border-slate-800">
+                    <button
+                      type="button"
+                      onClick={() => setGoLiveTarget(null)}
+                      disabled={isSubmitting}
+                      className="px-4 py-2 text-xs font-semibold rounded-xl text-slate-400 hover:text-slate-200"
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleGoLiveConfirm}
+                      disabled={isSubmitting || isTargetUnderfilled}
+                      data-testid="btn-confirm-go-live"
+                      className="px-4 py-2 text-xs font-bold rounded-xl bg-emerald-500 text-slate-950 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+                    >
+                      {isSubmitting ? 'Starting...' : 'Confirm Go Live'}
+                    </button>
+                  </div>
+                </>
+              );
+            })()}
           </div>
         </div>
       )}

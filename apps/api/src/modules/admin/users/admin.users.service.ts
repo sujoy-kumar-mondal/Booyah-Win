@@ -14,6 +14,7 @@ import {
   WalletKind,
   getWalletBalances,
 } from '../../wallet/wallet.service.js';
+import { invalidateLeaderboardCache } from '../../leaderboard/leaderboard.service.js';
 
 export interface AdminUserListItem {
   id: string;
@@ -109,7 +110,7 @@ export class AdminUsersService {
   /**
    * User detail: profile, 3 wallet balances, recent ledger, match history (Section 16.3).
    */
-  static async getUserDetail(userId: string): Promise<{
+  static async getUserDetail(userId: string, adminId?: string): Promise<{
     profile: {
       id: string;
       name: string;
@@ -277,6 +278,14 @@ export class AdminUsersService {
       };
     });
 
+    if (adminId) {
+      await query(
+        `INSERT INTO audit_logs (staff_id, action, target_type, target_id, details)
+         VALUES ($1, 'user_viewed', 'user', $2, $3)`,
+        [adminId, userId, JSON.stringify({ role: 'admin' })]
+      );
+    }
+
     return {
       profile: {
         id: u.id.toString(),
@@ -381,6 +390,8 @@ export class AdminUsersService {
         details: { reason: trimmedReason, deletedBy: adminId },
       });
     });
+
+    invalidateLeaderboardCache();
   }
 
   /**
@@ -473,7 +484,7 @@ export class AdminUsersService {
       return {
         userId,
         wallet: params.wallet,
-        amount: params.amount,
+        amount: paiseToString(amountPaise),
         balances: updatedBalances,
       };
     });
