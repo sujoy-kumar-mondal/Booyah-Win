@@ -38,7 +38,7 @@ describe('Referral Sharing & Registration Auto-fill', () => {
       expect(shareMock).toHaveBeenCalledWith(
         expect.objectContaining({
           title: expect.stringContaining('Booyah Win'),
-          url: expect.stringContaining('/refer/BW1234'),
+          text: expect.stringContaining('/refer/BW1234'),
         })
       );
     });

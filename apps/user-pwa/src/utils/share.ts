@@ -5,15 +5,14 @@ export interface SharePayload {
   fullMessage: string;
 }
 
+export const BOOYAH_DOMAIN = 'https://booyah-win.vercel.app';
+
 export function getAppOrigin(): string {
-  if (typeof window !== 'undefined' && window.location?.origin) {
-    return window.location.origin;
-  }
-  return 'https://booyah-win.vercel.app';
+  return BOOYAH_DOMAIN;
 }
 
 export function buildReferralSharePayload(referralCode: string, origin?: string): SharePayload {
-  const baseOrigin = (origin || getAppOrigin()).replace(/\/+$/, '');
+  const baseOrigin = (origin || BOOYAH_DOMAIN).replace(/\/+$/, '');
   const url = `${baseOrigin}/refer/${encodeURIComponent(referralCode)}`;
 
   const title = 'Join Booyah Win - Play Free Fire Tournaments & Win Money';

@@ -28,8 +28,7 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
       try {
         await navigator.share({
           title: payload.title,
-          text: payload.text,
-          url: payload.url,
+          text: payload.fullMessage,
         });
         setToastMessage('Shared successfully!');
       } catch (err: any) {
