@@ -240,7 +240,7 @@ export const Register: React.FC = () => {
         </p>
       </div>
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl backdrop-blur-md">
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 sm:p-6 shadow-xl backdrop-blur-md">
         {generalError && (
           <div
             role="alert"

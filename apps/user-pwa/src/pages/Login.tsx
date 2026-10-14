@@ -99,7 +99,7 @@ export const Login: React.FC = () => {
         <p className="mt-1 text-xs text-slate-400">Competitive Free Fire Match Platform</p>
       </div>
 
-      <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-6 shadow-xl backdrop-blur-md">
+      <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 sm:p-6 shadow-xl backdrop-blur-md">
         {error && (
           <div
             role="alert"

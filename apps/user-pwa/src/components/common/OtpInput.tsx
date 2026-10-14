@@ -59,7 +59,7 @@ export const OtpInput: React.FC<OtpInputProps> = ({ value, onChange, disabled = 
   };
 
   return (
-    <div className="flex items-center justify-between gap-2" data-testid="otp-input-container">
+    <div className="flex items-center justify-between gap-1.5 sm:gap-2 w-full max-w-sm mx-auto" data-testid="otp-input-container">
       {digits.map((digit, i) => (
         <input
           key={i}
@@ -75,7 +75,7 @@ export const OtpInput: React.FC<OtpInputProps> = ({ value, onChange, disabled = 
           onKeyDown={(e) => handleKeyDown(i, e)}
           onPaste={handlePaste}
           aria-label={`Digit ${i + 1} of verification code`}
-          className="h-14 w-12 rounded-xl border border-slate-700 bg-slate-900 text-center font-mono text-2xl font-bold text-slate-100 transition-all focus:border-emerald-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
+          className="flex-1 min-w-0 max-w-[48px] h-12 sm:h-14 rounded-xl border border-slate-700 bg-slate-900 text-center font-mono text-xl sm:text-2xl font-bold text-slate-100 transition-all focus:border-emerald-500 focus:bg-slate-800 focus:outline-none focus:ring-2 focus:ring-emerald-500/20 disabled:cursor-not-allowed disabled:opacity-50"
         />
       ))}
     </div>
