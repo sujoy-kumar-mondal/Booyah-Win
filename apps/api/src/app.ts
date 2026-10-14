@@ -30,6 +30,7 @@ import { matchesRouter } from './modules/matches/matches.routes.js';
 import { staffMatchesRouter } from './modules/matches/staff.matches.routes.js';
 import { teamInvitesRouter } from './modules/matches/invites.routes.js';
 import { internalRouter } from './modules/internal/internal.routes.js';
+import { referralRouter } from './modules/referrals/referral.routes.js';
 import { query } from './db/index.js';
 
 const __filename = fileURLToPath(import.meta.url);
@@ -243,7 +244,13 @@ export function createApp(options?: AppOptions): Express {
   // Admin
   v1Router.use('/admin', adminRouter);
 
+  // Referral
+  v1Router.use('/refer', referralRouter);
+
   app.use('/api/v1', v1Router);
+
+  // Public /refer/:code SSR page
+  app.use('/refer', referralRouter);
 
   // Global error handler
   app.use(errorHandler);

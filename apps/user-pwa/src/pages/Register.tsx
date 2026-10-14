@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { requestRegisterOtp, verifyRegisterOtp, completeRegistration } from '../api/auth.js';
 import { OtpInput } from '../components/common/OtpInput.js';
@@ -19,6 +19,7 @@ import { Flame, Mail, ArrowRight, RotateCcw, AlertCircle, CheckCircle2 } from 'l
 
 export const Register: React.FC = () => {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { login } = useAuth();
 
   const [step, setStep] = useState<'email' | 'otp' | 'profile'>('email');
@@ -52,6 +53,33 @@ export const Register: React.FC = () => {
       setStep('email');
     }
   }, [step, registrationToken]);
+
+  // Pre-fill referral code from ?ref= parameter or stored cookie
+  useEffect(() => {
+    const refParam = searchParams.get('ref') || searchParams.get('referral');
+    let codeToUse = refParam ? refParam.trim().toUpperCase() : '';
+
+    if (!codeToUse && typeof window !== 'undefined') {
+      try {
+        const stored = localStorage.getItem('booyah_ref');
+        if (stored) {
+          codeToUse = stored.trim().toUpperCase();
+        } else {
+          const match = document.cookie.match(/(?:^|;\s*)booyah_ref=([^;]+)/);
+          if (match && match[1]) {
+            codeToUse = decodeURIComponent(match[1]).trim().toUpperCase();
+          }
+        }
+      } catch (e) {}
+    }
+
+    if (codeToUse) {
+      setFormData((prev) => ({
+        ...prev,
+        referralCode: prev.referralCode || codeToUse,
+      }));
+    }
+  }, [searchParams]);
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -423,9 +451,19 @@ export const Register: React.FC = () => {
 
             {/* Referral Code */}
             <div>
-              <label htmlFor="reg-referral" className="block text-xs font-semibold text-slate-300 mb-1">
-                Referral Code (Optional)
-              </label>
+              <div className="flex items-center justify-between mb-1">
+                <label htmlFor="reg-referral" className="block text-xs font-semibold text-slate-300">
+                  Referral Code (Optional)
+                </label>
+                {formData.referralCode && (
+                  <span
+                    data-testid="referral-applied-badge"
+                    className="text-[10px] font-bold text-emerald-400 bg-emerald-500/10 border border-emerald-500/20 px-2 py-0.5 rounded-full flex items-center gap-1"
+                  >
+                    <CheckCircle2 className="h-3 w-3" /> Bonus Code Applied
+                  </span>
+                )}
+              </div>
               <input
                 id="reg-referral"
                 type="text"

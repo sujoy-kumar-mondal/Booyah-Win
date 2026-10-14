@@ -4,6 +4,8 @@ import { useAuth } from '../context/AuthContext.js';
 import { getRules, getReferralSummary } from '../api/rules.js';
 import type { RulesResponse, ReferralSummaryResponse } from '../api/types.js';
 import { formatIndianRupees } from '../utils/formatters.js';
+import { ShareButton } from '../components/referral/ShareButton.js';
+import { buildReferralSharePayload, getWhatsAppShareUrl } from '../utils/share.js';
 
 export const Referral: React.FC = () => {
   const { user } = useAuth();
@@ -47,10 +49,8 @@ export const Referral: React.FC = () => {
 
   const handleWhatsAppShare = () => {
     if (!referralCode) return;
-    const message = encodeURIComponent(
-      `Join me on Booyah Win to play Free Fire tournaments and win real money! Use my referral code ${referralCode} when registering: https://booyah.win`
-    );
-    window.open(`https://wa.me/?text=${message}`, '_blank');
+    const payload = buildReferralSharePayload(referralCode);
+    window.open(getWhatsAppShareUrl(payload), '_blank');
   };
 
   return (
@@ -102,14 +102,21 @@ export const Referral: React.FC = () => {
           </button>
         </div>
 
+        {/* Primary Native Share / Social Modal Button */}
+        <ShareButton
+          referralCode={referralCode}
+          buttonText="Share & Earn"
+        />
+
+        {/* Direct WhatsApp Action Button */}
         <button
           onClick={handleWhatsAppShare}
           disabled={!referralCode}
           data-testid="whatsapp-share-btn"
-          className="w-full flex items-center justify-center gap-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 py-3 text-xs font-black text-slate-950 transition active:scale-[0.98] shadow-md shadow-emerald-600/20"
+          className="w-full flex items-center justify-center gap-2 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 py-3 text-xs font-bold text-slate-200 transition active:scale-[0.98]"
         >
-          <Share2 className="h-4 w-4 stroke-[2.5]" />
-          <span>Share on WhatsApp</span>
+          <Share2 className="h-4 w-4 text-emerald-400 stroke-[2.5]" />
+          <span>Share Directly on WhatsApp</span>
         </button>
       </div>
 

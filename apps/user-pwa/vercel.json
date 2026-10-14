@@ -2,6 +2,10 @@
   "buildCommand": "npm run build",
   "rewrites": [
     {
+      "source": "/refer/:code",
+      "destination": "https://booyah-win.onrender.com/refer/:code"
+    },
+    {
       "source": "/(.*)",
       "destination": "/index.html"
     }
