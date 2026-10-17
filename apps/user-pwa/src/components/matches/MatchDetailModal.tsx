@@ -18,7 +18,6 @@ import {
   formatISTDateTime,
   isTotalBelowFee,
   formatGameMode,
-  formatMatchStatus,
 } from '../../utils/formatters.js';
 import { useTranslation } from '../../i18n/LanguageContext.js';
 import { useAuth } from '../../context/AuthContext.js';

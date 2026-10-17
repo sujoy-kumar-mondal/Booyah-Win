@@ -10,7 +10,6 @@ import {
   Clock,
   ChevronRight,
   Sparkles,
-  HelpCircle,
   Globe,
   FileText,
   Shield,

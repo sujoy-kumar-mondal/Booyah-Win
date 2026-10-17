@@ -170,7 +170,7 @@ export function useTranslation(): LanguageContextValue {
       isFirstVisitModalOpen: false,
       setLanguage: async () => {},
       closeFirstVisitModal: () => {},
-      t: (key: TranslationKey, params?: TranslationParams) => {
+      t: (key: TranslationKey | string, params?: TranslationParams) => {
         let text: string = (en as Record<string, string>)[key] || key;
         if (params) {
           for (const [paramKey, val] of Object.entries(params)) {
