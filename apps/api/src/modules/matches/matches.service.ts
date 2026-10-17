@@ -31,7 +31,13 @@ export async function listMatchesUser(userId?: string | null): Promise<MatchUser
              WHERE t.match_id = m.id
                AND t.status IN ('forming', 'confirmed')
                AND (t.leader_id = $1 OR p.user_id = $1)
-           ) AS is_in_team
+           ) AS is_in_team,
+           EXISTS (
+             SELECT 1 FROM teams t
+             WHERE t.match_id = m.id
+               AND t.status IN ('forming', 'confirmed')
+               AND t.leader_id = $1
+           ) AS is_team_leader
     FROM matches m
     LEFT JOIN match_players mp ON mp.match_id = m.id
     WHERE m.status IN ('upcoming', 'room_open', 'live')
@@ -67,6 +73,7 @@ export async function listMatchesUser(userId?: string | null): Promise<MatchUser
       status: row.status,
       hasJoined,
       isInTeam: Boolean(row.is_in_team),
+      isTeamLeader: Boolean(row.is_team_leader),
       roomId: showRoomCredentials ? (row.room_id ?? undefined) : undefined,
       roomPassword: showRoomCredentials ? (row.room_password ?? undefined) : undefined,
     };
@@ -94,7 +101,13 @@ export async function getMatchUser(userId: string | null | undefined, matchId: s
              WHERE t.match_id = m.id
                AND t.status IN ('forming', 'confirmed')
                AND (t.leader_id = $1 OR p.user_id = $1)
-           ) AS is_in_team
+           ) AS is_in_team,
+           EXISTS (
+             SELECT 1 FROM teams t
+             WHERE t.match_id = m.id
+               AND t.status IN ('forming', 'confirmed')
+               AND t.leader_id = $1
+           ) AS is_team_leader
     FROM matches m
     LEFT JOIN match_players mp ON mp.match_id = m.id
     WHERE m.id = $2 AND m.status IN ('upcoming', 'room_open', 'live')
@@ -132,6 +145,7 @@ export async function getMatchUser(userId: string | null | undefined, matchId: s
     status: row.status,
     hasJoined,
     isInTeam: Boolean(row.is_in_team),
+    isTeamLeader: Boolean(row.is_team_leader),
     roomId: showRoomCredentials ? (row.room_id ?? undefined) : undefined,
     roomPassword: showRoomCredentials ? (row.room_password ?? undefined) : undefined,
   };

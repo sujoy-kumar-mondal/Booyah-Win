@@ -128,6 +128,18 @@ export function computePayouts(
     entryMap.set(String(e.userId), e);
   }
 
+  // Pre-calculate team kill rewards for team Battle Royale
+  const teamKillRewardMap = new Map<string, number>();
+  if (isTeamBR) {
+    for (const p of players) {
+      if (!p.team_id) continue;
+      const tId = String(p.team_id);
+      const k = entryMap.get(String(p.user_id))?.kills ?? 0;
+      const kReward = k >= minKills ? k * killPricePaise : 0;
+      teamKillRewardMap.set(tId, (teamKillRewardMap.get(tId) || 0) + kReward);
+    }
+  }
+
   return players.map((p) => {
     const entry = entryMap.get(String(p.user_id));
     const kills = entry?.kills ?? 0;
@@ -169,34 +181,51 @@ export function computePayouts(
     }
 
     if (isTeamBR) {
-      // Duo / Squad: individual kill reward, position prize to team leader
+      // Duo / Squad: All rewards (position prize + all team members' kill rewards) go to the team leader
       const isLeader = p.leader_id
         ? String(p.user_id) === String(p.leader_id)
         : false;
 
-      const calc = calculatePlayerPayout({
-        kills,
-        position,
-        killPricePaise,
-        minKillsForReward: minKills,
-        positionPrizes: prizes,
-        isLeader,
-        isTeamMode: true,
-        isDeleted,
-      });
+      const playerKillRewardPaise = kills >= minKills ? kills * killPricePaise : 0;
 
-      return {
-        matchPlayerId: String(p.id),
-        userId: String(p.user_id),
-        teamId: p.team_id ? String(p.team_id) : null,
-        kills,
-        position,
-        killRewardPaise: calc.killRewardPaise,
-        positionPrizePaise: calc.positionPrizePaise,
-        payoutPaise: calc.totalPaise,
-        unpaidPaise: calc.unpaidPaise,
-        isDeleted,
-      };
+      let positionPrizePaise = 0;
+      if (position !== null && prizes[String(position)]) {
+        positionPrizePaise = stringToPaise(String(prizes[String(position)]));
+      }
+
+      if (isLeader) {
+        const teamTotalKillsReward = p.team_id
+          ? (teamKillRewardMap.get(String(p.team_id)) ?? playerKillRewardPaise)
+          : playerKillRewardPaise;
+        const totalLeaderEarnedPaise = positionPrizePaise + teamTotalKillsReward;
+
+        return {
+          matchPlayerId: String(p.id),
+          userId: String(p.user_id),
+          teamId: p.team_id ? String(p.team_id) : null,
+          kills,
+          position,
+          killRewardPaise: teamTotalKillsReward,
+          positionPrizePaise,
+          payoutPaise: !isDeleted ? totalLeaderEarnedPaise : 0,
+          unpaidPaise: isDeleted ? totalLeaderEarnedPaise : 0,
+          isDeleted,
+        };
+      } else {
+        // Non-leader teammates: kills and position recorded for history, payout is 0 (all rewards to leader)
+        return {
+          matchPlayerId: String(p.id),
+          userId: String(p.user_id),
+          teamId: p.team_id ? String(p.team_id) : null,
+          kills,
+          position,
+          killRewardPaise: playerKillRewardPaise,
+          positionPrizePaise: 0,
+          payoutPaise: 0,
+          unpaidPaise: 0,
+          isDeleted,
+        };
+      }
     }
 
     // Solo Battle Royale

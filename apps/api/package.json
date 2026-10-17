@@ -19,6 +19,7 @@
     "migrate:dev": "tsx src/scripts/runDevMigrations.ts",
     "migrate:test": "tsx src/scripts/runTestMigrations.ts",
     "check:env": "tsx src/scripts/checkEnv.ts",
+    "update:user-ffids": "tsx src/scripts/updateUserFreeFireIds.ts",
     "contracts": "tsx src/scripts/generateContracts.ts"
   },
   "dependencies": {

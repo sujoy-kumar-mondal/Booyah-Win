@@ -19,6 +19,7 @@ import {
   verifyRegistrationToken,
 } from '../../utils/crypto.js';
 import { sendOtpEmail } from '../../utils/email.js';
+import { writeAuditLog } from '../../utils/audit.js';
 import { RULES } from '../../config/rules.js';
 
 export class AuthService {
@@ -118,6 +119,7 @@ export class AuthService {
     dateOfBirth: string;
     confirm18Plus: boolean;
     referralCode?: string;
+    language?: 'en' | 'bn';
   }): Promise<{ token: string; user: UserDto }> {
     let payload;
     try {
@@ -224,15 +226,16 @@ export class AuthService {
       }
 
       // 5. Insert user
+      const userLang = input.language === 'bn' ? 'bn' : 'en';
       const insertUserRes = await client.query(
         `INSERT INTO users (
            email, name, mobile, ff_id, ff_name, upi_id, date_of_birth,
-           referral_code, referred_by
+           referral_code, referred_by, language
          )
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
          RETURNING id, email, name, mobile, ff_id, ff_name, upi_id,
                    to_char(date_of_birth, 'YYYY-MM-DD') as date_of_birth,
-                   referral_code, referred_by, created_at`,
+                   referral_code, referred_by, language, created_at`,
         [
           email,
           input.name,
@@ -243,6 +246,7 @@ export class AuthService {
           input.dateOfBirth,
           newReferralCode,
           referrerId,
+          userLang,
         ]
       );
 
@@ -298,6 +302,7 @@ export class AuthService {
         dateOfBirth: userRow.date_of_birth,
         referralCode: userRow.referral_code,
         referredBy: userRow.referred_by ? userRow.referred_by.toString() : null,
+        language: (userRow.language as 'en' | 'bn') || 'en',
         createdAt: userRow.created_at.toISOString(),
       };
 
@@ -352,7 +357,7 @@ export class AuthService {
     const userRes = await query(
       `SELECT id, email, name, mobile, ff_id, ff_name, upi_id,
               to_char(date_of_birth, 'YYYY-MM-DD') as date_of_birth,
-              referral_code, referred_by, deleted_at, created_at
+              referral_code, referred_by, language, deleted_at, created_at
        FROM users WHERE email = $1`,
       [normalizedEmail]
     );
@@ -395,6 +400,7 @@ export class AuthService {
       dateOfBirth: row.date_of_birth,
       referralCode: row.referral_code,
       referredBy: row.referred_by ? row.referred_by.toString() : null,
+      language: (row.language as 'en' | 'bn') || 'en',
       createdAt: row.created_at.toISOString(),
     };
 
@@ -444,7 +450,8 @@ export class AuthService {
 
   static async verifyStaffLoginOtp(
     email: string,
-    otp: string
+    otp: string,
+    remember: boolean = true
   ): Promise<{ token: string; staff: StaffDto }> {
     const normalizedEmail = email.toLowerCase().trim();
 
@@ -462,17 +469,18 @@ export class AuthService {
     const row = staffRes.rows[0];
     const staffId = row.id.toString();
 
-    // Replace session (one active device)
+    // Replace session (one active device). Initial login grants 1 hour elevation.
     const sessionId = crypto.randomUUID();
     await query(
-      `INSERT INTO sessions (id, account_type, account_id, device_info)
-       VALUES ($1, 'staff', $2, NULL)
+      `INSERT INTO sessions (id, account_type, account_id, device_info, last_otp_at, elevated_until)
+       VALUES ($1, 'staff', $2, NULL, now(), now() + interval '1 hour')
        ON CONFLICT (account_type, account_id)
-       DO UPDATE SET id = EXCLUDED.id, created_at = now()`,
+       DO UPDATE SET id = EXCLUDED.id, created_at = now(), last_otp_at = now(), elevated_until = now() + interval '1 hour'`,
       [sessionId, staffId]
     );
 
-    // Staff expiry: 12 hours
+    // Staff expiry: Remembered: 30 days. Not remembered: 12 hours.
+    const tokenLifetime = remember ? '30d' : '12h';
     const token = signSessionToken(
       {
         sub: staffId,
@@ -480,7 +488,7 @@ export class AuthService {
         sid: sessionId,
         role: row.role,
       },
-      '12h'
+      tokenLifetime
     );
 
     const staffDto: StaffDto = {
@@ -493,6 +501,84 @@ export class AuthService {
     };
 
     return { token, staff: staffDto };
+  }
+
+  // ================= STAFF STEP-UP OTP =================
+
+  static async requestStaffStepUpOtp(
+    staffEmail: string
+  ): Promise<{ message: string }> {
+    const normalizedEmail = staffEmail.toLowerCase().trim();
+
+    // Rate limits apply
+    await this.checkOtpRateLimits(normalizedEmail, 'staff');
+
+    const staffRes = await query(
+      'SELECT id FROM staff WHERE email = $1 AND deleted_at IS NULL',
+      [normalizedEmail]
+    );
+    if ((staffRes.rowCount ?? 0) === 0) {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'Staff member not found', 404);
+    }
+
+    const otp = generateOtp();
+    const codeHash = hashOtp(otp);
+
+    await query(
+      `INSERT INTO otp_requests (email, audience, purpose, code_hash, expires_at)
+       VALUES ($1, 'staff', 'step_up', $2, now() + interval '10 minutes')`,
+      [normalizedEmail, codeHash]
+    );
+
+    await sendOtpEmail(normalizedEmail, otp);
+
+    return {
+      message: 'Step-up OTP has been sent to your email address',
+    };
+  }
+
+  static async verifyStaffStepUpOtp(
+    sessionId: string,
+    staffId: string,
+    staffEmail: string,
+    otp: string
+  ): Promise<{ message: string; elevatedUntil: string }> {
+    const normalizedEmail = staffEmail.toLowerCase().trim();
+
+    await this.verifyOtpCore(normalizedEmail, otp, 'staff', 'step_up');
+
+    // Elevate session for 1 hour from now
+    const elevatedUntilRes = await query<{ elevated_until: Date }>(
+      `UPDATE sessions
+       SET last_otp_at = now(), elevated_until = now() + interval '1 hour'
+       WHERE id = $1 AND account_type = 'staff' AND account_id = $2
+       RETURNING elevated_until`,
+      [sessionId, staffId]
+    );
+
+    if (elevatedUntilRes.rowCount === 0) {
+      throw new AppError(ErrorCodes.UNAUTHENTICATED, 'Session not found or expired', 401);
+    }
+
+    const elevatedUntilDate = elevatedUntilRes.rows[0].elevated_until;
+    const elevatedUntilIso = new Date(elevatedUntilDate).toISOString();
+
+    // Write audit log entry in the same operation
+    await writeAuditLog(query, {
+      staffId,
+      action: 'step_up',
+      targetType: 'session',
+      targetId: staffId,
+      details: {
+        message: 'Staff session elevated via step-up OTP',
+        elevated_until: elevatedUntilIso,
+      },
+    });
+
+    return {
+      message: 'Session elevated successfully',
+      elevatedUntil: elevatedUntilIso,
+    };
   }
 
   static async logoutStaff(staffId: string): Promise<void> {
@@ -508,7 +594,7 @@ export class AuthService {
     email: string,
     otp: string,
     audience: 'user' | 'staff',
-    purpose: 'register' | 'login'
+    purpose: 'register' | 'login' | 'step_up'
   ): Promise<number> {
     const expectedHash = hashOtp(otp);
 

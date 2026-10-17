@@ -92,4 +92,89 @@ describe('Requirement 6: Team Cutoff Rule & Server Decision', () => {
       expect(errorEl.textContent).toContain('Registration for this match is closed (10-minute cutoff reached).');
     });
   });
+
+  it('Requirement: displays Total Team Fee as Rs50.00 (single fee) for Clash Squad squad team', () => {
+    const mockCsMatch = {
+      ...mockDuoMatch,
+      gameMode: 'clash_squad',
+      teamMode: 'squad',
+      entryFee: '50.00',
+    };
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TeamFormModal
+            match={mockCsMatch}
+            isOpen={true}
+            onClose={() => {}}
+            onSuccess={() => {}}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    // Shows Team Entry Fee Rs50.00 and Total Team Fee Rs50.00 (not Rs200.00)
+    expect(screen.getByText('Team Entry Fee')).toBeInTheDocument();
+    expect(screen.getByText('Total Team Fee')).toBeInTheDocument();
+    const teamFeeAmounts = screen.getAllByText('Rs50.00');
+    expect(teamFeeAmounts.length).toBeGreaterThanOrEqual(2);
+    expect(screen.queryByText('Rs200.00')).not.toBeInTheDocument();
+  });
+
+  it('Requirement: only team leader sees Replace Teammate button; member sees note', () => {
+    // 1. Leader renders Replace Teammate button
+    const leaderMatch = {
+      ...mockDuoMatch,
+      status: 'upcoming',
+      hasJoined: true,
+      isInTeam: true,
+      isTeamLeader: true,
+    };
+
+    const { unmount } = render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <MatchDetailModal
+            match={leaderMatch}
+            isOpen={true}
+            onClose={() => {}}
+            onRefreshMatch={() => {}}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    expect(screen.getByTestId('team-role-badge').textContent).toBe('Team Leader');
+    expect(screen.getByTestId('open-replace-teammate-btn')).toBeInTheDocument();
+    expect(screen.queryByTestId('member-no-replace-note')).not.toBeInTheDocument();
+    unmount();
+
+    // 2. Member does NOT render Replace Teammate button
+    const memberMatch = {
+      ...mockDuoMatch,
+      status: 'upcoming',
+      hasJoined: true,
+      isInTeam: true,
+      isTeamLeader: false,
+    };
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <MatchDetailModal
+            match={memberMatch}
+            isOpen={true}
+            onClose={() => {}}
+            onRefreshMatch={() => {}}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    expect(screen.getByTestId('team-role-badge').textContent).toBe('Team Member');
+    expect(screen.queryByTestId('open-replace-teammate-btn')).not.toBeInTheDocument();
+    expect(screen.getByTestId('member-no-replace-note')).toBeInTheDocument();
+    expect(screen.getByTestId('member-no-replace-note').textContent).toBe('Only team leader can change teammate.');
+  });
 });

@@ -51,6 +51,9 @@ export const teamManageRateLimit = rateLimit({
 
 matchesRouter.param('id', idParamHandler);
 
+// Teammate validation endpoint
+matchesRouter.get('/lookup-teammate', authenticateUser, requireUser, TeamsController.lookupTeammate);
+
 // Public / optionally authenticated read endpoints (shows matches to logged-out users)
 matchesRouter.get('/', authenticateOptionalUser, MatchesController.listMatches);
 matchesRouter.get('/:id', authenticateOptionalUser, MatchesController.getMatch);

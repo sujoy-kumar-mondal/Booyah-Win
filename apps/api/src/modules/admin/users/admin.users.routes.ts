@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateStaff, requireAdmin } from '../../../middleware/auth.js';
+import { authenticateStaff, requireAdmin, requireElevatedSession } from '../../../middleware/auth.js';
 import { staffWriteRateLimit } from '../../../middleware/rateLimiters.js';
 import { idParamHandler } from '../../../middleware/validate.js';
 import { AdminUsersController } from './admin.users.controller.js';
@@ -12,5 +12,5 @@ adminUsersRouter.param('id', idParamHandler);
 
 adminUsersRouter.get('/', AdminUsersController.listUsers);
 adminUsersRouter.get('/:id', AdminUsersController.getUserDetail);
-adminUsersRouter.delete('/:id', AdminUsersController.deleteUser);
-adminUsersRouter.post('/:id/adjust', AdminUsersController.adjustBalance);
+adminUsersRouter.delete('/:id', requireElevatedSession, AdminUsersController.deleteUser);
+adminUsersRouter.post('/:id/adjust', requireElevatedSession, AdminUsersController.adjustBalance);

@@ -6,11 +6,14 @@ import { OtpInput } from '../components/common/OtpInput.js';
 import { useCountdown } from '../hooks/useCountdown.js';
 import { validateEmail } from '../utils/validation.js';
 import { ApiError } from '../api/client.js';
+import { getUserFriendlyErrorMessage } from '../api/errorMessages.js';
 import { Flame, Mail, ArrowRight, RotateCcw, AlertCircle } from 'lucide-react';
+import { useTranslation } from '../i18n/LanguageContext.js';
 
 export const Login: React.FC = () => {
   const navigate = useNavigate();
   const { login } = useAuth();
+  const { t, language } = useTranslation();
 
   const [step, setStep] = useState<'email' | 'otp'>('email');
   const [email, setEmail] = useState('');
@@ -34,13 +37,21 @@ export const Login: React.FC = () => {
     try {
       const res = await requestLoginOtp(email.trim().toLowerCase());
       if (res.registered === false) {
-        setError('No account found with this email. Please create an account first.');
+        setError(
+          language === 'bn'
+            ? 'এই ইমেইলে কোনো অ্যাকাউন্ট পাওয়া যায়নি। অনুগ্রহ করে প্রথমে অ্যাকাউন্ট তৈরি করুন।'
+            : 'No account found with this email. Please create an account first.'
+        );
         return;
       }
       setStep('otp');
       startCountdown(60);
     } catch (err: any) {
-      setError(err instanceof ApiError ? err.message : 'Unable to send OTP. Please try again.');
+      setError(
+        err instanceof ApiError
+          ? getUserFriendlyErrorMessage(err.code, false, language)
+          : getUserFriendlyErrorMessage('NETWORK_ERROR', false, language)
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -51,7 +62,11 @@ export const Login: React.FC = () => {
     setError(null);
 
     if (otp.length !== 6) {
-      setError('Please enter the full 6-digit OTP code');
+      setError(
+        language === 'bn'
+          ? 'অনুগ্রহ করে সম্পূর্ণ ৬-সংখ্যার OTP কোড লিখুন'
+          : 'Please enter the full 6-digit OTP code'
+      );
       return;
     }
 
@@ -61,7 +76,11 @@ export const Login: React.FC = () => {
       await login(res.token, res.user as any);
       navigate('/');
     } catch (err: any) {
-      setError(err instanceof ApiError ? err.message : 'Verification failed. Please try again.');
+      setError(
+        err instanceof ApiError
+          ? getUserFriendlyErrorMessage(err.code, false, language)
+          : getUserFriendlyErrorMessage('VALIDATION_ERROR', false, language)
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -74,13 +93,21 @@ export const Login: React.FC = () => {
     try {
       const res = await requestLoginOtp(email.trim().toLowerCase());
       if (res.registered === false) {
-        setError('No account found with this email. Please create an account first.');
+        setError(
+          language === 'bn'
+            ? 'এই ইমেইলে কোনো অ্যাকাউন্ট পাওয়া যায়নি। অনুগ্রহ করে প্রথমে অ্যাকাউন্ট তৈরি করুন।'
+            : 'No account found with this email. Please create an account first.'
+        );
         setStep('email');
         return;
       }
       startCountdown(60);
     } catch (err: any) {
-      setError(err instanceof ApiError ? err.message : 'Unable to resend OTP. Please try again.');
+      setError(
+        err instanceof ApiError
+          ? getUserFriendlyErrorMessage(err.code, false, language)
+          : getUserFriendlyErrorMessage('NETWORK_ERROR', false, language)
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -115,7 +142,7 @@ export const Login: React.FC = () => {
           <form onSubmit={handleSendOtp} className="space-y-4">
             <div>
               <label htmlFor="login-email" className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Email Address
+                {t('auth.emailLabel')}
               </label>
               <div className="relative">
                 <Mail className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-500" />
@@ -139,7 +166,7 @@ export const Login: React.FC = () => {
               disabled={isSubmitting}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-bold text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.98] disabled:opacity-50"
             >
-              {isSubmitting ? 'Sending Code...' : 'Continue with OTP'}
+              {isSubmitting ? t('auth.requestingOtp') : t('auth.requestOtp')}
               <ArrowRight className="h-4 w-4" />
             </button>
           </form>
@@ -147,7 +174,7 @@ export const Login: React.FC = () => {
           <form onSubmit={handleVerifyOtp} className="space-y-5">
             <div className="text-center">
               <p className="text-xs text-slate-400">
-                Enter the 6-digit verification code sent to <br />
+                {t('auth.otpSentMessage')} <br />
                 <span className="font-semibold text-slate-200">{email}</span>
               </p>
               <button
@@ -159,13 +186,13 @@ export const Login: React.FC = () => {
                 }}
                 className="mt-1 text-xs text-emerald-400 hover:underline"
               >
-                Change email
+                {t('auth.changeEmail')}
               </button>
             </div>
 
             <div>
               <label className="block text-center text-xs font-semibold text-slate-300 mb-3">
-                Security Code (OTP)
+                {t('auth.enterOtp')}
               </label>
               <OtpInput value={otp} onChange={setOtp} disabled={isSubmitting} />
             </div>
@@ -179,7 +206,7 @@ export const Login: React.FC = () => {
                 className="flex items-center gap-1 font-semibold text-emerald-400 hover:underline disabled:text-slate-600 disabled:no-underline"
               >
                 <RotateCcw className={`h-3 w-3 ${isSubmitting ? 'animate-spin' : ''}`} />
-                {isCounting ? `Resend in ${secondsLeft}s` : 'Resend OTP'}
+                {isCounting ? `${t('auth.resendIn')} ${secondsLeft}s` : t('auth.resendOtp')}
               </button>
             </div>
 
@@ -188,7 +215,7 @@ export const Login: React.FC = () => {
               disabled={isSubmitting || otp.length !== 6}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-bold text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.98] disabled:opacity-50"
             >
-              {isSubmitting ? 'Verifying...' : 'Verify & Log In'}
+              {isSubmitting ? t('auth.verifyingOtp') : t('auth.verifyOtp')}
             </button>
           </form>
         )}
@@ -196,9 +223,9 @@ export const Login: React.FC = () => {
 
       {/* Footer / Switch to Registration */}
       <div className="mt-6 text-center text-xs text-slate-400">
-        New here?{' '}
+        {t('auth.dontHaveAccount')}{' '}
         <Link to="/register" className="font-semibold text-emerald-400 hover:underline">
-          Create an Account
+          {t('auth.registerLink')}
         </Link>
       </div>
     </div>

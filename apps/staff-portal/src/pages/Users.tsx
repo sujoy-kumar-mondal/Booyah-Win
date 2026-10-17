@@ -14,6 +14,7 @@
  */
 
 import React, { useState, useEffect, useRef } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   getAdminUsers,
   getAdminUserDetail,
@@ -83,9 +84,12 @@ export const Users: React.FC = () => {
   const isEmployee = staff?.role === 'employee';
   const isAdmin = !isEmployee;
 
+  const [searchParams] = useSearchParams();
+  const initialSearch = searchParams.get('search') || '';
+
   // Search & List state
   const [users, setUsers] = useState<UserListItemType[]>([]);
-  const [searchQuery, setSearchQuery] = useState('');
+  const [searchQuery, setSearchQuery] = useState(initialSearch);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isLoadingMore, setIsLoadingMore] = useState(false);

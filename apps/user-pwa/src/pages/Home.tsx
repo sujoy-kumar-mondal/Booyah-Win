@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
+import { useTranslation } from '../i18n/LanguageContext.js';
 import { formatIndianRupees, formatISTDateTime, formatGameMode } from '../utils/formatters.js';
 import { fetchMatches, type MatchUserDto } from '../api/matches.js';
 import {
@@ -19,6 +20,7 @@ import {
 
 export const Home: React.FC = () => {
   const { user, wallets } = useAuth();
+  const { t, formatEnum } = useTranslation();
   const navigate = useNavigate();
   const [ongoingMatches, setOngoingMatches] = useState<MatchUserDto[]>([]);
 
@@ -48,81 +50,54 @@ export const Home: React.FC = () => {
             <Flame className="h-6 w-6" />
           </div>
           <div>
-            <h2 className="text-base font-bold text-slate-100">{user?.name || 'Player'}</h2>
+            <h2 className="text-base font-bold text-slate-100">{user?.name || t('home.player')}</h2>
             <div className="flex items-center gap-2 text-xs text-slate-400">
-              <span className="font-mono text-emerald-400 font-semibold">{user?.ffName || 'Player'}</span>
+              <span className="font-mono text-emerald-400 font-semibold">{user?.ffName || t('home.player')}</span>
               <span>•</span>
-              <span className="font-mono">ID: {user?.ffId || '—'}</span>
+              <span className="font-mono">{t('home.idLabel', { id: user?.ffId || '—' })}</span>
             </div>
           </div>
         </div>
         <div className="text-right">
           <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/20">
-            ACTIVE
+            {t('home.active')}
           </span>
         </div>
       </div>
 
-      {/* Main Total Balance Card */}
-      <div className="relative overflow-hidden rounded-2xl border border-emerald-500/30 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/40 p-5 shadow-xl">
-        <div className="flex items-center justify-between text-xs font-semibold text-slate-400 mb-1">
+      {/* Main Total Balance Card (Compact) */}
+      <div className="relative overflow-hidden rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/30 p-3.5 sm:p-4 shadow-lg">
+        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400 mb-0.5">
           <span className="flex items-center gap-1.5">
-            <Wallet className="h-4 w-4 text-emerald-400" />
-            Total Usable Balance
+            <Wallet className="h-3.5 w-3.5 text-emerald-400" />
+            {t('home.totalUsableBalance')}
           </span>
-          <span className="text-[11px] text-emerald-400">100% Secure</span>
+          <span className="text-[10px] text-emerald-400">{t('home.secure100')}</span>
         </div>
-        <div className="text-3xl font-black tracking-tight text-slate-100" data-testid="total-balance">
+        <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-100" data-testid="total-balance">
           {formatIndianRupees(wallets?.total || '0.00')}
         </div>
 
         {/* Quick Action Buttons */}
-        <div className="mt-4 grid grid-cols-2 gap-3 pt-2">
+        <div className="mt-2.5 grid grid-cols-2 gap-2.5">
           <button
             type="button"
             onClick={() => navigate('/wallet?tab=add')}
             data-testid="home-add-money-btn"
-            className="flex items-center justify-center gap-2 rounded-xl bg-emerald-500 py-2.5 text-xs font-bold text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.98]"
+            className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500 py-2 text-xs font-bold text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.98]"
           >
-            <PlusCircle className="h-4 w-4" />
-            Add Money
+            <PlusCircle className="h-3.5 w-3.5" />
+            {t('common.addMoney')}
           </button>
           <button
             type="button"
             onClick={() => navigate('/wallet?tab=withdraw')}
             data-testid="home-withdraw-btn"
-            className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/80 py-2.5 text-xs font-bold text-slate-200 transition-all hover:bg-slate-700 active:scale-[0.98]"
+            className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 py-2 text-xs font-bold text-slate-200 transition-all hover:bg-slate-700 active:scale-[0.98]"
           >
-            <ArrowDownToLine className="h-4 w-4" />
-            Withdraw
+            <ArrowDownToLine className="h-3.5 w-3.5" />
+            {t('common.withdraw')}
           </button>
-        </div>
-      </div>
-
-      {/* Wallet Breakdown Grid */}
-      <div className="grid grid-cols-3 gap-2.5">
-        {/* Add Money Wallet */}
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-center shadow-md">
-          <div className="text-[10px] font-semibold text-slate-400">Add Money</div>
-          <div className="mt-1 font-mono text-sm font-bold text-slate-200" data-testid="wallet-add-money">
-            {formatIndianRupees(wallets?.addMoney || '0.00')}
-          </div>
-        </div>
-
-        {/* Cashback Wallet */}
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-center shadow-md">
-          <div className="text-[10px] font-semibold text-slate-400">Cashback</div>
-          <div className="mt-1 font-mono text-sm font-bold text-amber-400" data-testid="wallet-cashback">
-            {formatIndianRupees(wallets?.cashback || '0.00')}
-          </div>
-        </div>
-
-        {/* Winning Wallet */}
-        <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3 text-center shadow-md">
-          <div className="text-[10px] font-semibold text-slate-400">Winning</div>
-          <div className="mt-1 font-mono text-sm font-bold text-emerald-400" data-testid="wallet-winning">
-            {formatIndianRupees(wallets?.winning || '0.00')}
-          </div>
         </div>
       </div>
 
@@ -138,8 +113,8 @@ export const Home: React.FC = () => {
             <Trophy className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-xs font-bold text-slate-100">Leaderboard</p>
-            <p className="text-[10px] text-amber-400 font-medium">Weekly Top 50</p>
+            <p className="text-xs font-bold text-slate-100">{t('home.leaderboard')}</p>
+            <p className="text-[10px] text-amber-400 font-medium">{t('home.weeklyTop50')}</p>
           </div>
         </button>
 
@@ -153,8 +128,8 @@ export const Home: React.FC = () => {
             <Gift className="h-5 w-5" />
           </div>
           <div>
-            <p className="text-xs font-bold text-slate-100">Refer & Earn</p>
-            <p className="text-[10px] text-emerald-400 font-medium">Cashback bonus</p>
+            <p className="text-xs font-bold text-slate-100">{t('home.referAndEarn')}</p>
+            <p className="text-[10px] text-emerald-400 font-medium">{t('home.cashbackBonus')}</p>
           </div>
         </button>
       </div>
@@ -164,7 +139,7 @@ export const Home: React.FC = () => {
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Trophy className="h-4 w-4 text-amber-400" />
-            <h3 className="text-sm font-bold text-slate-100">Custom Match Lobby</h3>
+            <h3 className="text-sm font-bold text-slate-100">{t('home.customMatchLobby')}</h3>
           </div>
           <button
             type="button"
@@ -172,7 +147,7 @@ export const Home: React.FC = () => {
             data-testid="home-view-all-matches"
             className="flex items-center gap-1 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
           >
-            <span>View All</span>
+            <span>{t('common.viewAll')}</span>
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -196,12 +171,12 @@ export const Home: React.FC = () => {
                           {formatGameMode(match.gameMode)}
                         </span>
                         <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-300">
-                          {match.teamMode}
+                          {formatEnum('teamMode', match.teamMode)}
                         </span>
                         {match.hasJoined && (
                           <span className="flex items-center gap-1 rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/30">
                             <CheckCircle2 className="h-3 w-3" />
-                            Joined
+                            {t('matches.joined')}
                           </span>
                         )}
                       </div>
@@ -217,12 +192,12 @@ export const Home: React.FC = () => {
                     </div>
 
                     <div className="text-right">
-                      <div className="text-[10px] font-semibold text-slate-400">Entry Fee</div>
+                      <div className="text-[10px] font-semibold text-slate-400">{t('matches.entryFee')}</div>
                       <div className="font-mono text-sm font-bold text-slate-100">
                         {formatIndianRupees(match.entryFee)}
                       </div>
                       <div className="mt-1 text-[10px] font-semibold text-amber-400">
-                        Prize: {formatIndianRupees(firstPrize)}
+                        {t('home.prizeLabel', { amount: formatIndianRupees(firstPrize) })}
                       </div>
                     </div>
                   </div>
@@ -235,9 +210,9 @@ export const Home: React.FC = () => {
             <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-inner">
               <Trophy className="h-6 w-6" />
             </div>
-            <h4 className="text-sm font-bold text-slate-100">Live Custom Match Rooms</h4>
+            <h4 className="text-sm font-bold text-slate-100">{t('home.liveRoomsTitle')}</h4>
             <p className="mt-1 text-xs text-slate-400 leading-relaxed max-w-xs mx-auto">
-              Battle Royale & Clash Squad custom rooms are live! Join tournaments, compete with your squad, and win real cash prizes.
+              {t('home.liveRoomsDesc')}
             </p>
             <button
               type="button"
@@ -246,7 +221,7 @@ export const Home: React.FC = () => {
               className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-2.5 text-xs font-bold text-slate-950 shadow-md transition-all hover:from-emerald-400 hover:to-teal-400 active:scale-[0.98]"
             >
               <Swords className="h-4 w-4" />
-              Enter Match Lobby
+              {t('home.enterMatchLobby')}
             </button>
           </div>
         )}
@@ -255,7 +230,7 @@ export const Home: React.FC = () => {
       {/* Platform Fair Play Notice */}
       <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/30 p-3 text-xs text-slate-400">
         <ShieldAlert className="h-4 w-4 shrink-0 text-slate-500" />
-        <span>Strict anti-cheat monitoring active across all rooms.</span>
+        <span>{t('home.antiCheatNotice')}</span>
       </div>
     </div>
   );

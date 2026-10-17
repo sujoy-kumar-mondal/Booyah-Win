@@ -22,6 +22,7 @@
       "status": "room_open",
       "hasJoined": true,
       "isInTeam": false,
+      "isTeamLeader": false,
       "roomId": "776655",
       "roomPassword": "test-room-password"
     }

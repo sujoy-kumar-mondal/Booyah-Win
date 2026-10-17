@@ -2,8 +2,10 @@ import React, { useState, useEffect } from 'react';
 import { History, Swords, Clock, AlertCircle, ChevronDown } from 'lucide-react';
 import { fetchMatchHistory, type MatchHistoryItem } from '../../api/matches.js';
 import { formatIndianRupees, formatISTDateTime, formatGameMode } from '../../utils/formatters.js';
+import { useTranslation } from '../../i18n/LanguageContext.js';
 
 export const MatchHistory: React.FC = () => {
+  const { t } = useTranslation();
   const [items, setItems] = useState<MatchHistoryItem[]>([]);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [hasMore, setHasMore] = useState(false);
@@ -39,7 +41,7 @@ export const MatchHistory: React.FC = () => {
       setNextCursor(res.nextCursor ?? null);
       setHasMore(res.hasMore);
     } catch (err: any) {
-      setError(err?.message || 'Failed to load match history.');
+      setError(err?.message || t('matches.failedLoadHistory'));
     } finally {
       setIsLoading(false);
       setIsLoadingMore(false);
@@ -80,7 +82,7 @@ export const MatchHistory: React.FC = () => {
           onChange={(e) => setGameModeFilter(e.target.value)}
           className="rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 font-semibold text-slate-300 focus:border-emerald-500 focus:outline-none"
         >
-          <option value="all">All Game Modes</option>
+          <option value="all">{t('matches.allGameModes')}</option>
           <option value="battle_royale">Battle Royale</option>
           <option value="clash_squad">Clash Squad</option>
         </select>
@@ -91,7 +93,7 @@ export const MatchHistory: React.FC = () => {
           onChange={(e) => setTeamModeFilter(e.target.value)}
           className="rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 font-semibold text-slate-300 focus:border-emerald-500 focus:outline-none"
         >
-          <option value="all">All Team Modes</option>
+          <option value="all">{t('matches.allTeamModes')}</option>
           <option value="solo">Solo</option>
           <option value="duo">Duo</option>
           <option value="squad">Squad</option>
@@ -102,7 +104,7 @@ export const MatchHistory: React.FC = () => {
       {isLoading && items.length === 0 && (
         <div data-testid="history-loading" className="py-12 text-center text-xs text-slate-400">
           <History className="mx-auto h-6 w-6 animate-spin text-emerald-400" />
-          <p className="mt-2 font-medium">Loading match history...</p>
+          <p className="mt-2 font-medium">{t('matches.loadingHistory')}</p>
         </div>
       )}
 
@@ -114,7 +116,7 @@ export const MatchHistory: React.FC = () => {
         >
           <div className="flex items-center gap-2 font-bold">
             <AlertCircle className="h-4 w-4" />
-            <span>Failed to load match history</span>
+            <span>{t('matches.failedLoadHistory')}</span>
           </div>
           <p className="mt-1">{error}</p>
         </div>
@@ -127,8 +129,8 @@ export const MatchHistory: React.FC = () => {
           className="rounded-2xl border border-slate-800 bg-slate-900/40 p-8 text-center text-xs text-slate-400"
         >
           <Swords className="mx-auto h-8 w-8 text-slate-600" />
-          <h4 className="mt-2 text-sm font-bold text-slate-300">No Matches Played Yet</h4>
-          <p className="mt-1">Your past matches, ranks, and prizes will appear here.</p>
+          <h4 className="mt-2 text-sm font-bold text-slate-300">{t('matches.noMatchesPlayedTitle')}</h4>
+          <p className="mt-1">{t('matches.noHistoryDesc')}</p>
         </div>
       )}
 
@@ -173,7 +175,7 @@ export const MatchHistory: React.FC = () => {
               {/* Stats & Amounts */}
               <div className="grid grid-cols-3 gap-2 border-t border-slate-800/80 pt-2 text-xs">
                 <div>
-                  <span className="text-[10px] text-slate-400">Entry Fee</span>
+                  <span className="text-[10px] text-slate-400">{t('matches.entryFee')}</span>
                   <div className="font-semibold text-slate-200">
                     {formatIndianRupees(item.entryFee)}
                   </div>
@@ -181,7 +183,7 @@ export const MatchHistory: React.FC = () => {
 
                 {isBR && item.kills !== undefined && (
                   <div>
-                    <span className="text-[10px] text-slate-400">Kills</span>
+                    <span className="text-[10px] text-slate-400">{t('matches.kills')}</span>
                     <div
                       data-testid={`history-kills-${item.matchId}`}
                       className="font-semibold text-slate-200"
@@ -192,7 +194,7 @@ export const MatchHistory: React.FC = () => {
                 )}
 
                 <div className="text-right ml-auto">
-                  <span className="text-[10px] text-slate-400">Prize Won</span>
+                  <span className="text-[10px] text-slate-400">{t('matches.prizeWon')}</span>
                   <div
                     data-testid={`history-prize-${item.matchId}`}
                     className="font-bold text-emerald-400"
@@ -217,10 +219,10 @@ export const MatchHistory: React.FC = () => {
             className="inline-flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900 px-4 py-2 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:opacity-50"
           >
             {isLoadingMore ? (
-              <span>Loading more...</span>
+              <span>{t('common.loadingMore')}</span>
             ) : (
               <>
-                <span>Load More</span>
+                <span>{t('common.loadMore')}</span>
                 <ChevronDown className="h-4 w-4" />
               </>
             )}

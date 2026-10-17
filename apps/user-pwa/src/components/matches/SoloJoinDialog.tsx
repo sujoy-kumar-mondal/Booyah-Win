@@ -1,11 +1,14 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
+import { useQuery } from '@tanstack/react-query';
 import { X, AlertCircle, CheckCircle2 } from 'lucide-react';
 import { joinMatchSolo, fetchMatch, type MatchUserDto } from '../../api/matches.js';
+import { getRules } from '../../api/rules.js';
 import { formatIndianRupees } from '../../utils/formatters.js';
 import { ApiError } from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useMaintenance } from '../../context/MaintenanceContext.js';
+import { useTranslation } from '../../i18n/LanguageContext.js';
 
 interface SoloJoinDialogProps {
   match: MatchUserDto;
@@ -20,8 +23,19 @@ export const SoloJoinDialog: React.FC<SoloJoinDialogProps> = ({
   onClose,
   onSuccess,
 }) => {
+  const { t } = useTranslation();
   const { refreshProfile } = useAuth();
   const { enabled: isMaintenance } = useMaintenance();
+
+  const { data: rulesData, isError: isRulesError } = useQuery({
+    queryKey: ['rules'],
+    queryFn: getRules,
+    staleTime: 60 * 1000,
+    retry: false,
+  });
+
+  const hasRulesPercent = !isRulesError && rulesData && typeof rulesData.maxCashbackUsagePercent === 'number';
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLowBalance, setIsLowBalance] = useState(false);
@@ -43,7 +57,7 @@ export const SoloJoinDialog: React.FC<SoloJoinDialogProps> = ({
       // Success! Refetch wallets & notify
       await refreshProfile();
       setSuccessResult({
-        message: res.message || 'Successfully joined match!',
+        message: res.message || t('matches.successJoined'),
         chargeBreakdown: (res as any).chargeBreakdown,
       });
       onSuccess();
@@ -51,17 +65,17 @@ export const SoloJoinDialog: React.FC<SoloJoinDialogProps> = ({
       if (err instanceof ApiError) {
         if (err.code === 'LOW_BALANCE') {
           setIsLowBalance(true);
-          setErrorMessage('Insufficient wallet balance to join this match.');
+          setErrorMessage(t('matches.insufficientWalletBalance'));
         } else if (err.code === 'MATCH_FULL') {
-          setErrorMessage('This match is already full.');
+          setErrorMessage(t('matches.matchAlreadyFull'));
         } else if (err.code === 'ALREADY_JOINED') {
-          setErrorMessage('You have already joined this match.');
+          setErrorMessage(t('matches.alreadyJoinedMatch'));
         } else if (err.code === 'MATCH_NOT_JOINABLE') {
-          setErrorMessage('Registration for this match is closed.');
+          setErrorMessage(t('matches.registrationClosed'));
         } else if (err.code === 'TEAM_INVALID') {
-          setErrorMessage('Invalid team configuration.');
+          setErrorMessage(t('matches.invalidTeamConfig'));
         } else {
-          setErrorMessage(err.message || 'Unable to join match.');
+          setErrorMessage(err.message || t('matches.unableToJoin'));
         }
       } else {
         // Network-level or timeout error: DO NOT retry automatically.
@@ -72,9 +86,7 @@ export const SoloJoinDialog: React.FC<SoloJoinDialogProps> = ({
         } catch {
           // ignore background sync error
         }
-        setErrorMessage(
-          'Network request failed. Please check "My Matches" before trying again.'
-        );
+        setErrorMessage(t('matches.networkFailedCheckMatches'));
       }
     } finally {
       setIsSubmitting(false);
@@ -91,7 +103,7 @@ export const SoloJoinDialog: React.FC<SoloJoinDialogProps> = ({
         className="w-full max-w-sm rounded-2xl border border-slate-800 bg-slate-900 p-5 shadow-2xl"
       >
         <div className="flex items-center justify-between pb-3 border-b border-slate-800">
-          <h3 className="text-base font-bold text-slate-100">Confirm Join Match</h3>
+          <h3 className="text-base font-bold text-slate-100">{t('matches.confirmJoinTitle')}</h3>
           <button
             type="button"
             data-testid="close-join-dialog-btn"
@@ -111,15 +123,15 @@ export const SoloJoinDialog: React.FC<SoloJoinDialogProps> = ({
                 data-testid="join-charge-breakdown"
                 className="mt-3 rounded-lg bg-slate-800/60 p-3 text-xs text-slate-300"
               >
-                <div className="font-semibold text-slate-200 mb-1">Deduction Breakdown:</div>
+                <div className="font-semibold text-slate-200 mb-1">{t('matches.deductionBreakdown')}</div>
                 {successResult.chargeBreakdown.cashback && (
-                  <div>Cashback: {formatIndianRupees(successResult.chargeBreakdown.cashback)}</div>
+                  <div>{t('matches.breakdownCashback', { amount: formatIndianRupees(successResult.chargeBreakdown.cashback) })}</div>
                 )}
                 {successResult.chargeBreakdown.addMoney && (
-                  <div>Add Money: {formatIndianRupees(successResult.chargeBreakdown.addMoney)}</div>
+                  <div>{t('matches.breakdownAddMoney', { amount: formatIndianRupees(successResult.chargeBreakdown.addMoney) })}</div>
                 )}
                 {successResult.chargeBreakdown.winning && (
-                  <div>Winning: {formatIndianRupees(successResult.chargeBreakdown.winning)}</div>
+                  <div>{t('matches.breakdownWinning', { amount: formatIndianRupees(successResult.chargeBreakdown.winning) })}</div>
                 )}
               </div>
             )}
@@ -129,13 +141,13 @@ export const SoloJoinDialog: React.FC<SoloJoinDialogProps> = ({
               onClick={onClose}
               className="mt-4 w-full rounded-xl bg-emerald-500 py-2.5 text-xs font-bold text-slate-950 hover:bg-emerald-400"
             >
-              Done
+              {t('matches.done')}
             </button>
           </div>
         ) : (
           <div className="mt-4 space-y-4">
             <div className="rounded-xl bg-slate-800/50 p-4 border border-slate-800">
-              <div className="text-xs text-slate-400">Entry Fee</div>
+              <div className="text-xs text-slate-400">{t('matches.entryFee')}</div>
               <div
                 data-testid="join-dialog-fee"
                 className="mt-1 text-2xl font-extrabold text-slate-100"
@@ -149,7 +161,9 @@ export const SoloJoinDialog: React.FC<SoloJoinDialogProps> = ({
               data-testid="join-dialog-rule-text"
               className="rounded-xl bg-slate-950/60 p-3.5 border border-slate-800/80 text-xs leading-relaxed text-slate-300"
             >
-              Up to 5% can come from cashback; the rest from Add Money, then Winning
+              {hasRulesPercent
+                ? t('matches.ruleCashbackPercent', { percent: rulesData.maxCashbackUsagePercent })
+                : t('matches.ruleCashbackFallback')}
             </div>
 
             {errorMessage && (
@@ -166,7 +180,7 @@ export const SoloJoinDialog: React.FC<SoloJoinDialogProps> = ({
                       data-testid="add-money-link"
                       className="mt-2 inline-block font-bold text-emerald-400 underline hover:text-emerald-300"
                     >
-                      Add Money to Wallet
+                      {t('matches.addMoneyToWallet')}
                     </Link>
                   )}
                 </div>
@@ -175,7 +189,7 @@ export const SoloJoinDialog: React.FC<SoloJoinDialogProps> = ({
 
             {isMaintenance && (
               <p className="text-xs text-amber-400 text-center font-medium" data-testid="join-maintenance-warning">
-                Joining matches is disabled during maintenance.
+                {t('matches.maintenanceWarning')}
               </p>
             )}
 
@@ -187,7 +201,7 @@ export const SoloJoinDialog: React.FC<SoloJoinDialogProps> = ({
                 disabled={isSubmitting}
                 className="flex-1 rounded-xl border border-slate-700 bg-slate-800/50 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="button"
@@ -196,7 +210,7 @@ export const SoloJoinDialog: React.FC<SoloJoinDialogProps> = ({
                 disabled={isSubmitting || isMaintenance}
                 className="flex-1 rounded-xl bg-emerald-500 py-2.5 text-xs font-bold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
               >
-                {isSubmitting ? 'Joining...' : 'Confirm & Join'}
+                {isSubmitting ? t('matches.joining') : t('matches.confirmAndJoin')}
               </button>
             </div>
           </div>

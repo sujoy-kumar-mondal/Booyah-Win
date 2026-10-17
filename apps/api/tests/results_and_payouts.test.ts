@@ -352,7 +352,7 @@ describe('Milestone 7: Results Submission, Payout Calculation, Approval, and Rev
       expect(p.totalPaise).toBe(0);
     });
 
-    it('duo and squad payouts: position prize goes to leader, kill reward to individual killer', () => {
+    it('duo and squad payouts: position prize and all team kill rewards go to leader', () => {
       const match = {
         game_mode: 'battle_royale',
         team_mode: 'duo',
@@ -385,15 +385,15 @@ describe('Milestone 7: Results Submission, Payout Calculation, Approval, and Rev
       const leaderCalc = computed.find((c) => c.userId === '101')!;
       const memberCalc = computed.find((c) => c.userId === '102')!;
 
-      // Leader: 2 kills (1000 paise) + position prize 1 (6000 paise) = 7000 paise
-      expect(leaderCalc.killRewardPaise).toBe(1000);
+      // Leader: team kills reward (2 kills @ 500 = 1000 + 3 kills @ 500 = 1500 -> 2500 paise) + position prize 1 (6000 paise) = 8500 paise
+      expect(leaderCalc.killRewardPaise).toBe(2500);
       expect(leaderCalc.positionPrizePaise).toBe(6000);
-      expect(leaderCalc.payoutPaise).toBe(7000);
+      expect(leaderCalc.payoutPaise).toBe(8500);
 
-      // Member: 3 kills (1500 paise) + position prize 0 = 1500 paise
+      // Member: individual kills recorded, but all team payouts go to team leader
       expect(memberCalc.killRewardPaise).toBe(1500);
       expect(memberCalc.positionPrizePaise).toBe(0);
-      expect(memberCalc.payoutPaise).toBe(1500);
+      expect(memberCalc.payoutPaise).toBe(0);
     });
 
     it('Requirement 1: Clash Squad tier with a Rs100 prize pays exactly Rs100 to winning leader (no 75.00 fallback)', async () => {

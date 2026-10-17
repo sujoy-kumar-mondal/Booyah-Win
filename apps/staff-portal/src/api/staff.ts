@@ -31,14 +31,30 @@ export async function requestStaffOtp(email: string): Promise<StaffLoginOtpReque
 
 export async function verifyStaffOtp(
   email: string,
-  otp: string
+  otp: string,
+  remember: boolean = true
 ): Promise<StaffLoginOtpVerifyResponse> {
   const data = await apiClient.post<StaffLoginOtpVerifyResponse>(
     '/staff/auth/login/verify-otp',
-    { email, otp },
+    { email, otp, remember },
     { skipAuth: true }
   );
   return runGuard(staffLoginResponseGuard, data, 'POST /staff/auth/login/verify-otp');
+}
+
+export async function requestStepUpOtp(): Promise<{ message: string; expiresInSeconds?: number }> {
+  return apiClient.post<{ message: string; expiresInSeconds?: number }>(
+    '/staff/auth/step-up/request-otp'
+  );
+}
+
+export async function verifyStepUpOtp(
+  otp: string
+): Promise<{ message: string; elevatedUntil: string }> {
+  return apiClient.post<{ message: string; elevatedUntil: string }>(
+    '/staff/auth/step-up/verify-otp',
+    { otp }
+  );
 }
 
 export async function logoutStaff(): Promise<GenericMessageResponse> {

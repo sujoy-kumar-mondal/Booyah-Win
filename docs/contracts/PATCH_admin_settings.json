@@ -13,7 +13,8 @@
       "payment_qr_key": "",
       "maintenance_enabled": "false",
       "maintenance_message": "Under scheduled maintenance. Please check back shortly.",
-      "maintenance_until": ""
+      "maintenance_until": "",
+      "cashback_max_percent": "5"
     }
   }
 }

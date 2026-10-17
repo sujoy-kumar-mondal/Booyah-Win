@@ -11,6 +11,7 @@ import { TransactionsList } from '../src/components/wallet/TransactionsList.js';
 import { usePendingWalletPoller } from '../src/hooks/usePendingWalletPoller.js';
 import * as walletApi from '../src/api/wallet.js';
 import * as userApi from '../src/api/user.js';
+import * as rulesApi from '../src/api/rules.js';
 import { ApiError, setStoredToken, clearStoredToken } from '../src/api/client.js';
 import { ErrorCodes } from '@booyah/shared';
 import {
@@ -19,6 +20,7 @@ import {
   depositListResponseGuard,
   withdrawalListResponseGuard,
   transactionListResponseGuard,
+  rulesResponseGuard,
 } from '../src/api/guards.js';
 import { loadContractFixture } from './contractFixtures.js';
 
@@ -113,6 +115,9 @@ describe('Wallet Screens & Milestone 9b-1 Integration', () => {
     vi.spyOn(walletApi, 'getDeposits').mockResolvedValue(getDepositsFixture());
     vi.spyOn(walletApi, 'getWithdrawals').mockResolvedValue(getWithdrawalsFixture());
     vi.spyOn(walletApi, 'getTransactions').mockResolvedValue(getTransactionsFixture());
+    vi.spyOn(rulesApi, 'getRules').mockResolvedValue(
+      loadContractFixture('GET_api_v1_rules.json', rulesResponseGuard, 'GET /api/v1/rules')
+    );
   });
 
   afterEach(() => {
@@ -152,6 +157,35 @@ describe('Wallet Screens & Milestone 9b-1 Integration', () => {
       expect(explanations).toHaveTextContent(
         'Cashback covers at most 5% of an entry fee per match.'
       );
+    });
+
+    it('displays dynamic cashback percent from rules API (e.g. 12.34%)', async () => {
+      vi.spyOn(rulesApi, 'getRules').mockResolvedValue({
+        referralReward: '5.00',
+        maxCashbackUsagePercent: 12.34,
+        minWithdrawal: '50.00',
+      });
+
+      await renderComponent(<Wallet />);
+
+      const explanations = screen.getByTestId('wallet-explanations-banner');
+      expect(explanations).toHaveTextContent(
+        'Cashback covers at most 12.34% of an entry fee per match.'
+      );
+      expect(screen.getByText('Max 12.34% / join')).toBeInTheDocument();
+    });
+
+    it('renders fallback text without numbers when rules API fails', async () => {
+      vi.spyOn(rulesApi, 'getRules').mockRejectedValue(new Error('Rules service unavailable'));
+
+      await renderComponent(<Wallet />);
+
+      const explanations = screen.getByTestId('wallet-explanations-banner');
+      expect(explanations).toHaveTextContent(
+        'Cashback covers a capped portion of an entry fee per match.'
+      );
+      expect(explanations).not.toHaveTextContent('%');
+      expect(screen.getByText('Capped per join')).toBeInTheDocument();
     });
 
     it('switches views between overview, add, withdraw, requests, and history', async () => {

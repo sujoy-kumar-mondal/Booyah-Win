@@ -11,6 +11,7 @@ import {
 } from '@booyah/shared';
 import { query, withTransaction } from '../../db/index.js';
 import { AppError } from '../../middleware/errorHandler.js';
+import { uploadScreenshot, getSignedUrl, deleteFile, validateImageMagicBytes } from '../../utils/storage.js';
 
 const COOLDOWN_DAYS = 30;
 const COOLDOWN_MS = COOLDOWN_DAYS * 24 * 60 * 60 * 1000;
@@ -48,6 +49,8 @@ export class UsersService {
       date_of_birth: string;
       referral_code: string;
       referred_by: string | null;
+      avatar_key: string | null;
+      language: string;
       mobile_changed_at: Date | null;
       ff_id_changed_at: Date | null;
       ff_name_changed_at: Date | null;
@@ -57,7 +60,7 @@ export class UsersService {
     }>(
       `SELECT id, email, name, mobile, ff_id, ff_name, upi_id,
               to_char(date_of_birth, 'YYYY-MM-DD') AS date_of_birth,
-              referral_code, referred_by,
+              referral_code, referred_by, avatar_key, language,
               mobile_changed_at, ff_id_changed_at, ff_name_changed_at, upi_changed_at,
               created_at, now() AS db_now
        FROM users
@@ -71,6 +74,15 @@ export class UsersService {
 
     const row = userRes.rows[0];
     const dbNow = new Date(row.db_now);
+
+    let avatarUrl: string | null = null;
+    if (row.avatar_key) {
+      try {
+        avatarUrl = await getSignedUrl(row.avatar_key, 86400);
+      } catch {
+        avatarUrl = null;
+      }
+    }
 
     const cooldowns: UserCooldownsDto = {
       mobileAvailableAt: computeAvailableAt(row.mobile_changed_at, dbNow),
@@ -106,6 +118,8 @@ export class UsersService {
         dateOfBirth: row.date_of_birth,
         referralCode: row.referral_code,
         referredBy: row.referred_by ? row.referred_by.toString() : null,
+        avatarUrl,
+        language: (row.language as 'en' | 'bn') || 'en',
         createdAt: row.created_at.toISOString(),
       },
       wallets: {
@@ -490,5 +504,75 @@ export class UsersService {
       bonusEarnedCount,
       totalBonusEarned,
     };
+  }
+
+  /**
+   * Upload or replace user profile picture.
+   */
+  static async uploadAvatar(userId: string, buffer: Buffer): Promise<{ avatarUrl: string }> {
+    if (buffer.length > 2 * 1024 * 1024) {
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, 'File too large: maximum 2 MB', 400);
+    }
+    try {
+      validateImageMagicBytes(buffer);
+    } catch {
+      throw new AppError(ErrorCodes.VALIDATION_ERROR, 'Invalid image: file must be JPEG, PNG, or WebP', 400);
+    }
+    const key = await uploadScreenshot(buffer);
+
+    // Fetch old avatar_key to clean up if present
+    const oldRes = await query<{ avatar_key: string | null }>(
+      'SELECT avatar_key FROM users WHERE id = $1',
+      [userId]
+    );
+    const oldKey = oldRes.rows[0]?.avatar_key;
+    if (oldKey) {
+      try {
+        await deleteFile(oldKey);
+      } catch {
+        // ignore deletion failure for previous avatar
+      }
+    }
+
+    await query(
+      'UPDATE users SET avatar_key = $1 WHERE id = $2',
+      [key, userId]
+    );
+
+    const avatarUrl = await getSignedUrl(key, 86400);
+    return { avatarUrl };
+  }
+
+  /**
+   * Remove user profile picture.
+   */
+  static async deleteAvatar(userId: string): Promise<void> {
+    const oldRes = await query<{ avatar_key: string | null }>(
+      'SELECT avatar_key FROM users WHERE id = $1',
+      [userId]
+    );
+    const oldKey = oldRes.rows[0]?.avatar_key;
+    if (oldKey) {
+      try {
+        await deleteFile(oldKey);
+      } catch {
+        // ignore
+      }
+    }
+    await query('UPDATE users SET avatar_key = NULL WHERE id = $1', [userId]);
+  }
+
+  /**
+   * Update user language preference ('en' or 'bn').
+   */
+  static async updateLanguage(userId: string, language: 'en' | 'bn'): Promise<{ language: 'en' | 'bn' }> {
+    const res = await query<{ language: string }>(
+      'UPDATE users SET language = $1 WHERE id = $2 AND deleted_at IS NULL RETURNING language',
+      [language, userId]
+    );
+    if (res.rowCount === 0) {
+      throw new AppError(ErrorCodes.UNAUTHENTICATED, 'User not found', 401);
+    }
+    return { language: res.rows[0].language as 'en' | 'bn' };
   }
 }

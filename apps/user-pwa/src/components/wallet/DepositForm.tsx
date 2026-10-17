@@ -10,6 +10,7 @@ import { ApiError } from '../../api/client.js';
 import { ErrorCodes } from '@booyah/shared';
 import { formatIndianRupees } from '../../utils/formatters.js';
 import { useMaintenance } from '../../context/MaintenanceContext.js';
+import { useTranslation } from '../../i18n/LanguageContext.js';
 import {
   QrCode,
   Copy,
@@ -27,6 +28,7 @@ interface DepositFormProps {
 }
 
 export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDeposits }) => {
+  const { t } = useTranslation();
   const queryClient = useQueryClient();
   const { enabled: isMaintenance } = useMaintenance();
 
@@ -133,7 +135,7 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
 
       if (isNetworkOrTimeout) {
         setSubmissionError(
-          "We couldn't confirm your submission. Check My Deposits before sending again"
+          t('wallet.depositConfirmFailed')
         );
         // Requirement 5: Refetch the lists
         queryClient.invalidateQueries({ queryKey: ['deposits'], refetchType: 'all' });
@@ -145,25 +147,25 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
         if (err.code === ErrorCodes.UTR_EXISTS) {
           setFieldErrors((prev) => ({
             ...prev,
-            utr: 'This UTR has already been submitted',
+            utr: t('wallet.utrAlreadySubmitted'),
           }));
           return;
         }
         if (err.code === ErrorCodes.DEPOSIT_LIMIT) {
-          setSubmissionError('You may have at most 3 pending deposits at a time');
+          setSubmissionError(t('wallet.depositLimitPending'));
           return;
         }
         if (err.code === ErrorCodes.RATE_LIMITED) {
-          setSubmissionError('Too many requests. Please slow down.');
+          setSubmissionError(t('wallet.tooManyRequests'));
           return;
         }
         if (err.code === ErrorCodes.VALIDATION_ERROR) {
-          setSubmissionError(err.message || 'Validation failed. Please verify your details.');
+          setSubmissionError(err.message || t('wallet.validationFailed'));
           return;
         }
       }
 
-      setSubmissionError(err?.message || 'Failed to submit deposit. Please try again.');
+      setSubmissionError(err?.message || t('wallet.depositFailed'));
     },
   });
 
@@ -227,33 +229,33 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
           <CheckCircle2 className="h-8 w-8" />
         </div>
         <div>
-          <h3 className="text-lg font-bold text-slate-100">Deposit Submitted</h3>
+          <h3 className="text-lg font-bold text-slate-100">{t('wallet.depositSubmitted')}</h3>
           <p className="mt-1 text-xs text-slate-400 font-medium">
-            Usually reviewed within 30 minutes, final approval can take a bit longer
+            {t('wallet.reviewNotice')}
           </p>
         </div>
 
         <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-left space-y-2 text-xs">
           <div className="flex justify-between">
-            <span className="text-slate-400">Request ID:</span>
+            <span className="text-slate-400">{t('wallet.requestId')}</span>
             <span className="font-mono font-semibold text-slate-200">
               {submittedDeposit.id}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-400">Amount:</span>
+            <span className="text-slate-400">{t('wallet.amount')}</span>
             <span className="font-semibold text-emerald-400">
               {formatIndianRupees(submittedDeposit.amount)}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-400">UTR / Ref:</span>
+            <span className="text-slate-400">{t('wallet.utrRef')}</span>
             <span className="font-mono text-slate-200">{submittedDeposit.utr}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-400">Status:</span>
+            <span className="text-slate-400">{t('wallet.status')}</span>
             <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400 border border-amber-500/20">
-              Under review
+              {t('wallet.statusUnderReview')}
             </span>
           </div>
         </div>
@@ -270,7 +272,7 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
             }}
             className="flex-1 rounded-xl border border-slate-700 bg-slate-800 py-2.5 text-xs font-semibold text-slate-200 hover:bg-slate-700"
           >
-            Add More
+            {t('wallet.addMore')}
           </button>
           {onViewDeposits && (
             <button
@@ -279,7 +281,7 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
               data-testid="view-deposits-btn"
               className="flex-1 rounded-xl bg-emerald-500 py-2.5 text-xs font-semibold text-slate-950 hover:bg-emerald-400 font-bold"
             >
-              My Deposits
+              {t('wallet.myDeposits')}
             </button>
           )}
         </div>
@@ -293,7 +295,7 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
       {isLoadingInfo && (
         <div className="flex items-center justify-center p-8 text-xs text-slate-400 gap-2">
           <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
-          Loading payment details...
+          {t('wallet.loadingPaymentDetails')}
         </div>
       )}
 
@@ -305,13 +307,13 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
         >
           <div className="flex items-center gap-2 text-amber-400 font-bold text-sm">
             <AlertTriangle className="h-4 w-4" />
-            Payment System Offline
+            {t('wallet.paymentOfflineTitle')}
           </div>
           <p className="text-xs text-slate-300 leading-relaxed">
-            {paymentInfo?.message || 'Payment information not configured yet'}
+            {paymentInfo?.message || t('wallet.paymentNotConfigured')}
           </p>
           <p className="text-[11px] text-slate-400">
-            Deposits are temporarily disabled. Please check back shortly or contact support.
+            {t('wallet.paymentDisabledNotice')}
           </p>
         </div>
       )}
@@ -322,10 +324,10 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
           <div className="flex items-center justify-between text-xs font-semibold text-slate-300">
             <span className="flex items-center gap-1.5 text-emerald-400">
               <QrCode className="h-4 w-4" />
-              Step 1: Scan & Pay via UPI
+              {t('wallet.step1ScanPay')}
             </span>
             <span className="text-[11px] text-slate-400">
-              Min Rs{paymentInfo?.minDeposit || '10.00'} • Max Rs{paymentInfo?.maxDeposit || '5000.00'}
+              {t('wallet.minMaxDeposit', { min: paymentInfo?.minDeposit || '10.00', max: paymentInfo?.maxDeposit || '5000.00' })}
             </span>
           </div>
 
@@ -340,12 +342,12 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
                 onError={() => refetchPaymentInfo()}
               />
               <span className="mt-1 text-[10px] font-bold text-slate-800 uppercase tracking-wider">
-                Official Booyah Win QR
+                {t('wallet.officialQr')}
               </span>
             </div>
           ) : (
             <div className="p-4 text-center rounded-xl bg-slate-950/50 border border-slate-800 text-xs text-slate-400">
-              QR Code unavailable. Please use the UPI ID below.
+              {t('wallet.qrUnavailable')}
             </div>
           )}
 
@@ -353,7 +355,7 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
           <div className="rounded-xl border border-slate-800 bg-slate-950 p-3 flex items-center justify-between">
             <div>
               <span className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider">
-                Merchant UPI ID
+                {t('wallet.merchantUpiId')}
               </span>
               <span
                 className="font-mono text-sm font-bold text-slate-100 select-all"
@@ -371,12 +373,12 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
               {copied ? (
                 <>
                   <Check className="h-3.5 w-3.5" />
-                  <span>Copied</span>
+                  <span>{t('wallet.copied')}</span>
                 </>
               ) : (
                 <>
                   <Copy className="h-3.5 w-3.5" />
-                  <span>Copy</span>
+                  <span>{t('common.copy')}</span>
                 </>
               )}
             </button>
@@ -392,7 +394,7 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
       >
         <div className="text-xs font-semibold text-slate-300 flex items-center gap-1.5 text-emerald-400">
           <Upload className="h-4 w-4" />
-          Step 2: Enter Transaction Details
+          {t('wallet.step2EnterDetails')}
         </div>
 
         {submissionError && (
@@ -408,7 +410,7 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
         {/* Amount Field */}
         <div className="space-y-1.5">
           <label htmlFor="deposit-amount" className="block text-xs font-medium text-slate-300">
-            Amount Paid (Rs) <span className="text-rose-400">*</span>
+            {t('wallet.amountPaid')} <span className="text-rose-400">*</span>
           </label>
           <input
             id="deposit-amount"
@@ -435,7 +437,7 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
         {/* UTR / Transaction ID Field (Requirement: uppercased) */}
         <div className="space-y-1.5">
           <label htmlFor="deposit-utr" className="block text-xs font-medium text-slate-300">
-            UTR / Transaction ID (12-25 digits/letters) <span className="text-rose-400">*</span>
+            {t('wallet.utrTransactionId')} <span className="text-rose-400">*</span>
           </label>
           <input
             id="deposit-utr"
@@ -462,7 +464,7 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
         {/* Screenshot Upload with Preview & Revocation */}
         <div className="space-y-1.5">
           <label className="block text-xs font-medium text-slate-300">
-            Payment Screenshot (JPG/PNG/WebP, max 2 MB) <span className="text-rose-400">*</span>
+            {t('wallet.paymentScreenshot')} <span className="text-rose-400">*</span>
           </label>
 
           <input
@@ -484,8 +486,8 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
               className="flex w-full flex-col items-center justify-center rounded-xl border border-dashed border-slate-700 bg-slate-950/60 p-4 text-center hover:border-emerald-500/50 hover:bg-slate-900 transition-colors disabled:opacity-50"
             >
               <ImageIcon className="h-6 w-6 text-slate-400 mb-1" />
-              <span className="text-xs font-semibold text-slate-300">Choose Screenshot</span>
-              <span className="text-[10px] text-slate-500">Max size 2 MB</span>
+              <span className="text-xs font-semibold text-slate-300">{t('wallet.chooseScreenshot')}</span>
+              <span className="text-[10px] text-slate-500">{t('wallet.maxSize2Mb')}</span>
             </button>
           ) : (
             <div className="relative rounded-xl border border-slate-800 bg-slate-950 p-2 flex items-center justify-between">
@@ -514,7 +516,7 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
                 className="text-xs text-rose-400 hover:text-rose-300 font-semibold px-2 py-1"
                 data-testid="remove-screenshot-btn"
               >
-                Change
+                {t('wallet.change')}
               </button>
             </div>
           )}
@@ -529,7 +531,7 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
         {/* Submit Button */}
         {isMaintenance && (
           <p className="text-xs text-amber-400 text-center font-medium" data-testid="deposit-maintenance-warning">
-            Deposits are temporarily disabled during maintenance.
+            {t('wallet.depositMaintenanceWarning')}
           </p>
         )}
         <button
@@ -541,12 +543,12 @@ export const DepositForm: React.FC<DepositFormProps> = ({ onSuccess, onViewDepos
           {depositMutation.isPending ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span data-testid="uploading-state-label">Uploading...</span>
+              <span data-testid="uploading-state-label">{t('wallet.uploading')}</span>
             </>
           ) : (
             <>
               <Upload className="h-4 w-4" />
-              Submit Deposit Request
+              {t('wallet.submitDeposit')}
             </>
           )}
         </button>

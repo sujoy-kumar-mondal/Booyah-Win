@@ -32,17 +32,30 @@ export const ScreenshotViewerModal: React.FC<ScreenshotViewerModalProps> = ({
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [hasError, setHasError] = useState(false);
 
+  const lastFetchedIdRef = React.useRef<string | null>(null);
+  const onFetchFreshUrlRef = React.useRef(onFetchFreshUrl);
+  onFetchFreshUrlRef.current = onFetchFreshUrl;
+
   // Requirement 7: Refetch fresh signed URL each time it opens
   useEffect(() => {
-    if (!isOpen) return;
+    if (!isOpen) {
+      lastFetchedIdRef.current = null;
+      return;
+    }
+
+    // Guard: only fetch once per open / depositId, never repeatedly while open
+    if (lastFetchedIdRef.current === depositId) {
+      return;
+    }
+    lastFetchedIdRef.current = depositId;
 
     let isMounted = true;
     setHasError(false);
     setCurrentUrl(initialUrl);
 
-    if (onFetchFreshUrl && depositId) {
+    if (onFetchFreshUrlRef.current && depositId) {
       setIsRefreshing(true);
-      onFetchFreshUrl(depositId)
+      onFetchFreshUrlRef.current(depositId)
         .then((freshUrl) => {
           if (isMounted && freshUrl) {
             setCurrentUrl(freshUrl);
@@ -59,7 +72,7 @@ export const ScreenshotViewerModal: React.FC<ScreenshotViewerModalProps> = ({
     return () => {
       isMounted = false;
     };
-  }, [isOpen, depositId, initialUrl, onFetchFreshUrl]);
+  }, [isOpen, depositId, initialUrl]);
 
   if (!isOpen) return null;
 
@@ -124,12 +137,7 @@ export const ScreenshotViewerModal: React.FC<ScreenshotViewerModalProps> = ({
 
         {/* Content */}
         <div className="flex-1 overflow-auto p-4 flex items-center justify-center bg-slate-950/60 min-h-[300px]">
-          {isRefreshing ? (
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
-              <span>Fetching fresh signed URL...</span>
-            </div>
-          ) : hasError ? (
+          {hasError ? (
             <div className="text-center p-6 space-y-3 max-w-md" data-testid="screenshot-expired-message">
               <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-rose-500/10 text-rose-400">
                 <AlertTriangle className="h-6 w-6" />
@@ -149,7 +157,7 @@ export const ScreenshotViewerModal: React.FC<ScreenshotViewerModalProps> = ({
                 Refresh URL Now
               </button>
             </div>
-          ) : (
+          ) : currentUrl ? (
             <img
               src={currentUrl}
               alt="Payment Transaction Screenshot"
@@ -158,6 +166,11 @@ export const ScreenshotViewerModal: React.FC<ScreenshotViewerModalProps> = ({
               className="max-h-[70vh] w-auto max-w-full rounded-xl object-contain shadow-md"
               onError={() => setHasError(true)}
             />
+          ) : (
+            <div className="flex items-center gap-2 text-xs text-slate-400">
+              <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
+              <span>Fetching signed URL...</span>
+            </div>
           )}
         </div>
       </div>

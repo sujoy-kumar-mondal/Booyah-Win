@@ -64,6 +64,7 @@ export function formatISTDateTime(isoString: string | null | undefined): string 
       hour: '2-digit',
       minute: '2-digit',
       hour12: true,
+      numberingSystem: 'latn',
     }).format(date);
     return raw.replace(/\b(am|pm)\b/i, (m) => m.toUpperCase());
   } catch {
@@ -189,6 +190,7 @@ export function formatWeekRange(
       weekday: 'short',
       day: 'numeric',
       month: 'short',
+      numberingSystem: 'latn',
     });
     return `${fmt.format(s)} – ${fmt.format(e)} IST`;
   } catch {
@@ -203,6 +205,25 @@ export function formatWeekRange(
 export function formatMatchStatus(status: string | null | undefined): string {
   if (!status) return '';
   return status.replace(/_/g, ' ').trim().toUpperCase();
+}
+
+/**
+ * Formats a Date of Birth string (YYYY-MM-DD) into a clean, human-readable date:
+ * e.g. "2003-07-15" -> "15 Jul 2003"
+ */
+export function formatDateOfBirth(dob: string | null | undefined): string {
+  if (!dob) return '—';
+  const trimmed = dob.trim();
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(trimmed);
+  if (match) {
+    const [, y, m, d] = match;
+    const months = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+    const monthIndex = parseInt(m, 10) - 1;
+    if (monthIndex >= 0 && monthIndex < 12) {
+      return `${parseInt(d, 10)} ${months[monthIndex]} ${y}`;
+    }
+  }
+  return trimmed || '—';
 }
 
 

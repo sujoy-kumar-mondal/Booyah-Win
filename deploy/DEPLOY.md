@@ -59,6 +59,9 @@ Set these build-time environment variables in your static host (Cloudflare Pages
 | `VITE_API_ORIGIN` | Origin of the API (e.g. `https://booyah-api.onrender.com`). Used for CSP `connect-src`. |
 | `VITE_STORAGE_ORIGIN` | Origin of Supabase Storage (e.g. `https://<ref>.supabase.co`). Used for CSP `img-src`. |
 | `VITE_API_URL` | Backend URL for API calls (e.g. `https://booyah-api.onrender.com`). |
+| `VITE_APP_DOWNLOAD_URL` | *(Player PWA only)* HTTPS URL to Android APK (e.g. GitHub Release). If missing or non-HTTPS, "Download App" banner is never shown. |
+| `VITE_APP_VERSION` | *(Player PWA only, optional)* Version string shown in "Installation help" modal (e.g. `v1.0.0`). |
+| `VITE_APP_SHA256` | *(Player PWA only, optional)* SHA-256 hex checksum shown in "Installation help" modal for verification. |
 
 ---
 
@@ -370,3 +373,52 @@ You can list and remove old screenshots via the Supabase Dashboard or via curl w
   2. Verify that Allowed MIME types includes `image/jpeg`, `image/png`, and `image/webp`.
   3. Ensure bucket is private (Public bucket OFF) and maximum file size is at least 2MB.
   4. Note: The cause of HTTP 400 is confirmed only once a real run no longer returns it or prints the service's own error message.
+
+---
+
+## 8. Android APK Distribution & Checksum Publishing (Zero Cost)
+
+The player website (`apps/user-pwa`) features an automatic "Download App" banner for visitors on Android mobile browsers. When configured, it provides direct APK download and an "Installation help" dialog.
+
+### 8.1 Free APK Hosting on GitHub Releases
+GitHub Releases provides free, globally distributed, CDN-backed hosting for release assets with unlimited public download bandwidth.
+
+1. **Build the Release APK**:
+   - Generate your signed production Android APK (e.g. `booyah-win-v1.0.0.apk`).
+2. **Create a GitHub Release**:
+   - Tag the release in git:
+     ```bash
+     git tag v1.0.0
+     git push origin v1.0.0
+     ```
+   - In GitHub: navigate to **Releases** -> **Draft a new release** -> select `v1.0.0`.
+   - Title: `Booyah Win Android App v1.0.0`.
+   - Drag and drop your `.apk` file into the "Attach binaries" area.
+   - Click **Publish release**.
+3. **Obtain the Permanent Direct Download URL**:
+   - Right-click the uploaded `.apk` file under Assets and copy the link.
+   - The link format will be:
+     `https://github.com/<owner>/<repo>/releases/download/v1.0.0/booyah-win-v1.0.0.apk`
+   - **Requirement**: Must use `https://`. If this variable is empty, missing, or uses `http://`, the download banner is automatically hidden.
+
+### 8.2 Calculating and Publishing the SHA-256 Checksum
+Publishing an immutable checksum allows players to verify APK integrity and guarantees that the APK has not been altered.
+
+1. **Compute SHA-256 Checksum**:
+   - **PowerShell (Windows)**:
+     ```powershell
+     Get-FileHash -Algorithm SHA256 .\path\to\booyah-win-v1.0.0.apk | Select-Object -ExpandProperty Hash
+     ```
+   - **Bash (Linux / macOS)**:
+     ```bash
+     sha256sum path/to/booyah-win-v1.0.0.apk
+     # or on macOS:
+     shasum -a 256 path/to/booyah-win-v1.0.0.apk
+     ```
+2. **Configure Static Host Build Variables**:
+   In your static hosting dashboard (Cloudflare Pages, Netlify, or Vercel) for `apps/user-pwa`:
+   - `VITE_APP_DOWNLOAD_URL`: `https://github.com/<owner>/<repo>/releases/download/v1.0.0/booyah-win-v1.0.0.apk`
+   - `VITE_APP_VERSION`: `v1.0.0`
+   - `VITE_APP_SHA256`: `<calculated-sha-256-hex>`
+3. **Verification**:
+   When configured, visitors opening "Installation help" can view the version and copy the SHA-256 checksum with one click to verify against their downloaded file.

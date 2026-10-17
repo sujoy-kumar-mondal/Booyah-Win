@@ -4,7 +4,7 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Routes, Route } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { StaffAuthProvider } from '../src/context/StaffAuthContext';
-import { STAFF_TOKEN_STORAGE_KEY } from '../src/api/client';
+import { STAFF_TOKEN_STORAGE_KEY, setStoredStaffToken, clearStoredStaffToken } from '../src/api/client';
 import { Sidebar } from '../src/components/layout/Sidebar';
 import { RequireAdminRole, RequireStaffAuth } from '../src/components/auth/RouteGuards';
 import { Login } from '../src/pages/Login';
@@ -42,23 +42,31 @@ const createTestQueryClient = () =>
     },
   });
 
-describe('Requirements 2 & 8: Staff Auth, sessionStorage, and Role Guarding', () => {
+describe('Requirements 2 & 8: Staff Auth, Storage, and Role Guarding', () => {
   beforeEach(() => {
     sessionStorage.clear();
     localStorage.clear();
     vi.clearAllMocks();
   });
 
-  describe('Requirement 2: sessionStorage Token Storage', () => {
-    it('uses the single constant STAFF_TOKEN_STORAGE_KEY and stores in sessionStorage, never localStorage', () => {
+  describe('Requirement 2: Token Storage (localStorage vs sessionStorage)', () => {
+    it('uses the single constant STAFF_TOKEN_STORAGE_KEY and stores in localStorage when remembered, sessionStorage when not remembered', () => {
       expect(STAFF_TOKEN_STORAGE_KEY).toBe('booyah_staff_token');
 
-      // Set token into sessionStorage
-      sessionStorage.setItem(STAFF_TOKEN_STORAGE_KEY, 'test-staff-jwt-token');
+      // Remembered: store in localStorage
+      setStoredStaffToken('test-staff-jwt-token', true);
+      expect(localStorage.getItem(STAFF_TOKEN_STORAGE_KEY)).toBe('test-staff-jwt-token');
+      expect(sessionStorage.getItem(STAFF_TOKEN_STORAGE_KEY)).toBeNull();
 
-      expect(sessionStorage.getItem(STAFF_TOKEN_STORAGE_KEY)).toBe('test-staff-jwt-token');
+      // Not remembered: store in sessionStorage
+      setStoredStaffToken('test-staff-jwt-token-session', false);
+      expect(sessionStorage.getItem(STAFF_TOKEN_STORAGE_KEY)).toBe('test-staff-jwt-token-session');
       expect(localStorage.getItem(STAFF_TOKEN_STORAGE_KEY)).toBeNull();
-      expect(localStorage.getItem('token')).toBeNull();
+
+      // Clear removes both
+      clearStoredStaffToken();
+      expect(localStorage.getItem(STAFF_TOKEN_STORAGE_KEY)).toBeNull();
+      expect(sessionStorage.getItem(STAFF_TOKEN_STORAGE_KEY)).toBeNull();
     });
   });
 
@@ -192,7 +200,7 @@ describe('Requirements 2 & 8: Staff Auth, sessionStorage, and Role Guarding', ()
   });
 
   describe('2-Step OTP Staff Login Flow', () => {
-    it('requests OTP on email submit and verifies OTP into sessionStorage', async () => {
+    it('requests OTP and verifies OTP with default remember=true into localStorage', async () => {
       const user = userEvent.setup();
       const requestSpy = vi.spyOn(staffApi, 'requestStaffOtp').mockResolvedValue({
         message: 'OTP sent to registered staff email',
@@ -227,17 +235,63 @@ describe('Requirements 2 & 8: Staff Auth, sessionStorage, and Role Guarding', ()
       await waitFor(() => {
         expect(screen.getByTestId('staff-otp-input')).toBeInTheDocument();
       });
+      expect(screen.getByTestId('remember-device-checkbox')).toBeChecked();
+
       const otpInput = screen.getByTestId('staff-otp-input');
       await user.type(otpInput, '123456');
       await user.click(screen.getByTestId('verify-otp-btn'));
 
       await waitFor(() => {
-        expect(verifySpy).toHaveBeenCalledWith('officer@booyah.win', '123456');
+        expect(verifySpy).toHaveBeenCalledWith('officer@booyah.win', '123456', true);
       });
 
-      // Token stored in sessionStorage
+      // Token stored in localStorage (remembered)
+      expect(localStorage.getItem(STAFF_TOKEN_STORAGE_KEY)).toBe('new-staff-session-jwt');
+      expect(sessionStorage.getItem(STAFF_TOKEN_STORAGE_KEY)).toBeNull();
+    });
+
+    it('unchecking Keep me signed in stores token in sessionStorage (not remembered)', async () => {
+      const user = userEvent.setup();
+      vi.spyOn(staffApi, 'requestStaffOtp').mockResolvedValue({
+        message: 'OTP sent to registered staff email',
+      });
+      const verifySpy = vi.spyOn(staffApi, 'verifyStaffOtp').mockResolvedValue(
+        getLoginVerifyFixture()
+      );
+
+      render(
+        <QueryClientProvider client={createTestQueryClient()}>
+          <MemoryRouter initialEntries={['/login']}>
+            <StaffAuthProvider>
+              <Routes>
+                <Route path="/login" element={<Login />} />
+                <Route path="/dashboard" element={<div data-testid="dashboard-page">Dashboard</div>} />
+              </Routes>
+            </StaffAuthProvider>
+          </MemoryRouter>
+        </QueryClientProvider>
+      );
+
+      // Step 1: Enter email
+      await user.type(screen.getByTestId('staff-email-input'), 'officer@booyah.win');
+      await user.click(screen.getByTestId('request-otp-btn'));
+
+      // Step 2: Uncheck remember checkbox
+      await waitFor(() => {
+        expect(screen.getByTestId('remember-device-checkbox')).toBeInTheDocument();
+      });
+      await user.click(screen.getByTestId('remember-device-checkbox'));
+      expect(screen.getByTestId('remember-device-checkbox')).not.toBeChecked();
+
+      await user.type(screen.getByTestId('staff-otp-input'), '123456');
+      await user.click(screen.getByTestId('verify-otp-btn'));
+
+      await waitFor(() => {
+        expect(verifySpy).toHaveBeenCalledWith('officer@booyah.win', '123456', false);
+      });
+
+      // Token stored in sessionStorage (not remembered)
       expect(sessionStorage.getItem(STAFF_TOKEN_STORAGE_KEY)).toBe('new-staff-session-jwt');
-      // Never in localStorage
       expect(localStorage.getItem(STAFF_TOKEN_STORAGE_KEY)).toBeNull();
     });
   });

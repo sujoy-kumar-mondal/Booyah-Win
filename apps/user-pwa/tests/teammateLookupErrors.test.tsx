@@ -94,4 +94,62 @@ describe('Requirement 7: Teammate Lookup Errors Privacy', () => {
       expect(err.textContent).toBe('Invalid team or member replacement.');
     });
   });
+
+  it('Teammate lookup: displays Free Fire Name when valid teammate UID is entered', async () => {
+    vi.spyOn(matchesApi, 'lookupTeammate').mockResolvedValueOnce({
+      exists: true,
+      ffId: '123548',
+      ffName: 'Gamer',
+      name: 'SUJOY KUMAR MONDAL BCA',
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TeamFormModal
+            match={mockMatch}
+            isOpen={true}
+            onClose={() => {}}
+            onSuccess={() => {}}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    const input = screen.getByTestId('member-ffid-input-0');
+    fireEvent.change(input, { target: { value: '123548' } });
+    fireEvent.blur(input);
+
+    await waitFor(() => {
+      expect(screen.getByText('Gamer')).toBeInTheDocument();
+    });
+  });
+
+  it('Teammate lookup: displays error message when invalid UID or cannot add self', async () => {
+    vi.spyOn(matchesApi, 'lookupTeammate').mockResolvedValueOnce({
+      exists: false,
+      message: 'You cannot add yourself as a teammate',
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TeamFormModal
+            match={mockMatch}
+            isOpen={true}
+            onClose={() => {}}
+            onSuccess={() => {}}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    const input = screen.getByTestId('member-ffid-input-0');
+    fireEvent.change(input, { target: { value: '1457625118' } });
+    fireEvent.blur(input);
+
+    await waitFor(() => {
+      expect(screen.getByText('You cannot add yourself as a teammate')).toBeInTheDocument();
+    });
+  });
 });

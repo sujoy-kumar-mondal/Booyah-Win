@@ -100,6 +100,8 @@ export const userProfileGuard = z.object({
   dateOfBirth: z.string(),
   referralCode: z.string(),
   referredBy: z.string().nullable().optional(),
+  avatarUrl: z.string().nullable().optional(),
+  language: z.enum(['en', 'bn']).optional(),
   createdAt: z.string(),
 }).passthrough();
 
@@ -216,6 +218,7 @@ export const matchUserDtoGuard = z.object({
   status: z.string(),
   hasJoined: z.boolean(),
   isInTeam: z.boolean(),
+  isTeamLeader: z.boolean().optional(),
   roomId: z.string().optional(),
   roomPassword: z.string().optional(),
 }).passthrough();
@@ -274,13 +277,20 @@ export const teamInviteDtoGuard = z.object({
   leaderId: z.string(),
   leaderName: z.string().optional(),
   leaderFfId: z.string().optional(),
+  leaderFfName: z.string().optional(),
+  invitedUserId: z.string(),
+  invitedUserName: z.string().optional(),
+  invitedUserFfId: z.string().optional(),
+  invitedUserFfName: z.string().optional(),
   matchId: z.string(),
   gameMode: z.string().optional(),
   teamMode: z.string().optional(),
   entryFee: moneyStringSchema.optional(),
   startTime: z.string().optional(),
   matchStatus: z.string().optional(),
-  invitedUserId: z.string(),
+  killPrice: moneyStringSchema.optional(),
+  firstPlacePrize: moneyStringSchema.optional(),
+  positionPrizes: z.record(z.string()).optional(),
   status: z.enum(['pending', 'accepted', 'declined', 'expired']),
   createdAt: z.string(),
   respondedAt: z.string().nullable(),
@@ -366,7 +376,7 @@ export const leaderboardRankResponseGuard = z.object({
 // ─── 10. Rules & Referral Schemas ─────────────────────────────────────────────
 export const rulesResponseGuard = z.object({
   referralReward: moneyStringSchema,
-  maxCashbackUsagePercent: z.number().int().positive(),
+  maxCashbackUsagePercent: z.number().min(0).max(100),
   minWithdrawal: moneyStringSchema,
 }).passthrough();
 

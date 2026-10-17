@@ -21,7 +21,8 @@
       "startTime": "2026-12-09T12:00:00.000Z",
       "status": "upcoming",
       "hasJoined": false,
-      "isInTeam": false
+      "isInTeam": false,
+      "isTeamLeader": false
     }
   }
 }

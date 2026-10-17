@@ -11,28 +11,67 @@ export const STAFF_TOKEN_STORAGE_KEY = 'booyah_staff_token';
 export function getStoredStaffToken(): string | null {
   if (typeof window === 'undefined') return null;
   try {
-    return sessionStorage.getItem(STAFF_TOKEN_STORAGE_KEY);
+    return (
+      localStorage.getItem(STAFF_TOKEN_STORAGE_KEY) ||
+      sessionStorage.getItem(STAFF_TOKEN_STORAGE_KEY)
+    );
   } catch {
     return null;
   }
 }
 
-export function setStoredStaffToken(token: string): void {
+export function isRememberedStaffToken(): boolean {
+  if (typeof window === 'undefined') return false;
+  try {
+    return !!localStorage.getItem(STAFF_TOKEN_STORAGE_KEY);
+  } catch {
+    return false;
+  }
+}
+
+export function setStoredStaffToken(token: string, remember: boolean = true): void {
   if (typeof window === 'undefined') return;
   try {
-    sessionStorage.setItem(STAFF_TOKEN_STORAGE_KEY, token);
+    if (remember) {
+      localStorage.setItem(STAFF_TOKEN_STORAGE_KEY, token);
+      sessionStorage.removeItem(STAFF_TOKEN_STORAGE_KEY);
+    } else {
+      sessionStorage.setItem(STAFF_TOKEN_STORAGE_KEY, token);
+      localStorage.removeItem(STAFF_TOKEN_STORAGE_KEY);
+    }
   } catch {
-    // sessionStorage unavailable or quota exceeded
+    // storage unavailable or quota exceeded
   }
 }
 
 export function clearStoredStaffToken(): void {
   if (typeof window === 'undefined') return;
   try {
+    localStorage.removeItem(STAFF_TOKEN_STORAGE_KEY);
     sessionStorage.removeItem(STAFF_TOKEN_STORAGE_KEY);
   } catch {
     // ignore
   }
+}
+
+type ReauthHandler = () => Promise<boolean>;
+let activeReauthHandler: ReauthHandler | null = null;
+let reauthPromise: Promise<boolean> | null = null;
+
+export function registerReauthHandler(handler: ReauthHandler | null): void {
+  activeReauthHandler = handler;
+}
+
+export function promptStepUpElevation(): Promise<boolean> {
+  if (!activeReauthHandler) {
+    return Promise.resolve(false);
+  }
+  if (!reauthPromise) {
+    reauthPromise = activeReauthHandler().finally(() => {
+      reauthPromise = null;
+    });
+  }
+  return reauthPromise;
 }
 
 export class ApiError extends Error {
@@ -98,6 +137,7 @@ function importMetaEnv(key: string): string | undefined {
 interface RequestOptions extends RequestInit {
   timeoutMs?: number;
   skipAuth?: boolean;
+  _isRetry?: boolean;
 }
 
 async function request<T>(endpoint: string, options: RequestOptions = {}): Promise<T> {
@@ -169,6 +209,14 @@ async function request<T>(endpoint: string, options: RequestOptions = {}): Promi
       const code = err?.code || (response.status === 401 ? 'UNAUTHENTICATED' : 'INTERNAL_ERROR');
       const message = err?.message || 'An unexpected error occurred';
       const details = err?.details || {};
+
+      if (code === 'REAUTH_REQUIRED' && !options._isRetry) {
+        const elevated = await promptStepUpElevation();
+        if (elevated) {
+          return request<T>(endpoint, { ...options, _isRetry: true });
+        }
+      }
+
       throw new ApiError(code, message, details, response.status);
     }
 

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import {
   Swords,
   Trophy,
@@ -11,13 +11,22 @@ import {
   ChevronRight,
   Sparkles,
   HelpCircle,
+  Globe,
+  FileText,
+  Shield,
+  X,
 } from 'lucide-react';
 import { fetchMatches, type MatchUserDto } from '../api/matches.js';
 import { formatIndianRupees, formatISTDateTime, formatGameMode } from '../utils/formatters.js';
+import { DownloadAppBanner } from '../components/common/DownloadAppBanner.js';
+import { useTranslation } from '../i18n/LanguageContext.js';
 
 export const Landing: React.FC = () => {
   const navigate = useNavigate();
+  const { t, language, setLanguage } = useTranslation();
   const [matches, setMatches] = useState<MatchUserDto[]>([]);
+  const [termsModalOpen, setTermsModalOpen] = useState(false);
+  const [privacyModalOpen, setPrivacyModalOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -38,6 +47,8 @@ export const Landing: React.FC = () => {
 
   return (
     <div className="space-y-6 pb-12" data-testid="landing-page">
+      <DownloadAppBanner />
+
       {/* ─── Hero Section ────────────────────────────────────────── */}
       <section className="relative overflow-hidden rounded-3xl border border-emerald-500/30 bg-gradient-to-b from-emerald-950/60 via-slate-900 to-slate-950 p-6 text-center shadow-2xl">
         {/* Glow ambient circle */}
@@ -51,15 +62,12 @@ export const Landing: React.FC = () => {
 
         {/* Main headline */}
         <h1 className="mt-4 text-3xl font-black tracking-tight text-slate-100 sm:text-4xl leading-tight">
-          Play Free Fire. <br />
-          <span className="bg-gradient-to-r from-emerald-400 via-teal-300 to-amber-300 bg-clip-text text-transparent">
-            Win Real Cash.
-          </span>
+          {t('landing.heroTitle')}
         </h1>
 
         {/* Subtitle */}
         <p className="mt-3 text-xs text-slate-300 leading-relaxed max-w-sm mx-auto">
-          Compete in daily Battle Royale & Clash Squad matches. Entry fees starting at just ₹10 with instant UPI payouts directly to PhonePe & GPay.
+          {t('landing.heroSubtitle')}
         </p>
 
         {/* Action CTAs */}
@@ -70,7 +78,7 @@ export const Landing: React.FC = () => {
             onClick={() => navigate('/register')}
             className="flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-400 py-3 px-6 text-sm font-black text-slate-950 shadow-lg shadow-emerald-500/25 transition-all hover:from-emerald-400 hover:to-teal-300 active:scale-[0.98]"
           >
-            <span>Create Account & Play</span>
+            <span>{t('landing.registerNow')}</span>
             <ArrowRight className="h-4 w-4 stroke-[3]" />
           </button>
           <button
@@ -79,7 +87,7 @@ export const Landing: React.FC = () => {
             onClick={() => navigate('/login')}
             className="flex items-center justify-center gap-2 rounded-xl border border-slate-700 bg-slate-800/80 py-3 px-6 text-sm font-bold text-slate-200 transition-all hover:bg-slate-800 hover:text-white active:scale-[0.98]"
           >
-            <span>Login with OTP</span>
+            <span>{t('landing.loginWithOtp')}</span>
           </button>
         </div>
 
@@ -87,11 +95,11 @@ export const Landing: React.FC = () => {
         <div className="mt-6 grid grid-cols-3 gap-2 border-t border-slate-800/80 pt-4 text-center">
           <div>
             <p className="text-base font-black text-emerald-400">100%</p>
-            <p className="text-[10px] font-semibold text-slate-400">Fair Play</p>
+            <p className="text-[10px] font-semibold text-slate-400">{t('landing.fairPlayTitle')}</p>
           </div>
           <div>
-            <p className="text-base font-black text-amber-400">₹10 Min</p>
-            <p className="text-[10px] font-semibold text-slate-400">Low Entry</p>
+            <p className="text-base font-black text-amber-400">Rs10 Min</p>
+            <p className="text-[10px] font-semibold text-slate-400">{t('matches.entryFee')}</p>
           </div>
           <div>
             <p className="text-base font-black text-teal-400">Instant</p>
@@ -106,7 +114,7 @@ export const Landing: React.FC = () => {
           <div className="flex items-center gap-2">
             <Swords className="h-4 w-4 text-emerald-400" />
             <h2 className="text-sm font-bold uppercase tracking-wider text-slate-200">
-              Live Custom Rooms
+              {t('home.upcomingTitle')}
             </h2>
           </div>
           <button
@@ -114,7 +122,7 @@ export const Landing: React.FC = () => {
             onClick={() => navigate('/matches')}
             className="flex items-center gap-1 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition"
           >
-            <span>View All</span>
+            <span>{t('common.viewAll')}</span>
             <ChevronRight className="h-3.5 w-3.5" />
           </button>
         </div>
@@ -151,12 +159,12 @@ export const Landing: React.FC = () => {
                     </div>
 
                     <div className="text-right">
-                      <p className="text-[10px] font-semibold text-slate-400">Entry Fee</p>
+                      <p className="text-[10px] font-semibold text-slate-400">{t('matches.entryFee')}</p>
                       <p className="font-mono text-sm font-bold text-slate-100">
                         {formatIndianRupees(match.entryFee)}
                       </p>
                       <p className="mt-1 text-[10px] font-semibold text-amber-400">
-                        Prize: {formatIndianRupees(firstPrize)}
+                        {t('matches.prizePool')}: {formatIndianRupees(firstPrize)}
                       </p>
                     </div>
                   </div>
@@ -176,7 +184,7 @@ export const Landing: React.FC = () => {
               onClick={() => navigate('/matches')}
               className="mt-2 inline-flex items-center gap-1 text-xs font-bold text-emerald-400 hover:text-emerald-300"
             >
-              <span>Explore Matches Lobby</span>
+              <span>{t('landing.exploreMatches')}</span>
               <ArrowRight className="h-3.5 w-3.5" />
             </button>
           </div>
@@ -186,7 +194,7 @@ export const Landing: React.FC = () => {
       {/* ─── Why Choose Booyah Win ──────────────────────────────── */}
       <section className="space-y-3">
         <h2 className="text-xs font-bold uppercase tracking-wider text-slate-400 px-1">
-          Why Players Choose Booyah Win
+          {t('landing.whyChooseUs')}
         </h2>
         <div className="grid grid-cols-2 gap-2.5">
           {/* Instant UPI Cashout */}
@@ -194,9 +202,9 @@ export const Landing: React.FC = () => {
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
               <Zap className="h-5 w-5" />
             </div>
-            <h3 className="text-xs font-bold text-slate-100">Instant UPI Payouts</h3>
+            <h3 className="text-xs font-bold text-slate-100">{t('landing.instantWithdrawalsTitle')}</h3>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              Withdraw straight to your UPI ID without waiting days.
+              {t('landing.instantWithdrawalsDesc')}
             </p>
           </div>
 
@@ -205,9 +213,9 @@ export const Landing: React.FC = () => {
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-cyan-500/10 text-cyan-400 border border-cyan-500/20">
               <ShieldCheck className="h-5 w-5" />
             </div>
-            <h3 className="text-xs font-bold text-slate-100">100% Anti-Cheat</h3>
+            <h3 className="text-xs font-bold text-slate-100">{t('landing.fairPlayTitle')}</h3>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              Mobile only, zero emulators or hack tolerance.
+              {t('landing.fairPlayDesc')}
             </p>
           </div>
 
@@ -216,9 +224,9 @@ export const Landing: React.FC = () => {
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-amber-500/10 text-amber-400 border border-amber-500/20">
               <Trophy className="h-5 w-5" />
             </div>
-            <h3 className="text-xs font-bold text-slate-100">Weekly Top 50</h3>
+            <h3 className="text-xs font-bold text-slate-100">{t('leaderboard.weeklyTab')}</h3>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              Climb the ranks and win bonus weekly cash prizes.
+              {t('leaderboard.subtitle')}
             </p>
           </div>
 
@@ -227,9 +235,9 @@ export const Landing: React.FC = () => {
             <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-purple-500/10 text-purple-400 border border-purple-500/20">
               <Gift className="h-5 w-5" />
             </div>
-            <h3 className="text-xs font-bold text-slate-100">Refer & Earn ₹5</h3>
+            <h3 className="text-xs font-bold text-slate-100">{t('referral.title')}</h3>
             <p className="text-[11px] text-slate-400 leading-relaxed">
-              Invite friends and get ₹5 cashback on their first match.
+              {t('referral.subtitle')}
             </p>
           </div>
         </div>
@@ -238,7 +246,7 @@ export const Landing: React.FC = () => {
       {/* ─── How It Works (3 Steps) ─────────────────────────────── */}
       <section className="rounded-2xl border border-slate-800 bg-slate-900/40 p-5 space-y-4">
         <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-          How It Works in 3 Simple Steps
+          {t('landing.howItWorksTitle')}
         </h2>
         <div className="space-y-3">
           <div className="flex items-start gap-3">
@@ -246,9 +254,9 @@ export const Landing: React.FC = () => {
               1
             </span>
             <div>
-              <h3 className="text-xs font-bold text-slate-100">Register with Your Free Fire UID</h3>
+              <h3 className="text-xs font-bold text-slate-100">{t('landing.step1Title')}</h3>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Sign up in 30 seconds with email OTP and link your in-game Free Fire ID.
+                {t('landing.step1Desc')}
               </p>
             </div>
           </div>
@@ -258,9 +266,9 @@ export const Landing: React.FC = () => {
               2
             </span>
             <div>
-              <h3 className="text-xs font-bold text-slate-100">Pick a Match & Get Room Password</h3>
+              <h3 className="text-xs font-bold text-slate-100">{t('landing.step2Title')}</h3>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Choose Solo, Duo, or Squad. Room ID & password unlock 15 minutes before match start.
+                {t('landing.step2Desc')}
               </p>
             </div>
           </div>
@@ -270,41 +278,11 @@ export const Landing: React.FC = () => {
               3
             </span>
             <div>
-              <h3 className="text-xs font-bold text-slate-100">Claim Booyah & Cash Out</h3>
+              <h3 className="text-xs font-bold text-slate-100">{t('landing.step3Title')}</h3>
               <p className="text-[11px] text-slate-400 mt-0.5">
-                Prize money is credited automatically to your winning wallet. Withdraw anytime.
+                {t('landing.step3Desc')}
               </p>
             </div>
-          </div>
-        </div>
-      </section>
-
-      {/* ─── Frequently Asked Questions ─────────────────────────── */}
-      <section className="rounded-2xl border border-slate-800 bg-slate-900/30 p-5 space-y-3">
-        <div className="flex items-center gap-2">
-          <HelpCircle className="h-4 w-4 text-emerald-400" />
-          <h2 className="text-xs font-bold uppercase tracking-wider text-slate-300">
-            Frequently Asked Questions
-          </h2>
-        </div>
-        <div className="space-y-2.5 text-xs text-slate-400 divide-y divide-slate-800/60">
-          <div className="pt-2 first:pt-0">
-            <p className="font-bold text-slate-200">How do I get the custom room credentials?</p>
-            <p className="mt-1 text-[11px] leading-relaxed">
-              Once you join a match, the Room ID and Password will appear in your match details screen 15 minutes before the match start time.
-            </p>
-          </div>
-          <div className="pt-2">
-            <p className="font-bold text-slate-200">How fast are withdrawals processed?</p>
-            <p className="mt-1 text-[11px] leading-relaxed">
-              Withdrawals to your verified UPI ID are processed directly and typically credit within minutes of staff approval.
-            </p>
-          </div>
-          <div className="pt-2">
-            <p className="font-bold text-slate-200">Can I play on PC or Emulator?</p>
-            <p className="mt-1 text-[11px] leading-relaxed">
-              No. Booyah Win strictly enforces mobile-only matchmaking to guarantee 100% competitive fairness for all participants.
-            </p>
           </div>
         </div>
       </section>
@@ -322,10 +300,153 @@ export const Landing: React.FC = () => {
           onClick={() => navigate('/register')}
           className="inline-flex items-center justify-center gap-2 rounded-xl bg-emerald-500 px-6 py-3 text-xs font-black text-slate-950 hover:bg-emerald-400 transition shadow-lg shadow-emerald-500/20 active:scale-[0.98]"
         >
-          <span>Register Now & Get ₹5 Bonus</span>
+          <span>{t('landing.registerNow')}</span>
           <ArrowRight className="h-4 w-4" />
         </button>
       </section>
+
+      {/* ─── Landing Page Footer with Instant Language Switcher & Terms ─── */}
+      <footer className="border-t border-slate-800/80 pt-6 pb-2 text-center space-y-4" data-testid="landing-footer">
+        {/* Language Switcher */}
+        <div className="inline-flex items-center justify-center gap-2 p-1 rounded-xl bg-slate-900/90 border border-slate-800 shadow-sm" data-testid="landing-language-selector">
+          <Globe className="w-4 h-4 text-emerald-400 ml-2" />
+          <span className="text-xs text-slate-400 pr-1">{t('common.language')}:</span>
+          <button
+            type="button"
+            data-testid="landing-lang-en"
+            onClick={() => setLanguage('en')}
+            className={`px-3 py-1 text-xs rounded-lg font-bold transition-all ${
+              language === 'en'
+                ? 'bg-emerald-500 text-slate-950 shadow-sm'
+                : 'text-slate-400 hover:text-slate-200'
+            }`}
+          >
+            English
+          </button>
+          <button
+            type="button"
+            data-testid="landing-lang-bn"
+            onClick={() => setLanguage('bn')}
+            className={`px-3 py-1 text-xs rounded-lg font-bold transition-all ${
+              language === 'bn'
+                ? 'bg-emerald-500 text-slate-950 shadow-sm font-bengali'
+                : 'text-slate-400 hover:text-slate-200 font-bengali'
+            }`}
+          >
+            বাংলা
+          </button>
+        </div>
+
+        {/* Legal & Policy Links */}
+        <div className="flex items-center justify-center gap-4 text-xs text-slate-400">
+          <button
+            type="button"
+            data-testid="landing-terms-btn"
+            onClick={() => setTermsModalOpen(true)}
+            className="hover:text-emerald-400 transition underline underline-offset-2"
+          >
+            {t('landing.footerTerms')}
+          </button>
+          <span>•</span>
+          <button
+            type="button"
+            data-testid="landing-privacy-btn"
+            onClick={() => setPrivacyModalOpen(true)}
+            className="hover:text-emerald-400 transition underline underline-offset-2"
+          >
+            {t('landing.footerPrivacy')}
+          </button>
+          <span>•</span>
+          <Link
+            to="/support"
+            className="hover:text-emerald-400 transition underline underline-offset-2"
+          >
+            {t('landing.footerSupport')}
+          </Link>
+        </div>
+
+        <p className="text-[11px] text-slate-500">
+          {t('landing.footerCopyright')}
+        </p>
+      </footer>
+
+      {/* Terms of Service Placeholder Modal */}
+      {termsModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          data-testid="terms-modal"
+        >
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2 text-emerald-400">
+                <FileText className="w-5 h-5" />
+                <h3 className="text-base font-bold text-slate-100">{t('terms.modalTitle')}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setTermsModalOpen(false)}
+                className="text-slate-400 hover:text-slate-200 p-1"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="mt-4 text-xs text-slate-300 leading-relaxed whitespace-pre-line">
+              {t('terms.modalPlaceholder')}
+            </p>
+            <div className="mt-6 text-right">
+              <button
+                type="button"
+                onClick={() => setTermsModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-bold text-slate-200 hover:bg-slate-700"
+              >
+                {t('common.close')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Privacy Policy Placeholder Modal */}
+      {privacyModalOpen && (
+        <div
+          role="dialog"
+          aria-modal="true"
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm"
+          data-testid="privacy-modal"
+        >
+          <div className="w-full max-w-md bg-slate-900 border border-slate-800 rounded-2xl p-6 shadow-2xl relative">
+            <div className="flex items-center justify-between pb-3 border-b border-slate-800">
+              <div className="flex items-center gap-2 text-emerald-400">
+                <Shield className="w-5 h-5" />
+                <h3 className="text-base font-bold text-slate-100">{t('privacy.modalTitle')}</h3>
+              </div>
+              <button
+                type="button"
+                onClick={() => setPrivacyModalOpen(false)}
+                className="text-slate-400 hover:text-slate-200 p-1"
+                aria-label="Close"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            <p className="mt-4 text-xs text-slate-300 leading-relaxed whitespace-pre-line">
+              {t('privacy.modalPlaceholder')}
+            </p>
+            <div className="mt-6 text-right">
+              <button
+                type="button"
+                onClick={() => setPrivacyModalOpen(false)}
+                className="px-4 py-2 rounded-xl bg-slate-800 text-xs font-bold text-slate-200 hover:bg-slate-700"
+              >
+                {t('common.close')}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

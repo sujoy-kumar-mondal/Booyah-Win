@@ -1,5 +1,6 @@
 import { z } from 'zod';
 import { emailSchema, mobileSchema, nameSchema } from './auth.js';
+import { parseCashbackPercentToBasisPoints } from '../money/index.js';
 
 export const panSchema = z
   .string()
@@ -107,6 +108,24 @@ export const updateSettingsSchema = z
       .optional()
       .or(z.literal(''))
       .nullable(),
+    cashback_max_percent: z
+      .string()
+      .trim()
+      .refine(
+        (val) => {
+          try {
+            parseCashbackPercentToBasisPoints(val);
+            return true;
+          } catch {
+            return false;
+          }
+        },
+        {
+          message:
+            'Cashback percentage must be a number between 0 and 100 with at most 2 decimal places',
+        }
+      )
+      .optional(),
   })
   .strict();
 

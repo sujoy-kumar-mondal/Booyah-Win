@@ -54,7 +54,7 @@ describe('Requirement 8: Matches Sub-tab Deep Links', () => {
     });
   });
 
-  it('Requirement 8: opens invites sub-tab when URL has ?tab=invites', async () => {
+  it('Requirement 8: safely defaults to matches sub-tab when URL has legacy ?tab=invites', async () => {
     render(
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={['/matches?tab=invites']}>
@@ -63,9 +63,9 @@ describe('Requirement 8: Matches Sub-tab Deep Links', () => {
       </QueryClientProvider>
     );
 
-    // Invites container is rendered
-    expect(screen.getByTestId('team-invites-container')).toBeInTheDocument();
-    expect(screen.queryByTestId('matches-list-container')).toBeNull();
+    // Matches container is rendered as invites mechanism is removed
+    expect(screen.getByTestId('matches-list-container')).toBeInTheDocument();
+    expect(screen.queryByTestId('team-invites-container')).toBeNull();
     expect(screen.queryByTestId('match-history-container')).toBeNull();
   });
 
@@ -96,16 +96,16 @@ describe('Requirement 8: Matches Sub-tab Deep Links', () => {
     // Starts on matches
     expect(screen.getByTestId('matches-list-container')).toBeInTheDocument();
 
-    // Click invites sub-tab
-    fireEvent.click(screen.getByTestId('subtab-invites'));
-    await waitFor(() => {
-      expect(screen.getByTestId('team-invites-container')).toBeInTheDocument();
-    });
-
     // Click history sub-tab
     fireEvent.click(screen.getByTestId('subtab-history'));
     await waitFor(() => {
       expect(screen.getByTestId('match-history-container')).toBeInTheDocument();
+    });
+
+    // Click matches sub-tab
+    fireEvent.click(screen.getByTestId('subtab-matches'));
+    await waitFor(() => {
+      expect(screen.getByTestId('matches-list-container')).toBeInTheDocument();
     });
   });
 });

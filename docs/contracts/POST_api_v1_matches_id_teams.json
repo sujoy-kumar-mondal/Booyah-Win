@@ -6,8 +6,8 @@
       "leaderId": "1",
       "name": "Bravo Team",
       "size": 2,
-      "status": "forming",
-      "createdAt": "2026-10-13T13:39:20.528Z",
+      "status": "confirmed",
+      "createdAt": "2026-10-17T05:04:37.867Z",
       "members": [
         {
           "userId": "1",
@@ -21,7 +21,7 @@
           "freeFireId": "87654321",
           "name": "Player Two",
           "role": "member",
-          "status": "pending"
+          "status": "confirmed"
         }
       ]
     }

@@ -20,6 +20,7 @@ import {
   getStoredStaffToken,
   setStoredStaffToken,
   clearStoredStaffToken,
+  isRememberedStaffToken,
   STAFF_TOKEN_STORAGE_KEY,
 } from '../api/client.js';
 import { getStaffMe, logoutStaff as apiLogoutStaff } from '../api/staff.js';
@@ -30,7 +31,7 @@ interface StaffAuthContextType {
   staff: StaffDto | null;
   token: string | null;
   isLoading: boolean;
-  login: (token: string, staff: StaffDto) => void;
+  login: (token: string, staff: StaffDto, remember?: boolean) => void;
   logout: () => Promise<void>;
   refreshProfile: () => Promise<void>;
   isIdleWarnOpen: boolean;
@@ -76,12 +77,15 @@ export const StaffAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [token]);
 
-  const login = useCallback((newToken: string, newStaff: StaffDto) => {
-    setStoredStaffToken(newToken);
-    setToken(newToken);
-    setStaff(newStaff);
-    resetActivity();
-  }, [resetActivity]);
+  const login = useCallback(
+    (newToken: string, newStaff: StaffDto, remember: boolean = true) => {
+      setStoredStaffToken(newToken, remember);
+      setToken(newToken);
+      setStaff(newStaff);
+      resetActivity();
+    },
+    [resetActivity]
+  );
 
   const refreshProfile = useCallback(async () => {
     const currentToken = getStoredStaffToken();
@@ -110,9 +114,10 @@ export const StaffAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
     }
   }, [token, refreshProfile]);
 
-  // Requirement 10: Track user activity & enforce 25m warning / 30m logout
+  // Requirement 10: Track user activity & enforce 25m warning / 30m logout (sessions that are NOT remembered only)
   useEffect(() => {
     if (!token) return;
+    if (isRememberedStaffToken()) return;
 
     const onUserActivity = () => {
       lastActivityRef.current = Date.now();
@@ -123,7 +128,7 @@ export const StaffAuthProvider: React.FC<{ children: React.ReactNode }> = ({ chi
 
     // Check idle status every 15 seconds
     const interval = setInterval(() => {
-      if (!getStoredStaffToken()) return;
+      if (!getStoredStaffToken() || isRememberedStaffToken()) return;
 
       const idleDuration = Date.now() - lastActivityRef.current;
 

@@ -11,6 +11,7 @@ import { useStaffAuth } from '../../context/StaffAuthContext.js';
 import { useStaffSessionWatcher } from '../../hooks/useStaffSessionWatcher.js';
 import { SessionReplacedModal } from '../common/SessionReplacedModal.js';
 import { IdleTimeoutModal } from '../common/IdleTimeoutModal.js';
+import { StepUpOtpModal } from '../common/StepUpOtpModal.js';
 
 export const StaffLayout: React.FC = () => {
   const { token, logout, isIdleWarnOpen, stayLoggedIn } = useStaffAuth();
@@ -73,6 +74,8 @@ export const StaffLayout: React.FC = () => {
         onStayLoggedIn={stayLoggedIn}
         onLogout={logout}
       />
+
+      <StepUpOtpModal />
     </div>
   );
 };

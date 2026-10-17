@@ -32,6 +32,7 @@ export const ErrorCodes = {
   DATABASE_BUSY: 'DATABASE_BUSY',
   ADMINS_APPROVE_DIRECTLY: 'ADMINS_APPROVE_DIRECTLY',
   MAINTENANCE_MODE: 'MAINTENANCE_MODE',
+  REAUTH_REQUIRED: 'REAUTH_REQUIRED',
 } as const;
 
 export type ErrorCode = (typeof ErrorCodes)[keyof typeof ErrorCodes];

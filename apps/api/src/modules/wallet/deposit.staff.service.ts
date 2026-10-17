@@ -31,6 +31,7 @@ import { creditWallet, creditReferralReward } from './wallet.service.js';
 export interface StaffDepositDto {
   id: string;
   userId: string;
+  userName?: string;
   userEmail: string;
   amount: string;
   utr: string;
@@ -54,6 +55,7 @@ async function enrichRow(row: any): Promise<StaffDepositDto> {
   return {
     id:                 row.id.toString(),
     userId:             row.user_id.toString(),
+    userName:           row.user_name || undefined,
     userEmail:          row.user_email,
     amount:             paiseToString(stringToPaise(row.amount.toString())),
     utr:                row.utr,
@@ -79,7 +81,7 @@ export async function listDepositsStaff(params: {
   const limit = Math.min(Math.max(params.limit || 20, 1), 100);
 
   let sql = `
-    SELECT dr.id, dr.user_id, u.email AS user_email, dr.amount, dr.utr,
+    SELECT dr.id, dr.user_id, u.name AS user_name, u.email AS user_email, dr.amount, dr.utr,
            dr.screenshot_url, dr.status, dr.reject_reason, dr.needs_admin,
            dr.created_at, dr.reviewed_at, dr.reviewed_by,
            dr.employee_reviewed_at, dr.employee_reviewed_by

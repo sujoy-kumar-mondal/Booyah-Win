@@ -15,12 +15,15 @@ import {
   validateReferralCode,
 } from '../utils/validation.js';
 import { ApiError } from '../api/client.js';
+import { getUserFriendlyErrorMessage } from '../api/errorMessages.js';
 import { Flame, Mail, ArrowRight, RotateCcw, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useTranslation } from '../i18n/LanguageContext.js';
 
 export const Register: React.FC = () => {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { login } = useAuth();
+  const { t, language } = useTranslation();
 
   const [step, setStep] = useState<'email' | 'otp' | 'profile'>('email');
   const [email, setEmail] = useState('');
@@ -51,43 +54,42 @@ export const Register: React.FC = () => {
   useEffect(() => {
     if (step === 'profile' && !registrationToken) {
       setStep('email');
+      setGeneralError(
+        language === 'bn'
+          ? 'অনুগ্রহ করে প্রথমে ইমেইল যাচাইকরণ সম্পন্ন করুন।'
+          : 'Please complete email verification first.'
+      );
     }
-  }, [step, registrationToken]);
+  }, [step, registrationToken, language]);
 
   // Pre-fill referral code from ?ref= parameter or stored cookie
   useEffect(() => {
-    const refParam = searchParams.get('ref') || searchParams.get('referral');
-    let codeToUse = refParam ? refParam.trim().toUpperCase() : '';
-
-    if (!codeToUse && typeof window !== 'undefined') {
+    const refParam = searchParams.get('ref');
+    if (refParam && /^[A-Za-z0-9]{8}$/.test(refParam)) {
+      setFormData((prev) => ({ ...prev, referralCode: refParam.toUpperCase() }));
+    } else {
       try {
-        const stored = localStorage.getItem('booyah_ref');
-        if (stored) {
-          codeToUse = stored.trim().toUpperCase();
-        } else {
+        if (typeof document !== 'undefined') {
           const match = document.cookie.match(/(?:^|;\s*)booyah_ref=([^;]+)/);
-          if (match && match[1]) {
-            codeToUse = decodeURIComponent(match[1]).trim().toUpperCase();
+          if (match && match[1] && /^[A-Za-z0-9]{8}$/.test(match[1])) {
+            setFormData((prev) => ({ ...prev, referralCode: match[1].toUpperCase() }));
           }
         }
-      } catch (e) {}
-    }
-
-    if (codeToUse) {
-      setFormData((prev) => ({
-        ...prev,
-        referralCode: prev.referralCode || codeToUse,
-      }));
+      } catch {
+        // ignore cookie read errors
+      }
     }
   }, [searchParams]);
 
-  const handleSendOtp = async (e: React.FormEvent) => {
+  // Step 1: Request OTP
+  const handleRequestOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setGeneralError(null);
+    setFieldErrors({});
 
     const emailErr = validateEmail(email);
     if (emailErr) {
-      setGeneralError(emailErr);
+      setFieldErrors({ email: emailErr });
       return;
     }
 
@@ -97,18 +99,27 @@ export const Register: React.FC = () => {
       setStep('otp');
       startCountdown(60);
     } catch (err: any) {
-      setGeneralError(err instanceof ApiError ? err.message : 'Unable to send OTP. Please try again.');
+      setGeneralError(
+        err instanceof ApiError
+          ? getUserFriendlyErrorMessage(err.code, false, language)
+          : getUserFriendlyErrorMessage('NETWORK_ERROR', false, language)
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Step 2: Verify OTP
   const handleVerifyOtp = async (e: React.FormEvent) => {
     e.preventDefault();
     setGeneralError(null);
 
     if (otp.length !== 6) {
-      setGeneralError('Please enter the full 6-digit OTP code');
+      setGeneralError(
+        language === 'bn'
+          ? 'অনুগ্রহ করে সম্পূর্ণ ৬-সংখ্যার OTP কোড লিখুন'
+          : 'Please enter the full 6-digit OTP code'
+      );
       return;
     }
 
@@ -118,7 +129,11 @@ export const Register: React.FC = () => {
       setRegistrationToken(res.registrationToken);
       setStep('profile');
     } catch (err: any) {
-      setGeneralError(err instanceof ApiError ? err.message : 'Invalid verification code.');
+      setGeneralError(
+        err instanceof ApiError
+          ? getUserFriendlyErrorMessage(err.code, false, language)
+          : getUserFriendlyErrorMessage('VALIDATION_ERROR', false, language)
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -132,31 +147,40 @@ export const Register: React.FC = () => {
       await requestRegisterOtp(email.trim().toLowerCase());
       startCountdown(60);
     } catch (err: any) {
-      setGeneralError(err instanceof ApiError ? err.message : 'Unable to resend OTP.');
+      setGeneralError(
+        err instanceof ApiError
+          ? getUserFriendlyErrorMessage(err.code, false, language)
+          : getUserFriendlyErrorMessage('NETWORK_ERROR', false, language)
+      );
     } finally {
       setIsSubmitting(false);
     }
   };
 
+  // Step 3: Complete Profile
   const handleFieldChange = (field: string, value: any) => {
     setFormData((prev) => ({ ...prev, [field]: value }));
-    setFieldErrors((prev) => {
-      const copy = { ...prev };
-      delete copy[field];
-      return copy;
-    });
+    if (fieldErrors[field]) {
+      setFieldErrors((prev) => {
+        const next = { ...prev };
+        delete next[field];
+        return next;
+      });
+    }
   };
 
   const handleCompleteRegistration = async (e: React.FormEvent) => {
     e.preventDefault();
     setGeneralError(null);
+    setFieldErrors({});
 
     if (!registrationToken) {
+      setGeneralError('Registration token missing. Please verify email again.');
       setStep('email');
       return;
     }
 
-    // Client-side validations
+    // Client-side validation
     const errors: Record<string, string> = {};
     const nameErr = validateName(formData.name);
     if (nameErr) errors.name = nameErr;
@@ -170,18 +194,23 @@ export const Register: React.FC = () => {
     const ffNameErr = validateFfName(formData.ffName);
     if (ffNameErr) errors.ffName = ffNameErr;
 
-    const upiErr = validateUpiId(formData.upiId);
-    if (upiErr) errors.upiId = upiErr;
+    const upiIdErr = validateUpiId(formData.upiId);
+    if (upiIdErr) errors.upiId = upiIdErr;
 
     const dobErr = validateDateOfBirth(formData.dateOfBirth);
     if (dobErr) errors.dateOfBirth = dobErr;
 
     if (!formData.confirm18Plus) {
-      errors.confirm18Plus = 'You must confirm that you are at least 18 years old';
+      errors.confirm18Plus =
+        language === 'bn'
+          ? 'অংশগ্রহণের জন্য আপনাকে ১৮ বছর বা তার বেশি বয়সী হতে হবে'
+          : 'You must confirm that you are at least 18 years old';
     }
 
-    const refErr = validateReferralCode(formData.referralCode);
-    if (refErr) errors.referralCode = refErr;
+    if (formData.referralCode.trim()) {
+      const refErr = validateReferralCode(formData.referralCode);
+      if (refErr) errors.referralCode = refErr;
+    }
 
     if (Object.keys(errors).length > 0) {
       setFieldErrors(errors);
@@ -200,6 +229,7 @@ export const Register: React.FC = () => {
         dateOfBirth: formData.dateOfBirth,
         confirm18Plus: formData.confirm18Plus,
         referralCode: formData.referralCode.trim() || undefined,
+        language: language === 'bn' ? 'bn' : 'en',
       });
 
       await login(res.token, res.user);
@@ -207,18 +237,42 @@ export const Register: React.FC = () => {
     } catch (err: any) {
       if (err instanceof ApiError) {
         if (err.code === 'MOBILE_EXISTS') {
-          setFieldErrors((prev) => ({ ...prev, mobile: 'This mobile number is already in use' }));
+          setFieldErrors((prev) => ({
+            ...prev,
+            mobile:
+              language === 'bn'
+                ? 'এই মোবাইল নম্বরটি অন্য অ্যাকাউন্টের সাথে যুক্ত'
+                : 'This mobile number is already in use',
+          }));
         } else if (err.code === 'FF_ID_EXISTS') {
-          setFieldErrors((prev) => ({ ...prev, ffId: 'This Free Fire ID is already registered' }));
+          setFieldErrors((prev) => ({
+            ...prev,
+            ffId:
+              language === 'bn'
+                ? 'এই Free Fire ID-টি অন্য খেলোয়াড়ের নামে নিবন্ধিত'
+                : 'This Free Fire ID is already registered',
+          }));
         } else if (err.code === 'UPI_EXISTS') {
-          setFieldErrors((prev) => ({ ...prev, upiId: 'This UPI ID is already associated with another account' }));
+          setFieldErrors((prev) => ({
+            ...prev,
+            upiId:
+              language === 'bn'
+                ? 'এই UPI ID-টি অন্য অ্যাকাউন্টে ব্যবহৃত হচ্ছে'
+                : 'This UPI ID is already associated with another account',
+          }));
         } else if (err.code === 'INVALID_REFERRAL') {
-          setFieldErrors((prev) => ({ ...prev, referralCode: 'Referral code does not exist' }));
+          setFieldErrors((prev) => ({
+            ...prev,
+            referralCode:
+              language === 'bn'
+                ? 'ভুল রেফারেল কোড। অনুগ্রহ করে সঠিক কোড দিন বা ফাঁকা রাখুন'
+                : 'Invalid referral code',
+          }));
         } else {
-          setGeneralError(err.message);
+          setGeneralError(getUserFriendlyErrorMessage(err.code, false, language));
         }
       } else {
-        setGeneralError('Registration failed. Please check your information and try again.');
+        setGeneralError(getUserFriendlyErrorMessage('VALIDATION_ERROR', false, language));
       }
     } finally {
       setIsSubmitting(false);
@@ -226,18 +280,35 @@ export const Register: React.FC = () => {
   };
 
   return (
-    <div className="flex min-h-[85vh] flex-col justify-center py-6 w-full max-w-md mx-auto">
+    <div className="flex min-h-[85vh] flex-col justify-center py-6 w-full max-w-md mx-auto" data-testid="register-page">
       {/* Brand Header */}
       <div className="mb-6 text-center">
         <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 shadow-lg shadow-emerald-500/10">
           <Flame className="h-8 w-8" />
         </div>
         <h1 className="text-2xl font-black tracking-wider text-slate-100">
-          PLAYER<span className="text-emerald-400">REGISTRATION</span>
+          BOOYAH<span className="text-emerald-400">WIN</span>
         </h1>
-        <p className="mt-1 text-xs text-slate-400">
-          {step === 'profile' ? 'Step 3 of 3: Profile Details' : step === 'otp' ? 'Step 2 of 3: Verification' : 'Step 1 of 3: Email OTP'}
-        </p>
+        <p className="mt-1 text-xs text-slate-400">Competitive Free Fire Match Platform</p>
+      </div>
+
+      {/* Progress Indicators */}
+      <div className="mb-6 flex items-center justify-center gap-2">
+        <div
+          className={`h-2 rounded-full transition-all ${
+            step === 'email' ? 'w-8 bg-emerald-500' : 'w-2 bg-emerald-500/50'
+          }`}
+        />
+        <div
+          className={`h-2 rounded-full transition-all ${
+            step === 'otp' ? 'w-8 bg-emerald-500' : step === 'profile' ? 'w-2 bg-emerald-500/50' : 'w-2 bg-slate-800'
+          }`}
+        />
+        <div
+          className={`h-2 rounded-full transition-all ${
+            step === 'profile' ? 'w-8 bg-emerald-500' : 'w-2 bg-slate-800'
+          }`}
+        />
       </div>
 
       <div className="rounded-2xl border border-slate-800 bg-slate-900/90 p-4 sm:p-6 shadow-xl backdrop-blur-md">
@@ -252,11 +323,12 @@ export const Register: React.FC = () => {
           </div>
         )}
 
-        {step === 'email' ? (
-          <form onSubmit={handleSendOtp} className="space-y-4">
+        {/* ─── Step 1: Email Form ─── */}
+        {step === 'email' && (
+          <form onSubmit={handleRequestOtp} className="space-y-4" data-testid="registration-email-form">
             <div>
               <label htmlFor="reg-email" className="block text-xs font-semibold text-slate-300 mb-1.5">
-                Email Address
+                {t('auth.emailLabel')}
               </label>
               <div className="relative">
                 <Mail className="absolute left-3.5 top-3.5 h-4 w-4 text-slate-500" />
@@ -269,10 +341,15 @@ export const Register: React.FC = () => {
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   disabled={isSubmitting}
-                  className="w-full rounded-xl border border-slate-700 bg-slate-950 py-3 pl-10 pr-4 text-sm text-slate-100 placeholder-slate-600 focus:border-emerald-500 focus:outline-none focus:ring-1 focus:ring-emerald-500 disabled:opacity-50"
+                  className={`w-full rounded-xl border bg-slate-950 py-3 pl-10 pr-4 text-sm text-slate-100 placeholder-slate-600 focus:outline-none ${
+                    fieldErrors.email
+                      ? 'border-rose-500'
+                      : 'border-slate-700 focus:border-emerald-500 focus:ring-1 focus:ring-emerald-500'
+                  }`}
                   required
                 />
               </div>
+              {fieldErrors.email && <p className="mt-1 text-[11px] text-rose-400">{fieldErrors.email}</p>}
             </div>
 
             <button
@@ -280,15 +357,18 @@ export const Register: React.FC = () => {
               disabled={isSubmitting}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-bold text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.98] disabled:opacity-50"
             >
-              {isSubmitting ? 'Sending Code...' : 'Get Verification Code'}
+              {isSubmitting ? t('auth.requestingOtp') : t('auth.getVerificationCode')}
               <ArrowRight className="h-4 w-4" />
             </button>
           </form>
-        ) : step === 'otp' ? (
-          <form onSubmit={handleVerifyOtp} className="space-y-5">
+        )}
+
+        {/* ─── Step 2: OTP Verification ─── */}
+        {step === 'otp' && (
+          <form onSubmit={handleVerifyOtp} className="space-y-5" data-testid="registration-otp-form">
             <div className="text-center">
               <p className="text-xs text-slate-400">
-                Enter the 6-digit verification code sent to <br />
+                {t('auth.otpSentMessage')} <br />
                 <span className="font-semibold text-slate-200">{email}</span>
               </p>
               <button
@@ -300,13 +380,13 @@ export const Register: React.FC = () => {
                 }}
                 className="mt-1 text-xs text-emerald-400 hover:underline"
               >
-                Change email
+                {t('auth.changeEmail')}
               </button>
             </div>
 
             <div>
               <label className="block text-center text-xs font-semibold text-slate-300 mb-3">
-                Security Code (OTP)
+                {t('auth.enterOtp')}
               </label>
               <OtpInput value={otp} onChange={setOtp} disabled={isSubmitting} />
             </div>
@@ -320,7 +400,7 @@ export const Register: React.FC = () => {
                 className="flex items-center gap-1 font-semibold text-emerald-400 hover:underline disabled:text-slate-600 disabled:no-underline"
               >
                 <RotateCcw className={`h-3 w-3 ${isSubmitting ? 'animate-spin' : ''}`} />
-                {isCounting ? `Resend in ${secondsLeft}s` : 'Resend OTP'}
+                {isCounting ? `${t('auth.resendIn')} ${secondsLeft}s` : t('auth.resendOtp')}
               </button>
             </div>
 
@@ -329,20 +409,23 @@ export const Register: React.FC = () => {
               disabled={isSubmitting || otp.length !== 6}
               className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-bold text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.98] disabled:opacity-50"
             >
-              {isSubmitting ? 'Verifying...' : 'Verify Email'}
+              {isSubmitting ? t('auth.verifyingOtp') : t('auth.verifyEmail')}
             </button>
           </form>
-        ) : (
+        )}
+
+        {/* ─── Step 3: Complete Profile Details ─── */}
+        {step === 'profile' && (
           <form onSubmit={handleCompleteRegistration} className="space-y-4" data-testid="registration-profile-form">
             {/* Full Name */}
             <div>
               <label htmlFor="reg-name" className="block text-xs font-semibold text-slate-300 mb-1">
-                Full Name (as per ID)
+                {t('auth.nameLabel')}
               </label>
               <input
                 id="reg-name"
                 type="text"
-                placeholder="John Doe"
+                placeholder={t('auth.namePlaceholder')}
                 value={formData.name}
                 onChange={(e) => handleFieldChange('name', e.target.value)}
                 disabled={isSubmitting}
@@ -356,7 +439,7 @@ export const Register: React.FC = () => {
             {/* Mobile */}
             <div>
               <label htmlFor="reg-mobile" className="block text-xs font-semibold text-slate-300 mb-1">
-                Mobile Number (10 Digits)
+                {t('auth.mobileLabel')}
               </label>
               <input
                 id="reg-mobile"
@@ -377,7 +460,7 @@ export const Register: React.FC = () => {
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label htmlFor="reg-ffId" className="block text-xs font-semibold text-slate-300 mb-1">
-                  Free Fire ID (Digits)
+                  {t('auth.ffIdLabel')}
                 </label>
                 <input
                   id="reg-ffId"
@@ -395,7 +478,7 @@ export const Register: React.FC = () => {
               </div>
               <div>
                 <label htmlFor="reg-ffName" className="block text-xs font-semibold text-slate-300 mb-1">
-                  Free Fire IGN
+                  {t('auth.ffNameLabel')}
                 </label>
                 <input
                   id="reg-ffName"
@@ -415,7 +498,7 @@ export const Register: React.FC = () => {
             {/* UPI ID */}
             <div>
               <label htmlFor="reg-upiId" className="block text-xs font-semibold text-slate-300 mb-1">
-                UPI ID (for withdrawals)
+                {t('auth.upiIdLabel')}
               </label>
               <input
                 id="reg-upiId"
@@ -434,7 +517,7 @@ export const Register: React.FC = () => {
             {/* Date of Birth */}
             <div>
               <label htmlFor="reg-dob" className="block text-xs font-semibold text-slate-300 mb-1">
-                Date of Birth (18+ Required)
+                {t('auth.dobLabel')}
               </label>
               <input
                 id="reg-dob"
@@ -453,7 +536,7 @@ export const Register: React.FC = () => {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label htmlFor="reg-referral" className="block text-xs font-semibold text-slate-300">
-                  Referral Code (Optional)
+                  {t('auth.referralCodeLabel')}
                 </label>
                 {formData.referralCode && (
                   <span
@@ -488,7 +571,7 @@ export const Register: React.FC = () => {
                   disabled={isSubmitting}
                   className="mt-0.5 h-4 w-4 rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-500/20"
                 />
-                <span>I confirm that I am at least 18 years of age or older.</span>
+                <span>{t('auth.confirm18')}</span>
               </label>
               {fieldErrors.confirm18Plus && (
                 <p className="mt-1 text-[11px] text-rose-400">{fieldErrors.confirm18Plus}</p>
@@ -501,7 +584,7 @@ export const Register: React.FC = () => {
               className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3.5 text-sm font-bold text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.98] disabled:opacity-50"
             >
               <CheckCircle2 className="h-4 w-4" />
-              {isSubmitting ? 'Completing Registration...' : 'Complete & Start Playing'}
+              {isSubmitting ? t('auth.completingRegistration') : t('auth.completeRegistration')}
             </button>
           </form>
         )}
@@ -509,9 +592,9 @@ export const Register: React.FC = () => {
 
       {/* Footer / Switch to Login */}
       <div className="mt-6 text-center text-xs text-slate-400">
-        Already registered?{' '}
+        {t('auth.alreadyHaveAccount')}{' '}
         <Link to="/login" className="font-semibold text-emerald-400 hover:underline">
-          Log In
+          {t('auth.loginLink')}
         </Link>
       </div>
     </div>

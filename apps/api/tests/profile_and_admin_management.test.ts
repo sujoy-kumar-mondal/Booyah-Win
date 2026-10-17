@@ -853,4 +853,109 @@ describe('Milestone 8: History, Profile, Staff Dashboard & Admin Management', ()
       expect(res.body.data.matchHistory).toBeDefined();
     });
   });
+
+  describe('User Avatar Upload & Deletion (POST /api/v1/me/avatar & DELETE /api/v1/me/avatar)', () => {
+    it('uploads valid JPEG avatar, verifies GET /me returns avatarUrl, and deletes avatar', async () => {
+      const { user, token } = await createTestUser();
+
+      // Initially avatarUrl is null
+      const initialMe = await request(app)
+        .get('/api/v1/me')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(initialMe.body.data.profile.avatarUrl).toBeNull();
+
+      // Upload valid JPEG avatar
+      const uploadRes = await request(app)
+        .post('/api/v1/me/avatar')
+        .set('Authorization', `Bearer ${token}`)
+        .attach('avatar', VALID_JPEG, 'avatar.jpg')
+        .expect(200);
+
+      expect(uploadRes.body.data.avatarUrl).toBeDefined();
+      expect(typeof uploadRes.body.data.avatarUrl).toBe('string');
+      expect(uploadRes.body.data.avatarUrl).toContain('/api/v1/files/');
+
+      // Verify users table avatar_key is populated
+      const dbCheck = await query('SELECT avatar_key FROM users WHERE id = $1', [user.id]);
+      expect(dbCheck.rows[0].avatar_key).not.toBeNull();
+      expect(dbCheck.rows[0].avatar_key).toMatch(/^[a-f0-9]+\.(jpg|png|webp)$/);
+
+      // GET /me returns populated avatarUrl
+      const updatedMe = await request(app)
+        .get('/api/v1/me')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(updatedMe.body.data.profile.avatarUrl).toContain(dbCheck.rows[0].avatar_key);
+      expect(updatedMe.body.data.profile.avatarUrl.split('?')[0]).toBe(
+        uploadRes.body.data.avatarUrl.split('?')[0]
+      );
+
+      // DELETE /api/v1/me/avatar removes photo
+      const deleteRes = await request(app)
+        .delete('/api/v1/me/avatar')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(deleteRes.body.data.success).toBe(true);
+
+      // Verify users table avatar_key is now null
+      const dbCheckAfter = await query('SELECT avatar_key FROM users WHERE id = $1', [user.id]);
+      expect(dbCheckAfter.rows[0].avatar_key).toBeNull();
+
+      // Subsequent GET /me returns null avatarUrl
+      const finalMe = await request(app)
+        .get('/api/v1/me')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(200);
+      expect(finalMe.body.data.profile.avatarUrl).toBeNull();
+    });
+
+    it('rejects avatar upload without file attachment with 400 VALIDATION_ERROR', async () => {
+      const { token } = await createTestUser();
+
+      const res = await request(app)
+        .post('/api/v1/me/avatar')
+        .set('Authorization', `Bearer ${token}`)
+        .expect(400);
+
+      expect(res.body.error.code).toBe(ErrorCodes.VALIDATION_ERROR);
+      expect(res.body.error.message).toMatch(/Profile photo file is required/i);
+    });
+
+    it('rejects avatar exceeding 2 MB with 400 VALIDATION_ERROR', async () => {
+      const { token } = await createTestUser();
+
+      // Buffer slightly larger than 2 MB
+      const oversizedJpeg = Buffer.concat([
+        Buffer.from([0xff, 0xd8, 0xff, 0xe0]),
+        Buffer.alloc(2 * 1024 * 1024 + 500),
+      ]);
+
+      const res = await request(app)
+        .post('/api/v1/me/avatar')
+        .set('Authorization', `Bearer ${token}`)
+        .attach('avatar', oversizedJpeg, 'large.jpg')
+        .expect(400);
+
+      expect(res.body.error.code).toBe(ErrorCodes.VALIDATION_ERROR);
+      expect(res.body.error.message).toMatch(/2 MB/i);
+    });
+
+    it('rejects avatar with invalid magic bytes (fake image) with 400 VALIDATION_ERROR', async () => {
+      const { token } = await createTestUser();
+
+      // Random text bytes disguised as .jpg
+      const fakeImage = Buffer.from('NOT_A_REAL_IMAGE_FILE_JUST_PLAIN_TEXT');
+
+      const res = await request(app)
+        .post('/api/v1/me/avatar')
+        .set('Authorization', `Bearer ${token}`)
+        .attach('avatar', fakeImage, 'fake.jpg')
+        .expect(400);
+
+      expect(res.body.error.code).toBe(ErrorCodes.VALIDATION_ERROR);
+      expect(res.body.error.message).toMatch(/JPEG, PNG, or WebP/i);
+    });
+  });
 });
+

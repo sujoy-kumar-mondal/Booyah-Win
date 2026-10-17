@@ -3,6 +3,7 @@ import { Share2 } from 'lucide-react';
 import { buildReferralSharePayload } from '../../utils/share.js';
 import { ShareModal } from './ShareModal.js';
 import { Toast } from './Toast.js';
+import { useTranslation } from '../../i18n/LanguageContext.js';
 
 interface ShareButtonProps {
   referralCode: string;
@@ -13,11 +14,13 @@ interface ShareButtonProps {
 export const ShareButton: React.FC<ShareButtonProps> = ({
   referralCode,
   className,
-  buttonText = 'Share & Earn',
+  buttonText,
 }) => {
+  const { t } = useTranslation();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
 
+  const displayButtonText = buttonText || t('referral.shareAndEarn');
   const payload = buildReferralSharePayload(referralCode);
 
   const handleShare = async () => {
@@ -30,7 +33,7 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
           title: payload.title,
           text: payload.fullMessage,
         });
-        setToastMessage('Shared successfully!');
+        setToastMessage(t('referral.sharedSuccessfully'));
       } catch (err: any) {
         // User cancelling the share sheet throws an AbortError - ignore it
         if (err?.name === 'AbortError') {
@@ -58,7 +61,7 @@ export const ShareButton: React.FC<ShareButtonProps> = ({
         }
       >
         <Share2 className="h-4 w-4 stroke-[2.5]" />
-        <span>{buttonText}</span>
+        <span>{displayButtonText}</span>
       </button>
 
       <ShareModal

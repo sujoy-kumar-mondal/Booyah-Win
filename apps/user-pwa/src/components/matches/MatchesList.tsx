@@ -9,9 +9,11 @@ import {
 } from 'lucide-react';
 import { fetchMatches, type MatchUserDto } from '../../api/matches.js';
 import { formatIndianRupees, formatISTDateTime, formatGameMode } from '../../utils/formatters.js';
+import { useTranslation } from '../../i18n/LanguageContext.js';
 import { MatchDetailModal } from './MatchDetailModal.js';
 
 export const MatchesList: React.FC = () => {
+  const { t, formatEnum } = useTranslation();
   const [matches, setMatches] = useState<MatchUserDto[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +34,7 @@ export const MatchesList: React.FC = () => {
       setMatches(data);
       return data;
     } catch (err: any) {
-      setError(err?.message || 'Failed to load matches. Please tap refresh.');
+      setError(err?.message || t('matches.loadFailedRefresh'));
       return [];
     } finally {
       setIsLoading(false);
@@ -85,7 +87,7 @@ export const MatchesList: React.FC = () => {
                 : 'bg-slate-900 text-slate-400 hover:bg-slate-800'
             }`}
           >
-            All Games
+            {t('matches.filterAllGames')}
           </button>
           <button
             type="button"
@@ -97,7 +99,7 @@ export const MatchesList: React.FC = () => {
                 : 'bg-slate-900 text-slate-400 hover:bg-slate-800'
             }`}
           >
-            Battle Royale
+            {t('matches.modeBR')}
           </button>
           <button
             type="button"
@@ -109,7 +111,7 @@ export const MatchesList: React.FC = () => {
                 : 'bg-slate-900 text-slate-400 hover:bg-slate-800'
             }`}
           >
-            Clash Squad
+            {t('matches.modeCS')}
           </button>
         </div>
 
@@ -117,13 +119,13 @@ export const MatchesList: React.FC = () => {
         <button
           type="button"
           data-testid="refresh-matches-btn"
-          aria-label="Refresh matches"
+          aria-label={t('matches.refresh')}
           onClick={handleRefreshClick}
           disabled={isLoading}
           className="flex shrink-0 items-center gap-1 rounded-lg border border-slate-800 bg-slate-900 px-2.5 py-1.5 text-xs font-semibold text-slate-300 hover:bg-slate-800 disabled:opacity-50"
         >
           <RotateCw className={`h-3.5 w-3.5 ${isLoading ? 'animate-spin' : ''}`} />
-          <span className="hidden sm:inline">Refresh</span>
+          <span className="hidden sm:inline">{t('matches.refresh')}</span>
         </button>
       </div>
 
@@ -141,7 +143,7 @@ export const MatchesList: React.FC = () => {
                 : 'border-slate-800 bg-slate-950 text-slate-400 hover:border-slate-700'
             }`}
           >
-            {mode}
+            {mode === 'all' ? t('matches.filterAllTeams') : formatEnum('teamMode', mode)}
           </button>
         ))}
       </div>
@@ -150,7 +152,7 @@ export const MatchesList: React.FC = () => {
       {isLoading && matches.length === 0 && (
         <div data-testid="matches-loading" className="py-12 text-center text-xs text-slate-400">
           <RotateCw className="mx-auto h-6 w-6 animate-spin text-emerald-400" />
-          <p className="mt-2 font-medium">Loading match rooms...</p>
+          <p className="mt-2 font-medium">{t('matches.loadingMatches')}</p>
         </div>
       )}
 
@@ -162,7 +164,7 @@ export const MatchesList: React.FC = () => {
         >
           <div className="flex items-center gap-2 font-bold">
             <AlertCircle className="h-4 w-4" />
-            <span>Failed to load matches</span>
+            <span>{t('matches.loadFailed')}</span>
           </div>
           <p className="mt-1 text-slate-300">{error}</p>
           <button
@@ -171,7 +173,7 @@ export const MatchesList: React.FC = () => {
             onClick={loadMatches}
             className="mt-3 rounded-lg bg-slate-800 px-3 py-1 font-semibold text-slate-200 hover:bg-slate-700"
           >
-            Try Again
+            {t('matches.tryAgain')}
           </button>
         </div>
       )}
@@ -183,8 +185,8 @@ export const MatchesList: React.FC = () => {
           className="rounded-2xl border border-slate-800 bg-slate-900/40 p-8 text-center text-xs text-slate-400"
         >
           <Swords className="mx-auto h-8 w-8 text-slate-600" />
-          <h4 className="mt-2 text-sm font-bold text-slate-300">No Matches Available</h4>
-          <p className="mt-1">Check back later or adjust your filters above.</p>
+          <h4 className="mt-2 text-sm font-bold text-slate-300">{t('matches.noMatchesAvailable')}</h4>
+          <p className="mt-1">{t('matches.adjustFilters')}</p>
         </div>
       )}
 
@@ -209,7 +211,7 @@ export const MatchesList: React.FC = () => {
                       {formatGameMode(m.gameMode)}
                     </span>
                     <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-300">
-                      {m.teamMode}
+                      {formatEnum('teamMode', m.teamMode)}
                     </span>
                     {m.hasJoined && (
                       <span
@@ -217,7 +219,7 @@ export const MatchesList: React.FC = () => {
                         className="flex items-center gap-1 rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/30"
                       >
                         <CheckCircle2 className="h-3 w-3" />
-                        Joined
+                        {t('matches.joined')}
                       </span>
                     )}
                   </div>
@@ -228,7 +230,7 @@ export const MatchesList: React.FC = () => {
                 </div>
 
                 <div className="text-right">
-                  <div className="text-[10px] text-slate-400">Entry Fee</div>
+                  <div className="text-[10px] text-slate-400">{t('matches.entryFee')}</div>
                   <div
                     data-testid={`match-fee-${m.id}`}
                     className="text-base font-extrabold text-slate-100"
@@ -241,13 +243,13 @@ export const MatchesList: React.FC = () => {
               {/* Prizes & Seats summary */}
               <div className="mt-3 grid grid-cols-2 gap-2 border-t border-slate-800/80 pt-2.5 text-xs">
                 <div>
-                  <span className="text-[11px] text-slate-400">1st Place Prize</span>
+                  <span className="text-[11px] text-slate-400">{t('matches.firstPlacePrize')}</span>
                   <div className="font-bold text-emerald-400">
                     {formatIndianRupees(firstPlacePrize)}
                   </div>
                 </div>
                 <div className="text-right">
-                  <span className="text-[11px] text-slate-400">Kill Price</span>
+                  <span className="text-[11px] text-slate-400">{t('matches.killPrice')}</span>
                   <div className="font-semibold text-slate-200">
                     {formatIndianRupees(m.prizes.killPrice)}
                   </div>
@@ -259,13 +261,13 @@ export const MatchesList: React.FC = () => {
                 <span data-testid={`match-seats-${m.id}`} className="flex items-center gap-1">
                   <Users className="h-3.5 w-3.5" />
                   {m.teamMode.toLowerCase() === 'solo'
-                    ? `${m.joinedPlayers} / ${m.maxPlayers} players joined`
-                    : `${m.seatsTaken} seats reserved vs ${m.joinedPlayers} players joined`}
+                    ? t('matches.soloSeatStatus', { joined: m.joinedPlayers, max: m.maxPlayers })
+                    : t('matches.teamSeatStatus', { reserved: m.seatsTaken, joined: m.joinedPlayers })}
                 </span>
 
                 {isBR && (
                   <span className="text-[10px] text-emerald-400/90 font-medium">
-                    minimum 2 kills to earn kill rewards
+                    {t('matches.minKillsReward')}
                   </span>
                 )}
               </div>

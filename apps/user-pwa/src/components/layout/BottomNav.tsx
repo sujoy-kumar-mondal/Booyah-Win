@@ -1,29 +1,32 @@
 import React from 'react';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 import { Home, Swords, Trophy, Wallet, User } from 'lucide-react';
-import { useInvites } from '../../context/InvitesContext.js';
+import { useTranslation } from '../../i18n/LanguageContext.js';
 
 export const BottomNav: React.FC = () => {
-  let pendingCount = 0;
-  try {
-    const invitesCtx = useInvites();
-    pendingCount = invitesCtx.pendingCount;
-  } catch {
-    // If rendered outside InvitesProvider
-  }
+  const location = useLocation();
+  const { t } = useTranslation();
+
+  const isRouteActive = (itemTo: string, isNavActive: boolean) => {
+    if (itemTo === '/profile') {
+      return isNavActive || location.pathname === '/referral' || location.pathname.startsWith('/profile');
+    }
+    return isNavActive;
+  };
 
   const navItems = [
-    { to: '/', label: 'Home', icon: Home, badge: null },
+    { to: '/', label: t('nav.home'), icon: Home, badge: null, testIdKey: 'home' },
     {
       to: '/matches',
-      label: 'Matches',
+      label: t('nav.matches'),
       icon: Swords,
-      badge: pendingCount > 0 ? String(pendingCount) : null,
-      isAlertBadge: pendingCount > 0,
+      badge: null,
+      isAlertBadge: false,
+      testIdKey: 'matches',
     },
-    { to: '/leaderboard', label: 'Rankings', icon: Trophy, badge: null },
-    { to: '/wallet', label: 'Wallet', icon: Wallet, badge: null },
-    { to: '/profile', label: 'Profile', icon: User, badge: null },
+    { to: '/leaderboard', label: t('nav.leaderboard'), icon: Trophy, badge: null, testIdKey: 'rankings' },
+    { to: '/wallet', label: t('nav.wallet'), icon: Wallet, badge: null, testIdKey: 'wallet' },
+    { to: '/profile', label: t('nav.profile'), icon: User, badge: null, testIdKey: 'profile' },
   ];
 
   return (
@@ -38,19 +41,22 @@ export const BottomNav: React.FC = () => {
             <NavLink
               key={item.to}
               to={item.to}
-              className={({ isActive }) =>
-                `relative flex flex-col items-center justify-center py-1 px-3 text-xs font-medium transition-all ${
-                  isActive ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'
-                }`
-              }
+              className={({ isActive }) => {
+                const active = isRouteActive(item.to, isActive);
+                return `relative flex flex-col items-center justify-center py-1 px-3 text-xs font-medium transition-all ${
+                  active ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+                }`;
+              }}
             >
-              {({ isActive }) => (
-                <>
-                  <div className="relative">
-                    <Icon className={`h-5 w-5 ${isActive ? 'stroke-[2.5]' : 'stroke-2'}`} />
+              {({ isActive }) => {
+                const active = isRouteActive(item.to, isActive);
+                return (
+                  <>
+                    <div className="relative">
+                      <Icon className={`h-5 w-5 ${active ? 'stroke-[2.5]' : 'stroke-2'}`} />
                     {item.badge && (
                       <span
-                        data-testid={`nav-badge-${item.label.toLowerCase()}`}
+                        data-testid={`nav-badge-${item.testIdKey}`}
                         className={`absolute -top-1.5 -right-3 rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
                           item.isAlertBadge
                             ? 'bg-emerald-500 text-slate-950 shadow-sm'
@@ -63,8 +69,9 @@ export const BottomNav: React.FC = () => {
                   </div>
                   <span className="mt-1">{item.label}</span>
                 </>
-              )}
-            </NavLink>
+              );
+            }}
+          </NavLink>
           );
         })}
       </div>

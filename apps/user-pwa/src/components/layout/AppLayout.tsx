@@ -4,8 +4,11 @@ import { BottomNav } from './BottomNav.js';
 import { SlowServerBanner } from '../common/SlowServerBanner.js';
 import { MaintenanceBanner } from '../common/MaintenanceBanner.js';
 import { Flame, Headphones } from 'lucide-react';
+import { useTranslation } from '../../i18n/LanguageContext.js';
 
 export const AppLayout: React.FC = () => {
+  const { t } = useTranslation();
+
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
       <SlowServerBanner />
@@ -27,10 +30,10 @@ export const AppLayout: React.FC = () => {
             to="/support"
             data-testid="header-support-btn"
             className="flex items-center gap-1.5 rounded-xl border border-slate-800 bg-slate-900/80 px-2.5 py-1.5 text-xs font-semibold text-slate-300 hover:text-emerald-400 hover:border-emerald-500/30 transition-all active:scale-95"
-            aria-label="Help & Support"
+            aria-label={t('common.support')}
           >
             <Headphones className="h-4 w-4 text-emerald-400" />
-            <span>Support</span>
+            <span>{t('common.support')}</span>
           </Link>
         </div>
       </header>

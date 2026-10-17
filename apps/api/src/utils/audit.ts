@@ -1,6 +1,6 @@
-export interface Queryable {
-  query: (text: string, params?: any[]) => Promise<any>;
-}
+export type Queryable =
+  | { query: (text: string, params?: any[]) => Promise<any> }
+  | ((text: string, params?: any[]) => Promise<any>);
 
 export interface AuditLogParams {
   staffId: string | number;
@@ -46,8 +46,12 @@ export async function writeAuditLog(
   params: AuditLogParams
 ): Promise<void> {
   const sanitized = sanitizeAuditDetails(params.details);
+  const queryFn =
+    typeof clientOrPool === 'function'
+      ? clientOrPool
+      : clientOrPool.query.bind(clientOrPool);
 
-  await clientOrPool.query(
+  await queryFn(
     `INSERT INTO audit_logs (staff_id, action, target_type, target_id, details)
      VALUES ($1, $2, $3, $4, $5)`,
     [

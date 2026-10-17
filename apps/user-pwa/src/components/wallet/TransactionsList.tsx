@@ -7,6 +7,7 @@ import {
   formatSignedRupees,
 } from '../../utils/formatters.js';
 import type { TransactionDto } from '../../api/types.js';
+import { useTranslation } from '../../i18n/LanguageContext.js';
 import {
   History,
   ArrowUpRight,
@@ -19,16 +20,17 @@ import {
 } from 'lucide-react';
 
 const FILTER_CHIPS = [
-  { label: 'All', value: 'all' },
-  { label: 'Add Money', value: 'add_money' },
-  { label: 'Referral', value: 'referral' },
-  { label: 'Withdrawal', value: 'withdrawal' },
-  { label: 'Joining Fee', value: 'join_fee' },
-  { label: 'Winning', value: 'winning' },
-  { label: 'Refund', value: 'refund' },
+  { labelKey: 'wallet.chipAll', value: 'all' },
+  { labelKey: 'wallet.chipAddMoney', value: 'add_money' },
+  { labelKey: 'wallet.chipReferral', value: 'referral' },
+  { labelKey: 'wallet.chipWithdrawal', value: 'withdrawal' },
+  { labelKey: 'wallet.chipJoiningFee', value: 'join_fee' },
+  { labelKey: 'wallet.chipWinning', value: 'winning' },
+  { labelKey: 'wallet.chipRefund', value: 'refund' },
 ];
 
 export const TransactionsList: React.FC = () => {
+  const { t } = useTranslation();
   const [selectedType, setSelectedType] = useState<string>('all');
   const [cursor, setCursor] = useState<string | undefined>(undefined);
   const [allTransactions, setAllTransactions] = useState<TransactionDto[]>([]);
@@ -91,24 +93,24 @@ export const TransactionsList: React.FC = () => {
   const formatTypeLabel = (type: string): string => {
     switch (type) {
       case 'add_money':
-        return 'Deposit';
+        return t('wallet.txnDeposit');
       case 'referral':
-        return 'Referral Reward';
+        return t('wallet.txnReferralReward');
       case 'join_fee':
-        return 'Match Entry Fee';
+        return t('wallet.txnMatchEntryFee');
       case 'winning':
-        return 'Match Winning';
+        return t('wallet.txnMatchWinning');
       case 'withdrawal_hold':
       case 'withdrawal':
-        return 'Withdrawal';
+        return t('wallet.txnWithdrawal');
       case 'withdrawal_refund':
-        return 'Withdrawal Refund';
+        return t('wallet.txnWithdrawalRefund');
       case 'refund':
-        return 'Fee Refund';
+        return t('wallet.txnFeeRefund');
       case 'admin_adjustment':
-        return 'Admin Adjustment';
+        return t('wallet.txnAdminAdjustment');
       case 'reversal':
-        return 'Result Reversal';
+        return t('wallet.txnResultReversal');
       default:
         return type.replace(/_/g, ' ');
     }
@@ -135,7 +137,7 @@ export const TransactionsList: React.FC = () => {
                   : 'bg-slate-900 text-slate-300 border-slate-800 hover:border-slate-700 hover:text-slate-100'
               }`}
             >
-              {chip.label}
+              {t(chip.labelKey)}
             </button>
           );
         })}
@@ -146,7 +148,7 @@ export const TransactionsList: React.FC = () => {
         {isLoading && allTransactions.length === 0 ? (
           <div className="p-8 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
             <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
-            Loading transaction history...
+            {t('wallet.loadingTransactions')}
           </div>
         ) : allTransactions.length === 0 ? (
           <div
@@ -154,9 +156,9 @@ export const TransactionsList: React.FC = () => {
             data-testid="transactions-empty-state"
           >
             <History className="h-8 w-8 mx-auto text-slate-600" />
-            <p className="text-xs font-medium text-slate-300">No transactions found</p>
+            <p className="text-xs font-medium text-slate-300">{t('wallet.noTransactionsFound')}</p>
             <p className="text-[11px] text-slate-500">
-              Transactions will appear here as you add funds, enter matches, or receive rewards.
+              {t('wallet.noTransactionsDesc')}
             </p>
           </div>
         ) : (
@@ -202,7 +204,7 @@ export const TransactionsList: React.FC = () => {
                   <div className="border-t border-slate-800/80 pt-2 flex items-center justify-between text-[11px] text-slate-400">
                     <span>{formatISTDateTime(tx.createdAt)}</span>
                     <div className="flex items-center gap-1 font-mono">
-                      <span>Bal:</span>
+                      <span>{t('wallet.balColon')}</span>
                       <span className="text-slate-200">
                         {formatIndianRupees(tx.remainingAmount)}
                       </span>
@@ -223,10 +225,10 @@ export const TransactionsList: React.FC = () => {
                 {isFetching ? (
                   <>
                     <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                    Loading...
+                    {t('common.loading')}
                   </>
                 ) : (
-                  'Load more'
+                  t('wallet.loadMore')
                 )}
               </button>
             )}

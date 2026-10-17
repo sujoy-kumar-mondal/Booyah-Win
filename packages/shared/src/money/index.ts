@@ -78,3 +78,27 @@ export function parseMoney(raw: string | number): number {
 
   return paise;
 }
+
+/**
+ * Parse a cashback percentage string (e.g. "5", "2.5", "12.34", "100") into integer basis points (0 to 10000).
+ * Rejects: negative, > 100, > 2 decimal places, non-numeric.
+ * Zero floats used.
+ */
+export function parseCashbackPercentToBasisPoints(val: string): number {
+  const trimmed = String(val).trim();
+  if (!/^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/.test(trimmed)) {
+    throw new Error('Cashback percentage must be a number between 0 and 100 with at most 2 decimal places');
+  }
+
+  const parts = trimmed.split('.');
+  const whole = BigInt(parts[0]);
+  let fraction = 0n;
+  if (parts.length > 1) {
+    fraction = BigInt(parts[1].padEnd(2, '0').slice(0, 2));
+  }
+  const basisPoints = whole * 100n + fraction;
+  if (basisPoints < 0n || basisPoints > 10000n) {
+    throw new Error('Cashback percentage must be between 0 and 100');
+  }
+  return Number(basisPoints);
+}

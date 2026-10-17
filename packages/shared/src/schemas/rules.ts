@@ -3,7 +3,7 @@ import { z } from 'zod';
 export const rulesResponseSchema = z
   .object({
     referralReward: z.string().regex(/^\d+\.\d{2}$/, 'Must be a valid 2-decimal money string'),
-    maxCashbackUsagePercent: z.number().int().positive(),
+    maxCashbackUsagePercent: z.number().min(0).max(100),
     minWithdrawal: z.string().regex(/^\d+\.\d{2}$/, 'Must be a valid 2-decimal money string'),
   })
   .strict();

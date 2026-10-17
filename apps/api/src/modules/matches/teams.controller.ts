@@ -6,9 +6,22 @@ import {
   declineInvite,
   replaceInvite,
   disbandTeam,
+  lookupTeammate,
 } from './teams.service.js';
 
 export class TeamsController {
+  static async lookupTeammate(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const leaderId = req.user!.id;
+      const ffId = String(req.query.ffId || '');
+      const matchId = req.query.matchId ? String(req.query.matchId) : undefined;
+      const result = await lookupTeammate(leaderId, ffId, matchId);
+      res.status(200).json({ data: result });
+    } catch (err) {
+      next(err);
+    }
+  }
+
   static async createTeam(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
       const matchId = req.params.id;

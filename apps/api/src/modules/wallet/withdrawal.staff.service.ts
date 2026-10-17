@@ -22,6 +22,7 @@ import { creditWallet } from './wallet.service.js';
 export interface StaffWithdrawalDto {
   id: string;
   userId: string;
+  userName?: string;
   userEmail: string;
   amount: string;
   upiId: string;
@@ -39,6 +40,7 @@ function rowToDto(row: any): StaffWithdrawalDto {
   return {
     id:                 row.id.toString(),
     userId:             row.user_id.toString(),
+    userName:           row.user_name || undefined,
     userEmail:          row.user_email,
     amount:             paiseToString(stringToPaise(row.amount.toString())),
     upiId:              row.upi_id,
@@ -62,7 +64,7 @@ export async function listWithdrawalsStaff(params: {
   const limit = Math.min(Math.max(params.limit || 20, 1), 100);
 
   let sql = `
-    SELECT wr.id, wr.user_id, u.email AS user_email, wr.amount, wr.upi_id,
+    SELECT wr.id, wr.user_id, u.name AS user_name, u.email AS user_email, wr.amount, wr.upi_id,
            wr.status, wr.reject_reason, wr.payout_ref,
            wr.created_at, wr.processed_at, wr.processed_by,
            wr.employee_reviewed_at, wr.employee_reviewed_by

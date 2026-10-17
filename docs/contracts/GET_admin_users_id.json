@@ -9,19 +9,19 @@
       "ffName": "ProPlayer1",
       "upiId": "user@upi",
       "dateOfBirth": "2000-01-01",
-      "referralCode": "43VJ684R",
+      "referralCode": "6YYEV7NH",
       "referredBy": null,
       "isDeleted": false,
       "deletedAt": null,
       "deletedReason": null,
       "deletedBy": null,
-      "createdAt": "2026-10-13T13:39:19.797Z"
+      "createdAt": "2026-10-17T05:04:37.071Z"
     },
     "wallets": {
-      "addMoney": "90.00",
+      "addMoney": "50.00",
       "cashback": "0.00",
       "winning": "0.00",
-      "total": "90.00"
+      "total": "50.00"
     },
     "recentLedger": [
       {
@@ -30,65 +30,65 @@
         "type": "winning",
         "amount": "310.00",
         "balanceAfter": "410.00",
-        "totalAfter": "500.00",
+        "totalAfter": "460.00",
         "refType": null,
         "refId": "21",
-        "createdAt": "2026-10-13T13:39:20.653Z"
+        "createdAt": "2026-10-17T05:04:37.990Z"
       },
       {
         "id": 27,
         "wallet": "add_money",
         "type": "join_fee",
         "amount": "-20.00",
-        "balanceAfter": "90.00",
-        "totalAfter": "190.00",
+        "balanceAfter": "50.00",
+        "totalAfter": "150.00",
         "refType": "match",
         "refId": "21",
-        "createdAt": "2026-10-13T13:39:20.621Z"
+        "createdAt": "2026-10-17T05:04:37.960Z"
       },
       {
         "id": 25,
         "wallet": "add_money",
         "type": "join_fee",
-        "amount": "-20.00",
-        "balanceAfter": "110.00",
-        "totalAfter": "210.00",
+        "amount": "-40.00",
+        "balanceAfter": "70.00",
+        "totalAfter": "170.00",
         "refType": "match",
         "refId": "15",
-        "createdAt": "2026-10-13T13:39:20.586Z"
+        "createdAt": "2026-10-17T05:04:37.925Z"
       },
       {
         "id": 24,
         "wallet": "add_money",
         "type": "join_fee",
-        "amount": "-20.00",
-        "balanceAfter": "130.00",
-        "totalAfter": "230.00",
+        "amount": "-40.00",
+        "balanceAfter": "110.00",
+        "totalAfter": "210.00",
         "refType": "match",
         "refId": "14",
-        "createdAt": "2026-10-13T13:39:20.563Z"
+        "createdAt": "2026-10-17T05:04:37.905Z"
       },
       {
         "id": 23,
         "wallet": "add_money",
         "type": "refund",
-        "amount": "20.00",
+        "amount": "40.00",
         "balanceAfter": "150.00",
         "totalAfter": "250.00",
         "refType": "match",
         "refId": "13",
-        "createdAt": "2026-10-13T13:39:20.551Z"
+        "createdAt": "2026-10-17T05:04:37.891Z"
       },
       {
         "id": 22,
         "wallet": "add_money",
         "type": "join_fee",
-        "amount": "-20.00",
-        "balanceAfter": "130.00",
-        "totalAfter": "230.00",
+        "amount": "-40.00",
+        "balanceAfter": "110.00",
+        "totalAfter": "210.00",
         "refType": "match",
         "refId": "13",
-        "createdAt": "2026-10-13T13:39:20.528Z"
+        "createdAt": "2026-10-17T05:04:37.867Z"
       },
       {
         "id": 21,
@@ -99,7 +99,7 @@
         "totalAfter": "250.00",
         "refType": "match",
         "refId": "12",
-        "createdAt": "2026-10-13T13:39:20.500Z"
+        "createdAt": "2026-10-17T05:04:37.838Z"
       },
       {
         "id": 20,
@@ -110,7 +110,7 @@
         "totalAfter": "260.00",
         "refType": "match",
         "refId": "11",
-        "createdAt": "2026-10-13T13:39:20.477Z"
+        "createdAt": "2026-10-17T05:04:37.814Z"
       },
       {
         "id": 18,
@@ -121,7 +121,7 @@
         "totalAfter": "280.00",
         "refType": "match",
         "refId": "10",
-        "createdAt": "2026-10-13T13:39:20.455Z"
+        "createdAt": "2026-10-17T05:04:37.788Z"
       },
       {
         "id": 17,
@@ -132,7 +132,7 @@
         "totalAfter": "290.00",
         "refType": "match",
         "refId": "8",
-        "createdAt": "2026-10-13T13:39:20.417Z"
+        "createdAt": "2026-10-17T05:04:37.750Z"
       },
       {
         "id": 16,
@@ -143,7 +143,7 @@
         "totalAfter": "310.00",
         "refType": "withdrawal",
         "refId": "3",
-        "createdAt": "2026-10-13T13:39:20.383Z"
+        "createdAt": "2026-10-17T05:04:37.717Z"
       },
       {
         "id": 15,
@@ -154,7 +154,7 @@
         "totalAfter": "360.00",
         "refType": "withdrawal",
         "refId": "2",
-        "createdAt": "2026-10-13T13:39:20.326Z"
+        "createdAt": "2026-10-17T05:04:37.644Z"
       },
       {
         "id": 14,
@@ -165,7 +165,7 @@
         "totalAfter": "310.00",
         "refType": "withdrawal",
         "refId": "2",
-        "createdAt": "2026-10-13T13:39:20.321Z"
+        "createdAt": "2026-10-17T05:04:37.635Z"
       },
       {
         "id": 13,
@@ -176,7 +176,7 @@
         "totalAfter": "360.00",
         "refType": "deposit",
         "refId": "1",
-        "createdAt": "2026-10-13T13:39:20.285Z"
+        "createdAt": "2026-10-17T05:04:37.591Z"
       },
       {
         "id": 11,
@@ -187,7 +187,7 @@
         "totalAfter": "310.00",
         "refType": null,
         "refId": "4",
-        "createdAt": "2026-10-13T13:39:20.251Z"
+        "createdAt": "2026-10-17T05:04:37.544Z"
       },
       {
         "id": 9,
@@ -198,7 +198,7 @@
         "totalAfter": "620.00",
         "refType": null,
         "refId": "4",
-        "createdAt": "2026-10-13T13:39:20.236Z"
+        "createdAt": "2026-10-17T05:04:37.528Z"
       },
       {
         "id": 8,
@@ -209,7 +209,7 @@
         "totalAfter": "310.00",
         "refType": "match",
         "refId": "1",
-        "createdAt": "2026-10-13T13:39:20.193Z"
+        "createdAt": "2026-10-17T05:04:37.488Z"
       },
       {
         "id": 7,
@@ -231,7 +231,7 @@
         "totalAfter": "290.00",
         "refType": "withdrawal",
         "refId": "1",
-        "createdAt": "2026-10-13T13:39:20.007Z"
+        "createdAt": "2026-10-17T05:04:37.276Z"
       },
       {
         "id": 4,
@@ -242,7 +242,7 @@
         "totalAfter": "340.00",
         "refType": "match",
         "refId": "6",
-        "createdAt": "2026-10-13T13:39:19.956Z"
+        "createdAt": "2026-10-17T05:04:37.224Z"
       }
     ],
     "matchHistory": [
@@ -257,7 +257,7 @@
         "position": 1,
         "payout": "310.00",
         "displayStatus": "Booyah",
-        "joinedAt": "2026-10-13T13:39:20.621Z"
+        "joinedAt": "2026-10-17T05:04:37.960Z"
       },
       {
         "matchId": "20",
@@ -270,7 +270,7 @@
         "position": null,
         "payout": "0.00",
         "displayStatus": "Lost",
-        "joinedAt": "2026-10-13T13:39:20.605Z"
+        "joinedAt": "2026-10-17T05:04:37.944Z"
       },
       {
         "matchId": "19",
@@ -283,7 +283,7 @@
         "position": 4,
         "payout": "0.00",
         "displayStatus": "4th",
-        "joinedAt": "2026-10-13T13:39:20.605Z"
+        "joinedAt": "2026-10-17T05:04:37.943Z"
       },
       {
         "matchId": "18",
@@ -296,7 +296,7 @@
         "position": 3,
         "payout": "50.00",
         "displayStatus": "Third",
-        "joinedAt": "2026-10-13T13:39:20.604Z"
+        "joinedAt": "2026-10-17T05:04:37.943Z"
       },
       {
         "matchId": "17",
@@ -309,7 +309,7 @@
         "position": 2,
         "payout": "80.00",
         "displayStatus": "Second",
-        "joinedAt": "2026-10-13T13:39:20.603Z"
+        "joinedAt": "2026-10-17T05:04:37.942Z"
       },
       {
         "matchId": "16",
@@ -322,7 +322,7 @@
         "position": 1,
         "payout": "150.00",
         "displayStatus": "Booyah",
-        "joinedAt": "2026-10-13T13:39:20.602Z"
+        "joinedAt": "2026-10-17T05:04:37.941Z"
       },
       {
         "matchId": "15",
@@ -335,7 +335,7 @@
         "position": null,
         "payout": "0.00",
         "displayStatus": "Result pending",
-        "joinedAt": "2026-10-13T13:39:20.586Z"
+        "joinedAt": "2026-10-17T05:04:37.925Z"
       },
       {
         "matchId": "14",
@@ -348,7 +348,7 @@
         "position": null,
         "payout": "0.00",
         "displayStatus": "Result pending",
-        "joinedAt": "2026-10-13T13:39:20.563Z"
+        "joinedAt": "2026-10-17T05:04:37.905Z"
       },
       {
         "matchId": "13",
@@ -361,7 +361,7 @@
         "position": null,
         "payout": "0.00",
         "displayStatus": "Cancelled (refunded)",
-        "joinedAt": "2026-10-13T13:39:20.528Z"
+        "joinedAt": "2026-10-17T05:04:37.867Z"
       },
       {
         "matchId": "12",
@@ -374,7 +374,7 @@
         "position": null,
         "payout": "0.00",
         "displayStatus": "Result pending",
-        "joinedAt": "2026-10-13T13:39:20.500Z"
+        "joinedAt": "2026-10-17T05:04:37.838Z"
       },
       {
         "matchId": "11",
@@ -387,7 +387,7 @@
         "position": null,
         "payout": "0.00",
         "displayStatus": "Result pending",
-        "joinedAt": "2026-10-13T13:39:20.477Z"
+        "joinedAt": "2026-10-17T05:04:37.814Z"
       },
       {
         "matchId": "10",
@@ -400,7 +400,7 @@
         "position": null,
         "payout": "0.00",
         "displayStatus": "Result pending",
-        "joinedAt": "2026-10-13T13:39:20.455Z"
+        "joinedAt": "2026-10-17T05:04:37.788Z"
       },
       {
         "matchId": "8",
@@ -413,7 +413,7 @@
         "position": null,
         "payout": "0.00",
         "displayStatus": "Result pending",
-        "joinedAt": "2026-10-13T13:39:20.417Z"
+        "joinedAt": "2026-10-17T05:04:37.750Z"
       },
       {
         "matchId": "6",
@@ -426,7 +426,7 @@
         "position": null,
         "payout": "0.00",
         "displayStatus": "Result pending",
-        "joinedAt": "2026-10-13T13:39:19.956Z"
+        "joinedAt": "2026-10-17T05:04:37.224Z"
       },
       {
         "matchId": "4",
@@ -439,7 +439,7 @@
         "position": null,
         "payout": "0.00",
         "displayStatus": "Result pending",
-        "joinedAt": "2026-10-13T13:39:19.907Z"
+        "joinedAt": "2026-10-17T05:04:37.174Z"
       },
       {
         "matchId": "3",
@@ -452,7 +452,7 @@
         "position": null,
         "payout": "0.00",
         "displayStatus": "Result pending",
-        "joinedAt": "2026-10-13T13:39:19.886Z"
+        "joinedAt": "2026-10-17T05:04:37.153Z"
       },
       {
         "matchId": "2",
@@ -465,7 +465,7 @@
         "position": null,
         "payout": "0.00",
         "displayStatus": "Result pending",
-        "joinedAt": "2026-10-13T13:39:19.877Z"
+        "joinedAt": "2026-10-17T05:04:37.143Z"
       },
       {
         "matchId": "1",
@@ -478,7 +478,7 @@
         "position": null,
         "payout": "0.00",
         "displayStatus": "Cancelled (refunded)",
-        "joinedAt": "2026-10-13T13:39:19.858Z"
+        "joinedAt": "2026-10-17T05:04:37.123Z"
       }
     ]
   }

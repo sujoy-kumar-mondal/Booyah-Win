@@ -65,3 +65,7 @@ export const staffAuthRouter = Router();
 staffAuthRouter.post('/login/request-otp', otpIpLimiter, AuthController.requestStaffLoginOtp);
 staffAuthRouter.post('/login/verify-otp', AuthController.verifyStaffLoginOtp);
 staffAuthRouter.post('/logout', authenticateStaff, requireStaff, AuthController.logoutStaff);
+
+// Staff Step-Up OTP routes for dangerous action elevation
+staffAuthRouter.post('/step-up/request-otp', authenticateStaff, requireStaff, otpIpLimiter, AuthController.requestStaffStepUpOtp);
+staffAuthRouter.post('/step-up/verify-otp', authenticateStaff, requireStaff, AuthController.verifyStaffStepUpOtp);

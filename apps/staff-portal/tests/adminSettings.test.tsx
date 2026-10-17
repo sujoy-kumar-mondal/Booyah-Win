@@ -271,4 +271,109 @@ describe('Admin Settings Page', () => {
       expect(URL.revokeObjectURL).toHaveBeenCalled();
     });
   });
+
+  it('validates cashback cap percentage and displays business cost warning note', async () => {
+    vi.spyOn(adminApi, 'getAdminSettings').mockResolvedValue(
+      loadContractFixture('GET_admin_settings.json', adminSettingsResponseGuard, 'GET /admin/settings')
+    );
+
+    render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <MemoryRouter>
+          <StaffAuthProvider>
+            <Settings />
+          </StaffAuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-cashback-percent-input')).toBeInTheDocument();
+    });
+
+    // Check helper note on business cost
+    expect(
+      screen.getByText(/Raising the percentage costs the business more cashback/i)
+    ).toBeInTheDocument();
+
+    const input = screen.getByTestId('settings-cashback-percent-input');
+
+    // Invalid: negative
+    fireEvent.change(input, { target: { value: '-2' } });
+    expect(screen.getByTestId('settings-cashback-warning')).toHaveTextContent(
+      'Cashback percentage must be a number between 0 and 100 with at most 2 decimal places.'
+    );
+
+    // Invalid: > 100
+    fireEvent.change(input, { target: { value: '101' } });
+    expect(screen.getByTestId('settings-cashback-warning')).toHaveTextContent(
+      'Cashback percentage must be between 0 and 100.'
+    );
+
+    // Invalid: 3 decimals
+    fireEvent.change(input, { target: { value: '12.345' } });
+    expect(screen.getByTestId('settings-cashback-warning')).toHaveTextContent(
+      'Cashback percentage must be a number between 0 and 100 with at most 2 decimal places.'
+    );
+
+    // Valid: 12.34
+    fireEvent.change(input, { target: { value: '12.34' } });
+    expect(screen.queryByTestId('settings-cashback-warning')).toBeNull();
+  });
+
+  it('requires confirmation modal showing old and new cap before saving cashback setting change', async () => {
+    vi.spyOn(adminApi, 'getAdminSettings').mockResolvedValue(
+      loadContractFixture('GET_admin_settings.json', adminSettingsResponseGuard, 'GET /admin/settings')
+    );
+
+    const updateSpy = vi.spyOn(adminApi, 'updateAdminSettings').mockResolvedValue({
+      settings: {
+        min_deposit: '10.00',
+        max_deposit: '5000.00',
+        min_withdrawal: '50.00',
+        max_withdrawal: '10000.00',
+        daily_withdrawal_limit: '25000.00',
+        cashback_max_percent: '15.5',
+      },
+      updatedKeys: ['cashback_max_percent'],
+    } as any);
+
+    render(
+      <QueryClientProvider client={createTestQueryClient()}>
+        <MemoryRouter>
+          <StaffAuthProvider>
+            <Settings />
+          </StaffAuthProvider>
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      expect(screen.getByTestId('settings-cashback-percent-input')).toBeInTheDocument();
+    });
+
+    const input = screen.getByTestId('settings-cashback-percent-input');
+    fireEvent.change(input, { target: { value: '15.5' } });
+
+    // Click Save Settings button
+    fireEvent.click(screen.getByTestId('save-settings-btn'));
+
+    // Confirmation modal appears showing old and new caps
+    await waitFor(() => {
+      expect(screen.getByTestId('cashback-confirm-modal')).toBeInTheDocument();
+    });
+    expect(screen.getByTestId('modal-old-cashback-cap')).toHaveTextContent('5%');
+    expect(screen.getByTestId('modal-new-cashback-cap')).toHaveTextContent('15.5%');
+
+    // Confirm save
+    fireEvent.click(screen.getByTestId('confirm-cashback-save-btn'));
+
+    await waitFor(() => {
+      expect(updateSpy).toHaveBeenCalledWith(
+        expect.objectContaining({
+          cashback_max_percent: '15.5',
+        })
+      );
+    });
+  });
 });

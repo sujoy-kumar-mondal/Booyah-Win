@@ -15,6 +15,8 @@ import { Support } from './pages/Support.js';
 import { Leaderboard } from './pages/Leaderboard.js';
 import { Referral } from './pages/Referral.js';
 import { SessionReplacedModal } from './components/common/SessionReplacedModal.js';
+import { LanguageSelectionModal } from './components/common/LanguageSelectionModal.js';
+import { ScrollToTop } from './components/common/ScrollToTop.js';
 import { useSessionWatcher } from './hooks/useSessionWatcher.js';
 
 export const RootIndex: React.FC = () => {
@@ -27,7 +29,9 @@ export const App: React.FC = () => {
 
   return (
     <>
+      <ScrollToTop />
       <SessionReplacedModal />
+      <LanguageSelectionModal />
       <Routes>
         {/* Guest Only Routes */}
         <Route element={<GuestRoute />}>
@@ -49,6 +53,7 @@ export const App: React.FC = () => {
             <Route path="/profile" element={<Profile />} />
             <Route path="/wallet" element={<Wallet />} />
             <Route path="/referral" element={<Referral />} />
+            <Route path="/referrals" element={<Navigate to="/referral" replace />} />
           </Route>
         </Route>
 

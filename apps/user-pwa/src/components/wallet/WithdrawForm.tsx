@@ -7,6 +7,7 @@ import { formatIndianRupees } from '../../utils/formatters.js';
 import { ApiError } from '../../api/client.js';
 import { ErrorCodes } from '@booyah/shared';
 import { useMaintenance } from '../../context/MaintenanceContext.js';
+import { useTranslation } from '../../i18n/LanguageContext.js';
 import {
   ArrowDownToLine,
   AlertTriangle,
@@ -23,6 +24,7 @@ interface WithdrawFormProps {
 }
 
 export const WithdrawForm: React.FC<WithdrawFormProps> = ({ onSuccess, onViewWithdrawals }) => {
+  const { t } = useTranslation();
   const { user, wallets } = useAuth();
   const queryClient = useQueryClient();
   const { enabled: isMaintenance } = useMaintenance();
@@ -66,7 +68,7 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = ({ onSuccess, onViewWit
 
       if (isNetworkOrTimeout) {
         setSubmissionError(
-          "We couldn't confirm your submission. Check My Withdrawals before sending again"
+          t('wallet.withdrawConfirmFailed')
         );
         queryClient.invalidateQueries({ queryKey: ['withdrawals'], refetchType: 'all' });
         getWithdrawals().catch(() => {});
@@ -76,31 +78,31 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = ({ onSuccess, onViewWit
       if (err instanceof ApiError) {
         // Requirement 11: 48-hour lock message from API error code
         if (err.code === ErrorCodes.UPI_RECENTLY_CHANGED) {
-          setSubmissionError('Withdrawals are blocked for 48 hours after a UPI ID change');
+          setSubmissionError(t('wallet.upiRecentlyChangedBlocked'));
           return;
         }
         if (err.code === ErrorCodes.WITHDRAWAL_PENDING) {
-          setSubmissionError('You already have a pending withdrawal request');
+          setSubmissionError(t('wallet.withdrawalAlreadyPending'));
           return;
         }
         if (err.code === ErrorCodes.LOW_BALANCE) {
           setFieldErrors((prev) => ({
             ...prev,
-            amount: 'Insufficient winning balance for this withdrawal',
+            amount: t('wallet.insufficientWinningBalance'),
           }));
           return;
         }
         if (err.code === ErrorCodes.RATE_LIMITED) {
-          setSubmissionError('Too many requests. Please slow down.');
+          setSubmissionError(t('wallet.tooManyRequests'));
           return;
         }
         if (err.code === ErrorCodes.VALIDATION_ERROR) {
-          setSubmissionError(err.message || 'Validation failed. Check your entered details.');
+          setSubmissionError(err.message || t('wallet.withdrawValidationFailed'));
           return;
         }
       }
 
-      setSubmissionError(err?.message || 'Withdrawal request failed. Please try again.');
+      setSubmissionError(err?.message || t('wallet.withdrawalFailed'));
     },
   });
 
@@ -126,10 +128,10 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = ({ onSuccess, onViewWit
 
     if (amountErr) errors.amount = amountErr;
     if (!isUpiMatching) {
-      errors.confirmUpi = 'UPI ID does not match your saved UPI ID';
+      errors.confirmUpi = t('wallet.upiNotMatching');
     }
     if (!agreed) {
-      errors.agreed = 'Please confirm that the UPI ID is correct';
+      errors.agreed = t('wallet.confirmUpiRequired');
     }
 
     if (Object.keys(errors).length > 0) {
@@ -162,33 +164,33 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = ({ onSuccess, onViewWit
           <CheckCircle2 className="h-8 w-8" />
         </div>
         <div>
-          <h3 className="text-lg font-bold text-slate-100">Withdrawal Requested</h3>
+          <h3 className="text-lg font-bold text-slate-100">{t('wallet.withdrawalRequested')}</h3>
           <p className="mt-1 text-xs text-slate-400 font-medium">
-            Withdrawals are settled within 24 hours
+            {t('wallet.settledWithin24h')}
           </p>
         </div>
 
         <div className="rounded-xl border border-slate-800 bg-slate-950/60 p-4 text-left space-y-2 text-xs">
           <div className="flex justify-between">
-            <span className="text-slate-400">Request ID:</span>
+            <span className="text-slate-400">{t('wallet.requestId')}</span>
             <span className="font-mono font-semibold text-slate-200">
               {submittedWithdrawal.id}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-400">Amount:</span>
+            <span className="text-slate-400">{t('wallet.amount')}</span>
             <span className="font-semibold text-emerald-400">
               {formatIndianRupees(submittedWithdrawal.amount)}
             </span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-400">Payout UPI:</span>
+            <span className="text-slate-400">{t('wallet.payoutUpi')}</span>
             <span className="font-mono text-slate-200">{submittedWithdrawal.upiId}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-slate-400">Status:</span>
+            <span className="text-slate-400">{t('wallet.status')}</span>
             <span className="rounded-full bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold text-amber-400 border border-amber-500/20">
-              Processing
+              {t('wallet.statusProcessing')}
             </span>
           </div>
         </div>
@@ -204,7 +206,7 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = ({ onSuccess, onViewWit
             }}
             className="flex-1 rounded-xl border border-slate-700 bg-slate-800 py-2.5 text-xs font-semibold text-slate-200 hover:bg-slate-700"
           >
-            New Request
+            {t('wallet.newRequest')}
           </button>
           {onViewWithdrawals && (
             <button
@@ -213,7 +215,7 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = ({ onSuccess, onViewWit
               data-testid="view-withdrawals-btn"
               className="flex-1 rounded-xl bg-emerald-500 py-2.5 text-xs font-semibold text-slate-950 hover:bg-emerald-400 font-bold"
             >
-              My Withdrawals
+              {t('wallet.myWithdrawals')}
             </button>
           )}
         </div>
@@ -228,23 +230,23 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = ({ onSuccess, onViewWit
         <div className="flex items-center justify-between text-xs font-semibold text-slate-400 mb-1">
           <span className="flex items-center gap-1.5 text-emerald-400">
             <ShieldCheck className="h-4 w-4" />
-            Withdrawable Balance
+            {t('wallet.withdrawableBalanceCard')}
           </span>
-          <span className="text-[11px] text-slate-400">Min Rs50.00</span>
+          <span className="text-[11px] text-slate-400">{t('wallet.minWithdraw')}</span>
         </div>
         <div className="text-2xl font-black text-slate-100" data-testid="withdrawable-balance">
           {formatIndianRupees(winningBalance)}
         </div>
         <p className="mt-2 text-[11px] text-slate-400 flex items-center gap-1">
           <Info className="h-3.5 w-3.5 text-emerald-400 shrink-0" />
-          Only Winning balance can be withdrawn. Add Money & Cashback are reserved for match entry fees.
+          {t('wallet.withdrawExplanation')}
         </p>
       </div>
 
       {/* Settlement Note */}
       <div className="rounded-xl border border-slate-800 bg-slate-900/60 p-3.5 flex items-center gap-2.5 text-xs text-slate-300">
         <Clock className="h-4 w-4 text-emerald-400 shrink-0" />
-        <span>Withdrawals are settled within 24 hours to your verified UPI ID.</span>
+        <span>{t('wallet.settlementNotice')}</span>
       </div>
 
       {/* Withdrawal Form */}
@@ -255,7 +257,7 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = ({ onSuccess, onViewWit
       >
         <div className="text-xs font-semibold text-slate-300 flex items-center gap-1.5 text-emerald-400">
           <ArrowDownToLine className="h-4 w-4" />
-          Request Payout
+          {t('wallet.requestPayout')}
         </div>
 
         {submissionError && (
@@ -271,7 +273,7 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = ({ onSuccess, onViewWit
         {/* Amount Field */}
         <div className="space-y-1.5">
           <label htmlFor="withdraw-amount" className="block text-xs font-medium text-slate-300">
-            Withdrawal Amount (Rs) <span className="text-rose-400">*</span>
+            {t('wallet.withdrawAmountField')} <span className="text-rose-400">*</span>
           </label>
           <input
             id="withdraw-amount"
@@ -298,25 +300,25 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = ({ onSuccess, onViewWit
         {/* Display Saved UPI ID */}
         <div className="rounded-xl border border-slate-800 bg-slate-950 p-3 space-y-1">
           <span className="block text-[10px] font-medium text-slate-400 uppercase tracking-wider">
-            Verified Saved UPI ID
+            {t('wallet.verifiedSavedUpi')}
           </span>
           <span
             className="font-mono text-sm font-bold text-slate-200 select-all"
             data-testid="saved-upi-display"
           >
-            {savedUpiId || 'No UPI ID saved in profile'}
+            {savedUpiId || t('wallet.noUpiSaved')}
           </span>
         </div>
 
         {/* Re-enter UPI ID Confirmation */}
         <div className="space-y-1.5">
           <label htmlFor="confirm-upi-input" className="block text-xs font-medium text-slate-300">
-            Re-enter UPI ID to Confirm <span className="text-rose-400">*</span>
+            {t('wallet.reenterUpiLabel')} <span className="text-rose-400">*</span>
           </label>
           <input
             id="confirm-upi-input"
             type="text"
-            placeholder="Type your saved UPI ID"
+            placeholder={t('wallet.reenterUpiPlaceholder')}
             disabled={withdrawMutation.isPending}
             value={confirmUpi}
             onChange={(e) => {
@@ -350,7 +352,7 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = ({ onSuccess, onViewWit
               className="mt-0.5 h-4 w-4 rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-500/20"
             />
             <span className="text-xs text-slate-300 leading-relaxed">
-              I confirm that the UPI ID entered above matches my verified account and is correct.
+              {t('wallet.confirmUpiAgreement')}
             </span>
           </label>
           {fieldErrors.agreed && (
@@ -363,7 +365,7 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = ({ onSuccess, onViewWit
         {/* Submit Button (stays disabled until amount valid, UPI matches, and checkbox ticked) */}
         {isMaintenance && (
           <p className="text-xs text-amber-400 text-center font-medium" data-testid="withdraw-maintenance-warning">
-            Withdrawals are temporarily disabled during maintenance.
+            {t('wallet.withdrawMaintenanceWarning')}
           </p>
         )}
         <button
@@ -375,12 +377,12 @@ export const WithdrawForm: React.FC<WithdrawFormProps> = ({ onSuccess, onViewWit
           {withdrawMutation.isPending ? (
             <>
               <Loader2 className="h-4 w-4 animate-spin" />
-              <span data-testid="withdraw-uploading-label">Uploading...</span>
+              <span data-testid="withdraw-uploading-label">{t('wallet.uploading')}</span>
             </>
           ) : (
             <>
               <ArrowDownToLine className="h-4 w-4" />
-              Confirm Withdrawal
+              {t('wallet.confirmWithdrawalBtn')}
             </>
           )}
         </button>

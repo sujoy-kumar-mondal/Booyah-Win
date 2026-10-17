@@ -168,4 +168,27 @@ describe('Requirement 10: Idle Timeout (25m Warning, 30m Auto-Logout) with Fake 
     expect(sessionStorage.getItem(STAFF_TOKEN_STORAGE_KEY)).toBeNull();
     expect(screen.getByTestId('auth-status')).toHaveTextContent('logged-out');
   });
+
+  it('remembered sessions (stored in localStorage) have NO idle warning or auto-logout', async () => {
+    localStorage.setItem(STAFF_TOKEN_STORAGE_KEY, 'remembered-token');
+
+    render(
+      <StaffAuthProvider>
+        <TestConsumer />
+      </StaffAuthProvider>
+    );
+
+    expect(screen.getByTestId('auth-status')).toHaveTextContent('logged-in');
+
+    // Advance 35 minutes (past the 25m warn and 30m logout marks)
+    act(() => {
+      vi.advanceTimersByTime(35 * 60 * 1000);
+    });
+
+    // Warning dialog should NOT be shown
+    expect(screen.queryByTestId('idle-timeout-dialog')).not.toBeInTheDocument();
+    // User should still be logged in and token intact
+    expect(screen.getByTestId('auth-status')).toHaveTextContent('logged-in');
+    expect(localStorage.getItem(STAFF_TOKEN_STORAGE_KEY)).toBe('remembered-token');
+  });
 });

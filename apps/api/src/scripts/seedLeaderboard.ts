@@ -32,14 +32,14 @@ export async function seedLeaderboard(): Promise<void> {
   console.log(`Found ${existingUsers.rowCount} existing active users in database.`);
 
   const samplePlayers = [
-    { name: 'Aakash Sharma', ff_name: 'Aakash_Sniper', mobile: '9811000001', winAmount: 1200 },
-    { name: 'Rohan Verma', ff_name: 'Rohan_Pro', mobile: '9811000002', winAmount: 850 },
-    { name: 'Pooja Patel', ff_name: 'Pooja_Kills', mobile: '9811000003', winAmount: 600 },
-    { name: 'Vikram Singh', ff_name: 'Vikram_FF', mobile: '9811000004', winAmount: 450 },
-    { name: 'Sneha Reddy', ff_name: 'Sneha_Queen', mobile: '9811000005', winAmount: 300 },
-    { name: 'Kabir Das', ff_name: 'Kabir_Gamer', mobile: '9811000006', winAmount: 200 },
-    { name: 'Arjun Mehta', ff_name: 'Arjun_Elite', mobile: '9811000007', winAmount: 150 },
-    { name: 'Riya Sen', ff_name: 'Riya_Shooter', mobile: '9811000008', winAmount: 100 },
+    { name: 'Aakash Sharma', ff_name: 'Aakash_Sniper', mobile: '9811000001', ff_id: '1981100001', winAmount: 1200 },
+    { name: 'Rohan Verma', ff_name: 'Rohan_Pro', mobile: '9811000002', ff_id: '1981100002', winAmount: 850 },
+    { name: 'Pooja Patel', ff_name: 'Pooja_Kills', mobile: '9811000003', ff_id: '1981100003', winAmount: 600 },
+    { name: 'Vikram Singh', ff_name: 'Vikram_FF', mobile: '9811000004', ff_id: '1981100004', winAmount: 450 },
+    { name: 'Sneha Reddy', ff_name: 'Sneha_Queen', mobile: '9811000005', ff_id: '1981100005', winAmount: 300 },
+    { name: 'Kabir Das', ff_name: 'Kabir_Gamer', mobile: '9811000006', ff_id: '1981100006', winAmount: 200 },
+    { name: 'Arjun Mehta', ff_name: 'Arjun_Elite', mobile: '9811000007', ff_id: '1981100007', winAmount: 150 },
+    { name: 'Riya Sen', ff_name: 'Riya_Shooter', mobile: '9811000008', ff_id: '1981100008', winAmount: 100 },
   ];
 
   const seededUserIds: { id: string; ff_name: string; winAmount: number }[] = [];
@@ -61,6 +61,11 @@ export async function seedLeaderboard(): Promise<void> {
 
     if (existing.rowCount && existing.rowCount > 0) {
       userId = existing.rows[0].id;
+      // Ensure existing player has numeric ff_id
+      await query(
+        `UPDATE users SET ff_id = $1 WHERE id = $2 AND ff_id LIKE 'FF_%'`,
+        [p.ff_id, userId]
+      );
     } else {
       const email = `${p.ff_name.toLowerCase()}@test.booyah`;
       const upiId = `${p.ff_name.toLowerCase()}@upi`;
@@ -69,7 +74,7 @@ export async function seedLeaderboard(): Promise<void> {
         `INSERT INTO users (email, name, mobile, ff_name, ff_id, upi_id, referral_code, date_of_birth, created_at)
          VALUES ($1, $2, $3, $4, $5, $6, $7, '2000-01-01', $8)
          RETURNING id`,
-        [email, p.name, p.mobile, p.ff_name, `FF_${p.ff_name}`, upiId, refCode, dbNow]
+        [email, p.name, p.mobile, p.ff_name, p.ff_id, upiId, refCode, dbNow]
       );
       userId = userRes.rows[0].id;
 

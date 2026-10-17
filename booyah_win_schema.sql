@@ -48,6 +48,8 @@ CREATE TABLE users (
   ff_id_changed_at   TIMESTAMPTZ,
   ff_name_changed_at TIMESTAMPTZ,
   upi_changed_at     TIMESTAMPTZ,                   -- also blocks withdrawals for 24-48h
+  avatar_key         TEXT,
+  language           TEXT NOT NULL DEFAULT 'en' CHECK (language IN ('en', 'bn')),
   deleted_at       TIMESTAMPTZ,
   deleted_reason   TEXT,
   deleted_by       BIGINT REFERENCES staff(id),
@@ -61,7 +63,7 @@ CREATE TABLE otp_requests (
   id          BIGSERIAL PRIMARY KEY,
   email       CITEXT NOT NULL,
   audience    TEXT NOT NULL CHECK (audience IN ('user', 'staff')),   -- which portal requested it
-  purpose     TEXT NOT NULL CHECK (purpose IN ('register', 'login')),
+  purpose     TEXT NOT NULL CHECK (purpose IN ('register', 'login', 'step_up')),
   code_hash   TEXT NOT NULL,                        -- hash of the OTP, never the OTP itself
   attempts    INT NOT NULL DEFAULT 0,               -- lock after e.g. 5 wrong tries
   expires_at  TIMESTAMPTZ NOT NULL,                 -- now() + 10 minutes
@@ -78,6 +80,8 @@ CREATE TABLE sessions (
   account_id    BIGINT NOT NULL,
   device_info   TEXT,
   created_at    TIMESTAMPTZ NOT NULL DEFAULT now(),
+  last_otp_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  elevated_until TIMESTAMPTZ NOT NULL DEFAULT (now() + interval '1 hour'),
   UNIQUE (account_type, account_id)
 );
 -- Login = INSERT ... ON CONFLICT (account_type, account_id) DO UPDATE SET id = new_uuid.
@@ -282,7 +286,8 @@ CREATE TABLE app_settings (
   key        TEXT PRIMARY KEY,      -- support_name, support_phone, support_email,
                                     -- payment_qr_url, payment_upi_id, min_deposit,
                                     -- max_deposit, admin_approval_threshold,
-                                    -- maintenance_enabled, maintenance_message, maintenance_until
+                                    -- maintenance_enabled, maintenance_message, maintenance_until,
+                                    -- cashback_max_percent
   value      TEXT NOT NULL,
   updated_by BIGINT REFERENCES staff(id),
   updated_at TIMESTAMPTZ NOT NULL DEFAULT now()

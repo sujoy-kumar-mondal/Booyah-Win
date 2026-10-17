@@ -92,6 +92,10 @@ describe('Maintenance Mode (Requirements 1, 2, 6, 9, 10)', () => {
       'POST /api/v1/auth/login/request-otp',
       'POST /api/v1/auth/login/verify-otp',
       'POST /api/v1/auth/logout',
+      'PATCH /api/v1/me/language',
+      'PATCH /api/v1/language',
+      'PATCH /api/v1/users/me/language',
+      'PATCH /api/v1/users/language',
     ]);
 
     it('iterates EVERY registered user-area POST, PATCH and DELETE route and asserts it is either allowlisted or returns 503 MAINTENANCE_MODE', async () => {
@@ -186,6 +190,19 @@ describe('Maintenance Mode (Requirements 1, 2, 6, 9, 10)', () => {
         .post('/api/v1/auth/logout')
         .set('Authorization', `Bearer ${userToken}`);
       expect(logoutRes.status).toBe(200);
+    });
+
+    it('allows user language update (PATCH /api/v1/me/language) during maintenance', async () => {
+      await query(`UPDATE app_settings SET value = 'true' WHERE key = 'maintenance_enabled'`);
+      invalidateMaintenanceCache();
+
+      const langRes = await request(app)
+        .patch('/api/v1/me/language')
+        .set('Authorization', `Bearer ${userToken}`)
+        .send({ language: 'bn' });
+
+      expect(langRes.status).toBe(200);
+      expect(langRes.body?.data?.language).toBe('bn');
     });
 
     it('allows staff and admin mutating requests during maintenance', async () => {

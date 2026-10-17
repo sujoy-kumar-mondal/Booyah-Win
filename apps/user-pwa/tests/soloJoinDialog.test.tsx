@@ -4,8 +4,9 @@ import { MemoryRouter } from 'react-router-dom';
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { SoloJoinDialog } from '../src/components/matches/SoloJoinDialog.js';
 import * as matchesApi from '../src/api/matches.js';
+import * as rulesApi from '../src/api/rules.js';
 import * as AuthContextModule from '../src/context/AuthContext.js';
-import { userMatchDetailResponseGuard } from '../src/api/guards.js';
+import { userMatchDetailResponseGuard, rulesResponseGuard } from '../src/api/guards.js';
 import { loadContractFixture } from './contractFixtures.js';
 
 describe('Requirement 2: Solo Join Dialog', () => {
@@ -24,10 +25,13 @@ describe('Requirement 2: Solo Join Dialog', () => {
     vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
       refreshProfile: vi.fn().mockResolvedValue(undefined),
     } as any);
+    vi.spyOn(rulesApi, 'getRules').mockResolvedValue(
+      loadContractFixture('GET_api_v1_rules.json', rulesResponseGuard, 'GET /api/v1/rules')
+    );
     vi.clearAllMocks();
   });
 
-  it('Requirement 2: solo join dialog shows entry fee and exact rule text without computing wallet breakdown in browser', () => {
+  it('Requirement 2: solo join dialog shows entry fee and exact rule text without computing wallet breakdown in browser', async () => {
     render(
       <QueryClientProvider client={queryClient}>
         <MemoryRouter>
@@ -46,13 +50,68 @@ describe('Requirement 2: Solo Join Dialog', () => {
     expect(feeEl.textContent).toContain('Rs20.00');
 
     // Shows the exact rule text
-    const ruleEl = screen.getByTestId('join-dialog-rule-text');
-    expect(ruleEl.textContent).toContain(
-      'Up to 5% can come from cashback; the rest from Add Money, then Winning'
-    );
+    await waitFor(() => {
+      const ruleEl = screen.getByTestId('join-dialog-rule-text');
+      expect(ruleEl.textContent).toContain(
+        'Up to 5% can come from cashback; the rest from Add Money, then Winning'
+      );
+    });
 
     // Browser does NOT render any computed wallet breakdown before server response
     expect(screen.queryByTestId('join-charge-breakdown')).toBeNull();
+  });
+
+  it('Requirement 2: solo join dialog renders dynamic cashback percent from rules (12.34%)', async () => {
+    vi.spyOn(rulesApi, 'getRules').mockResolvedValue({
+      referralReward: '5.00',
+      maxCashbackUsagePercent: 12.34,
+      minWithdrawal: '50.00',
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <SoloJoinDialog
+            match={mockMatch}
+            isOpen={true}
+            onClose={() => {}}
+            onSuccess={() => {}}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      const ruleEl = screen.getByTestId('join-dialog-rule-text');
+      expect(ruleEl.textContent).toContain(
+        'Up to 12.34% can come from cashback; the rest from Add Money, then Winning'
+      );
+    });
+  });
+
+  it('Requirement 2: solo join dialog renders fallback text without numbers if rules call fails', async () => {
+    vi.spyOn(rulesApi, 'getRules').mockRejectedValue(new Error('Rules failed'));
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <SoloJoinDialog
+            match={mockMatch}
+            isOpen={true}
+            onClose={() => {}}
+            onSuccess={() => {}}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    await waitFor(() => {
+      const ruleEl = screen.getByTestId('join-dialog-rule-text');
+      expect(ruleEl.textContent).toContain(
+        'A portion of the fee can come from cashback; the rest from Add Money, then Winning'
+      );
+      expect(ruleEl.textContent).not.toContain('%');
+    });
   });
 
   it('Requirement 2: renders server charge breakdown after joining if returned by API', async () => {

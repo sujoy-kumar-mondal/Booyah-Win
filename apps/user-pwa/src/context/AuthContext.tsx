@@ -9,8 +9,9 @@ import {
   onUnauthenticated,
   onSlowRequest,
 } from '../api/client.js';
-import { getMe } from '../api/user.js';
+import { getMe, updateUserLanguage } from '../api/user.js';
 import { logout as apiLogout } from '../api/auth.js';
+import { getLanguageCookie, setLanguageCookie } from '../i18n/cookies.js';
 import type { UserProfile, Wallets, Cooldowns, GetMeData } from '../api/types.js';
 
 interface AuthContextType {
@@ -161,9 +162,34 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         userRef.current = immediateUser;
         setUser(immediateUser);
       }
-      await refreshProfile();
+      try {
+        const data = await getMe();
+        updateSessionData(data);
+
+        // Server language sync on login:
+        // If there is no cookie, apply the server language;
+        // if the cookie exists and differs, keep the cookie and update the server.
+        const cookieLang = getLanguageCookie();
+        const serverLang = data.profile.language || immediateUser?.language;
+
+        if (!cookieLang) {
+          if (serverLang === 'en' || serverLang === 'bn') {
+            setLanguageCookie(serverLang);
+            if (typeof document !== 'undefined') {
+              document.documentElement.lang = serverLang;
+            }
+            if (typeof window !== 'undefined') {
+              window.dispatchEvent(new CustomEvent('bw_lang_changed', { detail: serverLang }));
+            }
+          }
+        } else if (serverLang && cookieLang !== serverLang) {
+          updateUserLanguage(cookieLang).catch(() => {});
+        }
+      } catch {
+        // Silently handled on boot
+      }
     },
-    [refreshProfile]
+    [updateSessionData]
   );
 
   const logout = useCallback(async () => {

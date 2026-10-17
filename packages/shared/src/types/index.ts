@@ -21,6 +21,8 @@ export interface UserDto {
   dateOfBirth: string;
   referralCode: string;
   referredBy?: string | null;
+  avatarUrl?: string | null;
+  language?: 'en' | 'bn';
   createdAt: string;
 }
 

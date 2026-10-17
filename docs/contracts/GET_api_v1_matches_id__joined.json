@@ -20,6 +20,7 @@
       "status": "live",
       "hasJoined": true,
       "isInTeam": true,
+      "isTeamLeader": true,
       "roomId": "887766",
       "roomPassword": "test-room-password"
     }

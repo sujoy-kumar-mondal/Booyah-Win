@@ -3,8 +3,10 @@ import { useSearchParams } from 'react-router-dom';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useAuth } from '../context/AuthContext.js';
 import { getDeposits, getWithdrawals } from '../api/wallet.js';
+import { getRules } from '../api/rules.js';
 import { usePendingWalletPoller } from '../hooks/usePendingWalletPoller.js';
 import { formatIndianRupees } from '../utils/formatters.js';
+import { useTranslation } from '../i18n/LanguageContext.js';
 import { DepositForm } from '../components/wallet/DepositForm.js';
 import { WithdrawForm } from '../components/wallet/WithdrawForm.js';
 import { RequestsList } from '../components/wallet/RequestsList.js';
@@ -22,6 +24,7 @@ import {
 } from 'lucide-react';
 
 export const Wallet: React.FC = () => {
+  const { t } = useTranslation();
   const { wallets, refreshProfile } = useAuth();
   const queryClient = useQueryClient();
   const [searchParams, setSearchParams] = useSearchParams();
@@ -59,6 +62,15 @@ export const Wallet: React.FC = () => {
     queryFn: () => getWithdrawals(undefined, 10),
   });
 
+  const { data: rulesData, isError: isRulesError } = useQuery({
+    queryKey: ['rules'],
+    queryFn: getRules,
+    staleTime: 60 * 1000,
+    retry: false,
+  });
+
+  const hasRulesPercent = !isRulesError && rulesData && typeof rulesData.maxCashbackUsagePercent === 'number';
+
   // Requirement 9: 30s poller while pending deposits or withdrawals exist
   usePendingWalletPoller({
     deposits: depositsData?.items,
@@ -80,9 +92,9 @@ export const Wallet: React.FC = () => {
           <div className="flex items-center justify-between text-xs font-semibold text-slate-400 mb-1">
             <span className="flex items-center gap-1.5 text-emerald-400">
               <WalletIcon className="h-4 w-4" />
-              Total Wallet Balance
+              {t('wallet.totalBalanceTitle')}
             </span>
-            <span className="text-[11px] font-semibold text-emerald-400">100% Protected</span>
+            <span className="text-[11px] font-semibold text-emerald-400">{t('wallet.protected100')}</span>
           </div>
           <div
             className="text-3xl font-black tracking-tight text-slate-100"
@@ -103,7 +115,7 @@ export const Wallet: React.FC = () => {
                 }`}
             >
               <PlusCircle className="h-4 w-4" />
-              Add Money
+              {t('wallet.tabDeposit')}
             </button>
             <button
               type="button"
@@ -115,7 +127,7 @@ export const Wallet: React.FC = () => {
                 }`}
             >
               <ArrowDownToLine className="h-4 w-4" />
-              Withdraw
+              {t('wallet.tabWithdraw')}
             </button>
           </div>
         </div>
@@ -126,7 +138,7 @@ export const Wallet: React.FC = () => {
           <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-3 space-y-1">
             <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-400">
               <Coins className="h-3 w-3 text-sky-400 shrink-0" />
-              <span className="truncate">Add Money</span>
+              <span className="truncate">{t('wallet.cardAddMoney')}</span>
             </div>
             <div
               className="text-sm font-extrabold text-slate-100 font-mono"
@@ -134,14 +146,14 @@ export const Wallet: React.FC = () => {
             >
               {formatIndianRupees(wallets?.addMoney || '0.00')}
             </div>
-            <span className="text-[10px] text-slate-400 block truncate">Entry fees</span>
+            <span className="text-[10px] text-slate-400 block truncate">{t('wallet.cardEntryFees')}</span>
           </div>
 
           {/* Cashback Wallet */}
           <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-3 space-y-1">
             <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-400">
               <Gift className="h-3 w-3 text-amber-400 shrink-0" />
-              <span className="truncate">Cashback</span>
+              <span className="truncate">{t('wallet.cardCashback')}</span>
             </div>
             <div
               className="text-sm font-extrabold text-slate-100 font-mono"
@@ -149,14 +161,16 @@ export const Wallet: React.FC = () => {
             >
               {formatIndianRupees(wallets?.cashback || '0.00')}
             </div>
-            <span className="text-[10px] text-slate-400 block truncate">Max 5% / join</span>
+            <span className="text-[10px] text-slate-400 block truncate">
+              {hasRulesPercent ? t('wallet.maxPercentJoin', { percent: rulesData.maxCashbackUsagePercent }) : t('wallet.cappedPerJoin')}
+            </span>
           </div>
 
           {/* Winning Wallet */}
           <div className="rounded-xl border border-slate-800 bg-slate-900/80 p-3 space-y-1">
             <div className="flex items-center gap-1 text-[11px] font-semibold text-slate-400">
               <Trophy className="h-3 w-3 text-emerald-400 shrink-0" />
-              <span className="truncate">Winning</span>
+              <span className="truncate">{t('wallet.cardWinning')}</span>
             </div>
             <div
               className="text-sm font-extrabold text-emerald-400 font-mono"
@@ -165,7 +179,7 @@ export const Wallet: React.FC = () => {
               {formatIndianRupees(wallets?.winning || '0.00')}
             </div>
             <span className="text-[10px] text-emerald-500 font-semibold block truncate">
-              Withdrawable
+              {t('wallet.cardWithdrawable')}
             </span>
           </div>
         </div>
@@ -178,12 +192,13 @@ export const Wallet: React.FC = () => {
           <div className="flex items-start gap-1.5 text-slate-300">
             <Info className="h-3.5 w-3.5 text-emerald-400 shrink-0 mt-0.5" />
             <span>
-              <strong>Add Money & Cashback</strong> can be used for tournament entry fees. Only{' '}
-              <strong>Winning</strong> can be withdrawn.
+              {t('wallet.bannerExplain')}
             </span>
           </div>
           <p className="pl-5 text-slate-400">
-            Cashback covers at most 5% of an entry fee per match.
+            {hasRulesPercent
+              ? t('wallet.bannerPercent', { percent: rulesData.maxCashbackUsagePercent })
+              : t('wallet.bannerCapped')}
           </p>
         </div>
       </div>
@@ -199,7 +214,7 @@ export const Wallet: React.FC = () => {
               : 'text-slate-400 hover:text-slate-200'
             }`}
         >
-          Overview
+          {t('wallet.tabOverview')}
         </button>
         <button
           type="button"
@@ -210,7 +225,7 @@ export const Wallet: React.FC = () => {
               : 'text-slate-400 hover:text-slate-200'
             }`}
         >
-          Add Money
+          {t('wallet.tabDeposit')}
         </button>
         <button
           type="button"
@@ -221,7 +236,7 @@ export const Wallet: React.FC = () => {
               : 'text-slate-400 hover:text-slate-200'
             }`}
         >
-          Withdraw
+          {t('wallet.tabWithdraw')}
         </button>
         <button
           type="button"
@@ -232,7 +247,7 @@ export const Wallet: React.FC = () => {
               : 'text-slate-400 hover:text-slate-200'
             }`}
         >
-          Requests
+          {t('wallet.tabRequests')}
         </button>
         <button
           type="button"
@@ -243,7 +258,7 @@ export const Wallet: React.FC = () => {
               : 'text-slate-400 hover:text-slate-200'
             }`}
         >
-          History
+          {t('matches.tabHistory')}
         </button>
       </div>
 
@@ -260,8 +275,8 @@ export const Wallet: React.FC = () => {
               <div className="p-2 rounded-lg bg-slate-800 text-sky-400 mb-2">
                 <FileText className="h-4 w-4" />
               </div>
-              <span className="text-xs font-bold text-slate-100">Deposit & Payouts</span>
-              <span className="text-[10px] text-slate-400">View status of all requests</span>
+              <span className="text-xs font-bold text-slate-100">{t('wallet.depositAndPayouts')}</span>
+              <span className="text-[10px] text-slate-400">{t('wallet.viewRequestsStatus')}</span>
             </button>
 
             <button
@@ -273,8 +288,8 @@ export const Wallet: React.FC = () => {
               <div className="p-2 rounded-lg bg-slate-800 text-emerald-400 mb-2">
                 <History className="h-4 w-4" />
               </div>
-              <span className="text-xs font-bold text-slate-100">Transaction History</span>
-              <span className="text-[10px] text-slate-400">All credits, debits & refunds</span>
+              <span className="text-xs font-bold text-slate-100">{t('wallet.transactionHistory')}</span>
+              <span className="text-[10px] text-slate-400">{t('wallet.allCreditsDebitsRefunds')}</span>
             </button>
           </div>
 
@@ -282,14 +297,14 @@ export const Wallet: React.FC = () => {
           <div className="pt-2">
             <div className="flex items-center justify-between mb-3">
               <h3 className="text-xs font-bold text-slate-300 uppercase tracking-wider">
-                Recent Transactions
+                {t('wallet.recentTransactions')}
               </h3>
               <button
                 type="button"
                 onClick={() => switchTab('transactions')}
                 className="text-xs font-semibold text-emerald-400 hover:text-emerald-300"
               >
-                View all
+                {t('wallet.viewAll')}
               </button>
             </div>
             <TransactionsList />

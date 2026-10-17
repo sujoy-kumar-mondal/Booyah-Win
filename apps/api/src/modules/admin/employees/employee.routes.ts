@@ -1,5 +1,5 @@
 import { Router } from 'express';
-import { authenticateStaff, requireAdmin } from '../../../middleware/auth.js';
+import { authenticateStaff, requireAdmin, requireElevatedSession } from '../../../middleware/auth.js';
 import { staffWriteRateLimit } from '../../../middleware/rateLimiters.js';
 import { idParamHandler } from '../../../middleware/validate.js';
 import { EmployeeController } from './employee.controller.js';
@@ -10,7 +10,7 @@ export const employeeAdminRouter = Router();
 employeeAdminRouter.use(authenticateStaff, requireAdmin, staffWriteRateLimit);
 employeeAdminRouter.param('id', idParamHandler);
 
-employeeAdminRouter.post('/', EmployeeController.createEmployee);
+employeeAdminRouter.post('/', requireElevatedSession, EmployeeController.createEmployee);
 employeeAdminRouter.get('/', EmployeeController.listEmployees);
-employeeAdminRouter.patch('/:id', EmployeeController.updateEmployee);
-employeeAdminRouter.delete('/:id', EmployeeController.deleteEmployee);
+employeeAdminRouter.patch('/:id', requireElevatedSession, EmployeeController.updateEmployee);
+employeeAdminRouter.delete('/:id', requireElevatedSession, EmployeeController.deleteEmployee);

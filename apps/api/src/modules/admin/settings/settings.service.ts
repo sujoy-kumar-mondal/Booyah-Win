@@ -1,4 +1,4 @@
-import { paiseToString, stringToPaise, ErrorCodes } from '@booyah/shared';
+import { paiseToString, stringToPaise, parseCashbackPercentToBasisPoints, ErrorCodes } from '@booyah/shared';
 import { query, withTransaction } from '../../../db/index.js';
 import { AppError } from '../../../middleware/errorHandler.js';
 import { invalidateMaintenanceCache } from '../../../middleware/maintenance.js';
@@ -19,6 +19,7 @@ export const DEFAULT_SETTINGS: Record<string, string> = {
   maintenance_enabled: 'false',
   maintenance_message: 'Under scheduled maintenance. Please check back shortly.',
   maintenance_until: '',
+  cashback_max_percent: '5',
 };
 
 export class SettingsService {
@@ -172,20 +173,57 @@ export class SettingsService {
       }
     }
 
-    const result = await withTransaction(async (client) => {
-      const keysToUpdate: string[] = [];
+    if (updates.cashback_max_percent !== undefined && updates.cashback_max_percent !== null) {
+      try {
+        parseCashbackPercentToBasisPoints(updates.cashback_max_percent);
+      } catch (err: any) {
+        throw new AppError(ErrorCodes.VALIDATION_ERROR, err.message, 400);
+      }
+    }
 
-      for (const [key, val] of Object.entries(updates)) {
-        if (val !== undefined) {
-          keysToUpdate.push(key);
-          await client.query(
-            `INSERT INTO app_settings (key, value, updated_by, updated_at)
-             VALUES ($1, $2, $3, now())
-             ON CONFLICT (key)
-             DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = now()`,
-            [key, val === null ? '' : val, adminId]
-          );
-        }
+    const result = await withTransaction(async (client) => {
+      const keysToUpdate: string[] = Object.keys(updates).filter(
+        (key) => updates[key] !== undefined
+      );
+
+      // Fetch existing values for audit log
+      const existingRes = await client.query<{ key: string; value: string }>(
+        `SELECT key, value FROM app_settings WHERE key = ANY($1)`,
+        [keysToUpdate]
+      );
+      const oldMap: Record<string, string> = {};
+      for (const row of existingRes.rows) {
+        oldMap[row.key] = row.value;
+      }
+
+      const changes: Record<string, { old: string; new: string }> = {};
+      for (const key of keysToUpdate) {
+        const val = updates[key];
+        const oldVal = oldMap[key] ?? DEFAULT_SETTINGS[key] ?? '';
+        const newVal = (val === null || val === undefined) ? '' : val;
+        changes[key] = { old: oldVal, new: newVal };
+
+        await client.query(
+          `INSERT INTO app_settings (key, value, updated_by, updated_at)
+           VALUES ($1, $2, $3, now())
+           ON CONFLICT (key)
+           DO UPDATE SET value = EXCLUDED.value, updated_by = EXCLUDED.updated_by, updated_at = now()`,
+          [key, newVal, adminId]
+        );
+      }
+
+      const auditDetails: Record<string, any> = {
+        updatedKeys: keysToUpdate,
+        changes,
+      };
+
+      if (updates.cashback_max_percent !== undefined) {
+        const oldCashback = oldMap['cashback_max_percent'] ?? DEFAULT_SETTINGS['cashback_max_percent'] ?? '5';
+        const newCashback = updates.cashback_max_percent === null ? '5' : updates.cashback_max_percent;
+        auditDetails.oldValue = oldCashback;
+        auditDetails.newValue = newCashback;
+        auditDetails.old = oldCashback;
+        auditDetails.new = newCashback;
       }
 
       // Rule #9: Audit row in transaction
@@ -193,7 +231,7 @@ export class SettingsService {
         staffId: adminId,
         action: 'settings_updated',
         targetType: 'app_settings',
-        details: { updatedKeys: keysToUpdate },
+        details: auditDetails,
       });
 
       // Load all settings

@@ -78,6 +78,15 @@ export const verifyOtpSchema = z
   .object({
     email: emailSchema,
     otp: otpSchema,
+    remember: z.boolean().optional(),
+  })
+  .strict();
+
+// Step-Up Verify OTP Schema
+export const stepUpVerifyOtpSchema = z
+  .object({
+    otp: otpSchema,
+    email: emailSchema.optional(),
   })
   .strict();
 
@@ -95,6 +104,17 @@ export const completeRegistrationSchema = z
       errorMap: () => ({ message: 'You must confirm you are 18 or older' }),
     }),
     referralCode: referralCodeSchema.optional(),
+    language: z.enum(['en', 'bn']).optional(),
+  })
+  .strict();
+
+// Update Language Schema
+export const updateLanguageSchema = z
+  .object({
+    language: z.enum(['en', 'bn'], {
+      required_error: 'Language is required',
+      invalid_type_error: "Language must be 'en' or 'bn'",
+    }),
   })
   .strict();
 

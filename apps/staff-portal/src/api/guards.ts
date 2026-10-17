@@ -270,6 +270,7 @@ export const resultPayoutPreviewGuard = z.object({
 export const staffDepositDtoGuard = z.object({
   id: z.string(),
   userId: z.string(),
+  userName: z.string().optional(),
   userEmail: z.string(),
   amount: moneyStringSchema,
   utr: z.string(),
@@ -294,6 +295,7 @@ export const depositListResponseGuard = z.object({
 export const staffWithdrawalDtoGuard = z.object({
   id: z.string(),
   userId: z.string(),
+  userName: z.string().optional(),
   userEmail: z.string(),
   amount: moneyStringSchema,
   upiId: z.string(),

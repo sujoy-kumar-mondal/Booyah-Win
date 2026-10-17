@@ -241,21 +241,25 @@ export async function createTeam(
       await client.query(`SELECT 1 FROM wallets WHERE user_id = $1 FOR UPDATE`, [wid]);
     }
 
-    // ── 4. Allocate fee for leader ────────────────────────────────────────────
+    // ── 4. Allocate full team entry fee for leader ────────────────────────────
+    // For Clash Squad, the match entry fee is the team fee (e.g. ₹50 per team).
+    // For Battle Royale (duo/squad), entry fee is per player, so leader pays fee * expectedSize.
     const feePaise = stringToPaise(match.entry_fee.toString());
-    const alloc = await allocateEntryFee(client, leaderId, feePaise, 'match', matchId);
+    const totalTeamFeePaise =
+      match.game_mode === 'clash_squad' ? feePaise : feePaise * expectedSize;
+    const alloc = await allocateEntryFee(client, leaderId, totalTeamFeePaise, 'match', matchId);
 
-    // ── 5. Create team ────────────────────────────────────────────────────────
+    // ── 5. Create team directly with status 'confirmed' ───────────────────────
     const teamInsertRes = await client.query(
       `INSERT INTO teams (match_id, leader_id, name, size, status)
-       VALUES ($1, $2, $3, $4, 'forming')
+       VALUES ($1, $2, $3, $4, 'confirmed')
        RETURNING id, match_id, leader_id, name, size, status, created_at`,
       [matchId, leaderId, dto.teamName ? dto.teamName.trim() : null, expectedSize]
     );
     const team = teamInsertRes.rows[0];
     const teamId = team.id.toString();
 
-    // ── 6. Insert leader's match_players row ──────────────────────────────────
+    // ── 6. Insert leader's match_players row with total team fee paid ─────────
     await client.query(
       `INSERT INTO match_players (
          match_id, user_id, team_id, paid_add_money, paid_cashback, paid_winning
@@ -270,12 +274,13 @@ export async function createTeam(
       ]
     );
 
-    // ── 7. Insert pending team_invites ────────────────────────────────────────
+    // ── 7. Insert all teammates directly into match_players (fee paid by leader)
     for (const memberId of invitedUserIds) {
       await client.query(
-        `INSERT INTO team_invites (team_id, invited_user_id, status)
-         VALUES ($1, $2, 'pending')`,
-        [teamId, memberId]
+        `INSERT INTO match_players (
+           match_id, user_id, team_id, paid_add_money, paid_cashback, paid_winning
+         ) VALUES ($1, $2, $3, 0, 0, 0)`,
+        [matchId, memberId, teamId]
       );
     }
 
@@ -303,7 +308,7 @@ export async function createTeam(
           freeFireId: m.ffId,
           name: m.name,
           role: 'member' as const,
-          status: 'pending' as const,
+          status: 'confirmed' as const,
         })),
       ],
     };
@@ -317,11 +322,14 @@ export async function listUserInvites(userId: string): Promise<TeamInviteDto[]> 
   const res = await query(
     `SELECT ti.id, ti.team_id, ti.invited_user_id, ti.status, ti.created_at, ti.responded_at,
             t.name AS team_name, t.size AS team_size, t.leader_id,
-            u.name AS leader_name, u.ff_id AS leader_ff_id,
-            m.id AS match_id, m.game_mode, m.team_mode, m.entry_fee, m.start_time, m.status AS match_status
+            u.name AS leader_name, u.ff_id AS leader_ff_id, u.ff_name AS leader_ff_name,
+            iu.name AS invited_user_name, iu.ff_id AS invited_user_ff_id, iu.ff_name AS invited_user_ff_name,
+            m.id AS match_id, m.game_mode, m.team_mode, m.entry_fee, m.start_time, m.status AS match_status,
+            m.kill_price, m.position_prizes
      FROM team_invites ti
      JOIN teams t ON t.id = ti.team_id
      JOIN users u ON u.id = t.leader_id
+     JOIN users iu ON iu.id = ti.invited_user_id
      JOIN matches m ON m.id = t.match_id
      WHERE ti.invited_user_id = $1
      ORDER BY ti.created_at DESC`,
@@ -336,13 +344,22 @@ export async function listUserInvites(userId: string): Promise<TeamInviteDto[]> 
     leaderId: r.leader_id.toString(),
     leaderName: r.leader_name,
     leaderFfId: r.leader_ff_id,
+    leaderFfName: r.leader_ff_name || undefined,
+    invitedUserId: r.invited_user_id.toString(),
+    invitedUserName: r.invited_user_name || undefined,
+    invitedUserFfId: r.invited_user_ff_id || undefined,
+    invitedUserFfName: r.invited_user_ff_name || undefined,
     matchId: r.match_id.toString(),
     gameMode: r.game_mode,
     teamMode: r.team_mode,
     entryFee: paiseToString(stringToPaise(r.entry_fee.toString())),
     startTime: r.start_time.toISOString(),
     matchStatus: r.match_status,
-    invitedUserId: r.invited_user_id.toString(),
+    killPrice: r.kill_price ? paiseToString(stringToPaise(r.kill_price.toString())) : '0.00',
+    firstPlacePrize: r.position_prizes?.['1']
+      ? paiseToString(stringToPaise(r.position_prizes['1'].toString()))
+      : (r.position_prizes?.[1] ? paiseToString(stringToPaise(r.position_prizes[1].toString())) : '0.00'),
+    positionPrizes: r.position_prizes || {},
     status: r.status,
     createdAt: r.created_at.toISOString(),
     respondedAt: r.responded_at ? r.responded_at.toISOString() : null,
@@ -648,14 +665,21 @@ export async function replaceInvite(
       throw new AppError(ErrorCodes.VALIDATION_ERROR, 'Leader cannot invite themselves', 400);
     }
 
-    // Find forming team for leader on this match
-    const teamPeek = await client.query<{ id: number; size: number }>(
-      `SELECT id, size FROM teams WHERE match_id = $1 AND leader_id = $2 AND status = 'forming'`,
+    // Find active team for user on this match (forming or confirmed)
+    const userTeamRes = await client.query<{ id: number; leader_id: number; size: number; status: string }>(
+      `SELECT t.id, t.leader_id, t.size, t.status FROM teams t
+       LEFT JOIN match_players p ON p.team_id = t.id AND p.refunded_at IS NULL
+       WHERE t.match_id = $1 AND (t.leader_id = $2 OR p.user_id = $2) AND t.status IN ('forming', 'confirmed')
+       LIMIT 1`,
       [matchId, leaderId]
     );
-    if (!teamPeek.rowCount) {
-      throw new AppError(ErrorCodes.NOT_FOUND, 'Active forming team not found', 404);
+    if (!userTeamRes.rowCount) {
+      throw new AppError(ErrorCodes.NOT_FOUND, 'Active team not found', 404);
     }
+    if (userTeamRes.rows[0].leader_id.toString() !== leaderId) {
+      throw new AppError(ErrorCodes.FORBIDDEN, 'Only team leader can change teammates', 403);
+    }
+    const teamPeek = userTeamRes;
     const teamId = teamPeek.rows[0].id.toString();
 
     // ── Step 1: Lock match FOR UPDATE ────────────────────────────────────────
@@ -685,11 +709,45 @@ export async function replaceInvite(
       `SELECT id, status FROM teams WHERE id = $1 FOR UPDATE`,
       [teamId]
     );
-    if (!teamRes.rowCount || teamRes.rows[0].status !== 'forming') {
-      throw new AppError(ErrorCodes.MATCH_NOT_JOINABLE, 'Team is no longer forming', 409);
+    if (!teamRes.rowCount || !['forming', 'confirmed'].includes(teamRes.rows[0].status)) {
+      throw new AppError(ErrorCodes.MATCH_NOT_JOINABLE, 'Team is no longer active', 409);
     }
 
-    // ── Step 3: Lock invites FOR UPDATE ──────────────────────────────────────
+    if (teamRes.rows[0].status === 'confirmed') {
+      // Confirmed team: verify old player is in match_players for this team
+      const oldPlayerRes = await client.query<{ id: number }>(
+        `SELECT id FROM match_players WHERE match_id = $1 AND team_id = $2 AND user_id = $3 AND refunded_at IS NULL FOR UPDATE`,
+        [matchId, teamId, oldUserId]
+      );
+      if (!oldPlayerRes.rowCount) {
+        throw new AppError(ErrorCodes.NOT_FOUND, 'Player not found in this team', 404);
+      }
+      if (oldUserId === leaderId) {
+        throw new AppError(ErrorCodes.VALIDATION_ERROR, 'Leader cannot replace themselves', 400);
+      }
+
+      // Validate new user is not already joined
+      const newUserJoined = await client.query(
+        `SELECT id FROM match_players WHERE match_id = $1 AND user_id = $2 AND refunded_at IS NULL`,
+        [matchId, newUserId]
+      );
+      if (newUserJoined.rowCount) {
+        throw new AppError(
+          ErrorCodes.ALREADY_JOINED,
+          'New player has already joined this match',
+          409
+        );
+      }
+
+      // Swap in match_players
+      await client.query(
+        `UPDATE match_players SET user_id = $1 WHERE id = $2`,
+        [newUserId, oldPlayerRes.rows[0].id]
+      );
+      return;
+    }
+
+    // ── Step 3: Lock invites FOR UPDATE (forming teams) ──────────────────────
     const oldInviteRes = await client.query<{ id: number; status: string }>(
       `SELECT id, status FROM team_invites WHERE team_id = $1 AND invited_user_id = $2 FOR UPDATE`,
       [teamId, oldUserId]
@@ -823,6 +881,13 @@ export async function disbandTeam(leaderId: string, matchId: string): Promise<vo
     if (!teamRes.rowCount || teamRes.rows[0].status === 'disbanded') {
       throw new AppError(ErrorCodes.NOT_FOUND, 'Team already disbanded', 404);
     }
+    if (teamRes.rows[0].status === 'confirmed') {
+      throw new AppError(
+        ErrorCodes.MATCH_NOT_JOINABLE,
+        'Cannot disband team once formed. Team formation is final.',
+        409
+      );
+    }
 
     // ── Step 4: Lock invites FOR UPDATE ──────────────────────────────────────
     await client.query(
@@ -855,4 +920,59 @@ export async function disbandTeam(leaderId: string, matchId: string): Promise<vo
     // ── Step 8: Mark team disbanded ──────────────────────────────────────────
     await client.query(`UPDATE teams SET status = 'disbanded' WHERE id = $1`, [teamId]);
   });
+}
+
+/**
+ * 7. Lookup teammate by Free Fire UID: GET /matches/lookup-teammate?ffId=...
+ */
+export async function lookupTeammate(
+  leaderId: string,
+  ffId: string,
+  matchId?: string
+): Promise<{ exists: boolean; ffId?: string; ffName?: string; name?: string; message?: string }> {
+  const cleanFfId = (ffId || '').trim();
+  if (!cleanFfId) {
+    return { exists: false, message: 'Invalid UID, Check UID or Register the Player' };
+  }
+
+  // Check if leader entered their own Free Fire ID
+  const leaderRes = await query<{ ff_id: string }>(
+    `SELECT ff_id FROM users WHERE id = $1`,
+    [leaderId]
+  );
+  if (
+    leaderRes.rowCount &&
+    leaderRes.rows[0].ff_id &&
+    leaderRes.rows[0].ff_id.toLowerCase() === cleanFfId.toLowerCase()
+  ) {
+    return { exists: false, message: 'You cannot add yourself as a teammate' };
+  }
+
+  const uRes = await query<{ id: number; ff_id: string; ff_name: string; name: string }>(
+    `SELECT id, ff_id, ff_name, name FROM users WHERE LOWER(ff_id) = LOWER($1) AND deleted_at IS NULL`,
+    [cleanFfId]
+  );
+
+  if (!uRes.rowCount) {
+    return { exists: false, message: 'Invalid UID, Check UID or Register the Player' };
+  }
+
+  const user = uRes.rows[0];
+
+  if (matchId) {
+    const joinedCheck = await query(
+      `SELECT id FROM match_players WHERE match_id = $1 AND user_id = $2 AND refunded_at IS NULL`,
+      [matchId, user.id]
+    );
+    if (joinedCheck.rowCount) {
+      return { exists: false, message: 'Player has already joined this match' };
+    }
+  }
+
+  return {
+    exists: true,
+    ffId: user.ff_id,
+    ffName: user.ff_name || user.name,
+    name: user.name,
+  };
 }

@@ -32,6 +32,7 @@ import {
 } from '../utils/formatters.js';
 import { getFriendlyErrorMessage } from '../utils/errors.js';
 import { ScreenshotViewerModal } from '../components/common/ScreenshotViewerModal.js';
+import { UserProfileModal } from '../components/common/UserProfileModal.js';
 import {
   ArrowDownToLine,
   CheckCircle2,
@@ -43,6 +44,7 @@ import {
   Loader2,
   RefreshCw,
   Search,
+  User,
 } from 'lucide-react';
 
 const STATUS_FILTERS = [
@@ -80,6 +82,10 @@ export const Deposits: React.FC = () => {
 
   // Screenshot viewer state
   const [viewerDeposit, setViewerDeposit] = useState<StaffDepositDto | null>(null);
+
+  // User profile modal state
+  const [selectedProfileUserId, setSelectedProfileUserId] = useState<string | null>(null);
+  const [selectedProfileUser, setSelectedProfileUser] = useState<{ name?: string; email?: string } | null>(null);
 
   // Double submit ref guard
   const isSubmittingRef = useRef<boolean>(false);
@@ -126,11 +132,11 @@ export const Deposits: React.FC = () => {
   };
 
   // Fresh signed URL fetcher for screenshot viewer
-  const handleFetchFreshSignedUrl = async (depId: string): Promise<string | null> => {
+  const handleFetchFreshSignedUrl = React.useCallback(async (depId: string): Promise<string | null> => {
     const res = await getStaffDeposits({ limit: 50 });
     const match = res.items.find((item) => item.id === depId);
     return match ? match.screenshotUrl : null;
-  };
+  }, []);
 
   // Mutations
   const approveMutation = useMutation({
@@ -316,7 +322,7 @@ export const Deposits: React.FC = () => {
             <table className="w-full text-left text-xs">
               <thead className="border-b border-slate-800 bg-slate-950/60 text-[11px] font-bold uppercase tracking-wider text-slate-400">
                 <tr>
-                  <th className="px-4 py-3.5">ID / User</th>
+                  <th className="px-4 py-3.5">User</th>
                   <th className="px-4 py-3.5">Amount</th>
                   <th className="px-4 py-3.5">UTR / Ref</th>
                   <th className="px-4 py-3.5">Age / Date</th>
@@ -336,12 +342,26 @@ export const Deposits: React.FC = () => {
                       data-testid={`deposit-row-${dep.id}`}
                       className="hover:bg-slate-800/30 transition-colors"
                     >
-                      {/* ID / User */}
+                      {/* User */}
                       <td className="px-4 py-3.5">
-                        <span className="font-mono font-bold text-slate-200">#{dep.id}</span>
-                        <div className="text-[11px] text-slate-400 truncate max-w-[160px]">
-                          {dep.userEmail}
-                        </div>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setSelectedProfileUserId(dep.userId);
+                            setSelectedProfileUser({ name: dep.userName, email: dep.userEmail });
+                          }}
+                          data-testid={`user-profile-btn-${dep.id}`}
+                          className="text-left group flex flex-col items-start focus:outline-none"
+                          title="Click to view user profile"
+                        >
+                          <span className="font-bold text-emerald-400 group-hover:text-emerald-300 group-hover:underline flex items-center gap-1.5 transition-colors">
+                            <User className="h-3.5 w-3.5 shrink-0 opacity-70 group-hover:opacity-100" />
+                            <span>{dep.userName || dep.userEmail}</span>
+                          </span>
+                          <span className="text-[11px] text-slate-400 truncate max-w-[170px] mt-0.5">
+                            {dep.userEmail}
+                          </span>
+                        </button>
                       </td>
 
                       {/* Amount */}
@@ -846,6 +866,20 @@ export const Deposits: React.FC = () => {
           initialUrl={viewerDeposit.screenshotUrl}
           onClose={() => setViewerDeposit(null)}
           onFetchFreshUrl={handleFetchFreshSignedUrl}
+        />
+      )}
+
+      {/* User Profile Modal */}
+      {selectedProfileUserId && (
+        <UserProfileModal
+          isOpen={true}
+          userId={selectedProfileUserId}
+          initialUserName={selectedProfileUser?.name}
+          initialUserEmail={selectedProfileUser?.email}
+          onClose={() => {
+            setSelectedProfileUserId(null);
+            setSelectedProfileUser(null);
+          }}
         />
       )}
     </div>

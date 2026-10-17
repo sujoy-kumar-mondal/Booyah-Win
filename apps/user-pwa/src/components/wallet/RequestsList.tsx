@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { getDeposits, getWithdrawals } from '../../api/wallet.js';
 import { formatIndianRupees, formatISTDateTime } from '../../utils/formatters.js';
+import { useTranslation } from '../../i18n/LanguageContext.js';
 import type { DepositDto, WithdrawalDto } from '../../api/types.js';
 import {
   Clock,
@@ -18,6 +19,7 @@ interface RequestsListProps {
 }
 
 export const RequestsList: React.FC<RequestsListProps> = ({ initialTab = 'deposits' }) => {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState<'deposits' | 'withdrawals'>(initialTab);
 
   // Pagination states
@@ -79,35 +81,35 @@ export const RequestsList: React.FC<RequestsListProps> = ({ initialTab = 'deposi
         return (
           <span className="flex items-center gap-1 rounded-full bg-cyan-500/10 px-2.5 py-0.5 text-[11px] font-bold text-cyan-400 border border-cyan-500/20">
             <Clock className="h-3 w-3" />
-            Verified by staff, waiting for final approval
+            {t('wallet.verifiedByStaff')}
           </span>
         );
       case 'pending':
         return (
           <span className="flex items-center gap-1 rounded-full bg-amber-500/10 px-2.5 py-0.5 text-[11px] font-bold text-amber-400 border border-amber-500/20">
             <Clock className="h-3 w-3" />
-            Under review
+            {t('wallet.statusUnderReview')}
           </span>
         );
       case 'approved':
         return (
           <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400 border border-emerald-500/20">
             <CheckCircle2 className="h-3 w-3" />
-            Approved
+            {t('wallet.statusApproved')}
           </span>
         );
       case 'paid':
         return (
           <span className="flex items-center gap-1 rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[11px] font-bold text-emerald-400 border border-emerald-500/20">
             <CheckCircle2 className="h-3 w-3" />
-            Paid
+            {t('wallet.statusPaid')}
           </span>
         );
       case 'rejected':
         return (
           <span className="flex items-center gap-1 rounded-full bg-rose-500/10 px-2.5 py-0.5 text-[11px] font-bold text-rose-400 border border-rose-500/20">
             <XCircle className="h-3 w-3" />
-            Rejected
+            {t('wallet.statusRejected')}
           </span>
         );
       default:
@@ -134,7 +136,7 @@ export const RequestsList: React.FC<RequestsListProps> = ({ initialTab = 'deposi
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          My Deposits
+          {t('wallet.myDeposits')}
         </button>
         <button
           type="button"
@@ -146,7 +148,7 @@ export const RequestsList: React.FC<RequestsListProps> = ({ initialTab = 'deposi
               : 'text-slate-400 hover:text-slate-200'
           }`}
         >
-          My Withdrawals
+          {t('wallet.myWithdrawals')}
         </button>
       </div>
 
@@ -156,7 +158,7 @@ export const RequestsList: React.FC<RequestsListProps> = ({ initialTab = 'deposi
           {isLoadingDeposits && allDeposits.length === 0 ? (
             <div className="p-8 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
-              Loading deposits...
+              {t('wallet.loadingDeposits')}
             </div>
           ) : allDeposits.length === 0 ? (
             <div
@@ -164,9 +166,9 @@ export const RequestsList: React.FC<RequestsListProps> = ({ initialTab = 'deposi
               data-testid="deposits-empty-state"
             >
               <Upload className="h-8 w-8 mx-auto text-slate-600" />
-              <p className="text-xs font-medium text-slate-300">No deposit requests found</p>
+              <p className="text-xs font-medium text-slate-300">{t('wallet.noDepositsFound')}</p>
               <p className="text-[11px] text-slate-500">
-                Submit a deposit to add funds to your wallet.
+                {t('wallet.noDepositsDesc')}
               </p>
             </div>
           ) : (
@@ -180,7 +182,7 @@ export const RequestsList: React.FC<RequestsListProps> = ({ initialTab = 'deposi
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase tracking-wider block">
-                        Deposit ID: {item.id}
+                        {t('wallet.depositId', { id: item.id })}
                       </span>
                       <span className="text-base font-extrabold text-slate-100">
                         {formatIndianRupees(item.amount)}
@@ -191,18 +193,18 @@ export const RequestsList: React.FC<RequestsListProps> = ({ initialTab = 'deposi
 
                   <div className="border-t border-slate-800/80 pt-2 flex flex-col gap-1 text-[11px] text-slate-400">
                     <div className="flex justify-between">
-                      <span>UTR:</span>
+                      <span>{t('wallet.utrColon')}</span>
                       <span className="font-mono text-slate-200">{item.utr}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Submitted:</span>
+                      <span>{t('wallet.submittedColon')}</span>
                       <span className="text-slate-300">{formatISTDateTime(item.createdAt)}</span>
                     </div>
 
                     {item.status === 'rejected' && item.rejectReason && (
                       <div className="mt-1 rounded-lg bg-rose-500/10 border border-rose-500/20 p-2 text-rose-400 flex items-start gap-1.5">
                         <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                        <span>Reason: {item.rejectReason}</span>
+                        <span>{t('wallet.reasonColon', { reason: item.rejectReason })}</span>
                       </div>
                     )}
                   </div>
@@ -220,10 +222,10 @@ export const RequestsList: React.FC<RequestsListProps> = ({ initialTab = 'deposi
                   {isFetchingDeposits ? (
                     <>
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Loading...
+                      {t('common.loading')}
                     </>
                   ) : (
-                    'Load more'
+                    t('wallet.loadMore')
                   )}
                 </button>
               )}
@@ -238,7 +240,7 @@ export const RequestsList: React.FC<RequestsListProps> = ({ initialTab = 'deposi
           {isLoadingWithdrawals && allWithdrawals.length === 0 ? (
             <div className="p-8 text-center text-xs text-slate-400 flex items-center justify-center gap-2">
               <Loader2 className="h-4 w-4 animate-spin text-emerald-400" />
-              Loading withdrawals...
+              {t('wallet.loadingWithdrawals')}
             </div>
           ) : allWithdrawals.length === 0 ? (
             <div
@@ -246,9 +248,9 @@ export const RequestsList: React.FC<RequestsListProps> = ({ initialTab = 'deposi
               data-testid="withdrawals-empty-state"
             >
               <ArrowDownToLine className="h-8 w-8 mx-auto text-slate-600" />
-              <p className="text-xs font-medium text-slate-300">No withdrawal requests found</p>
+              <p className="text-xs font-medium text-slate-300">{t('wallet.noWithdrawalsFound')}</p>
               <p className="text-[11px] text-slate-500">
-                You have not requested any payouts yet.
+                {t('wallet.noWithdrawalsDesc')}
               </p>
             </div>
           ) : (
@@ -262,7 +264,7 @@ export const RequestsList: React.FC<RequestsListProps> = ({ initialTab = 'deposi
                   <div className="flex items-center justify-between">
                     <div>
                       <span className="text-[10px] text-slate-400 uppercase tracking-wider block">
-                        Withdrawal ID: {item.id}
+                        {t('wallet.withdrawalId', { id: item.id })}
                       </span>
                       <span className="text-base font-extrabold text-slate-100">
                         {formatIndianRupees(item.amount)}
@@ -273,17 +275,17 @@ export const RequestsList: React.FC<RequestsListProps> = ({ initialTab = 'deposi
 
                   <div className="border-t border-slate-800/80 pt-2 flex flex-col gap-1 text-[11px] text-slate-400">
                     <div className="flex justify-between">
-                      <span>UPI ID:</span>
+                      <span>{t('wallet.upiIdColon')}</span>
                       <span className="font-mono text-slate-200">{item.upiId}</span>
                     </div>
                     <div className="flex justify-between">
-                      <span>Requested:</span>
+                      <span>{t('wallet.requestedColon')}</span>
                       <span className="text-slate-300">{formatISTDateTime(item.createdAt)}</span>
                     </div>
 
                     {item.payoutRef && (
                       <div className="flex justify-between">
-                        <span>Payout Ref:</span>
+                        <span>{t('wallet.payoutRefColon')}</span>
                         <span className="font-mono text-emerald-400 font-semibold">
                           {item.payoutRef}
                         </span>
@@ -293,7 +295,7 @@ export const RequestsList: React.FC<RequestsListProps> = ({ initialTab = 'deposi
                     {item.status === 'rejected' && item.rejectReason && (
                       <div className="mt-1 rounded-lg bg-rose-500/10 border border-rose-500/20 p-2 text-rose-400 flex items-start gap-1.5">
                         <AlertCircle className="h-3.5 w-3.5 shrink-0 mt-0.5" />
-                        <span>Reason: {item.rejectReason}</span>
+                        <span>{t('wallet.reasonColon', { reason: item.rejectReason })}</span>
                       </div>
                     )}
                   </div>
@@ -311,10 +313,10 @@ export const RequestsList: React.FC<RequestsListProps> = ({ initialTab = 'deposi
                   {isFetchingWithdrawals ? (
                     <>
                       <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                      Loading...
+                      {t('common.loading')}
                     </>
                   ) : (
-                    'Load more'
+                    t('wallet.loadMore')
                   )}
                 </button>
               )}

@@ -1,10 +1,12 @@
 import React, { useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../context/AuthContext.js';
+import { useTranslation } from '../../i18n/LanguageContext.js';
 import { Smartphone, LogIn } from 'lucide-react';
 
 export const SessionReplacedModal: React.FC = () => {
   const { sessionReplacedOpen, sessionDialogMessage, sessionDialogTitle, dismissSessionReplaced } = useAuth();
+  const { t } = useTranslation();
   const buttonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
@@ -46,10 +48,10 @@ export const SessionReplacedModal: React.FC = () => {
           <Smartphone className="h-7 w-7" />
         </div>
         <h3 className="mb-2 text-lg font-bold text-slate-100" data-testid="session-dialog-title">
-          {sessionDialogTitle || 'Session Expired'}
+          {sessionDialogTitle || t('banners.sessionReplacedTitle')}
         </h3>
         <p className="mb-6 text-sm text-slate-400 leading-relaxed" data-testid="session-dialog-message">
-          {sessionDialogMessage || 'You were logged out because your account was used on another device.'}
+          {sessionDialogMessage || t('errors.SESSION_REPLACED')}
         </p>
         <button
           ref={buttonRef}
@@ -58,7 +60,7 @@ export const SessionReplacedModal: React.FC = () => {
           className="flex w-full items-center justify-center gap-2 rounded-xl bg-emerald-500 py-3 text-sm font-semibold text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.98]"
         >
           <LogIn className="h-4 w-4" />
-          Log In Again
+          {t('auth.logInAgain')}
         </button>
       </div>
     </div>

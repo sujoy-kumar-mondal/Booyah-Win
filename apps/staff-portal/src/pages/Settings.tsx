@@ -40,6 +40,7 @@ import {
 // Strict regex for rupee amounts with optional 1-2 decimal places
 const MONEY_REGEX = /^\d+(\.\d{1,2})?$/;
 const CONTROL_CHAR_REGEX = /[\x00-\x1F\x7F]/;
+const PERCENT_REGEX = /^(?:0|[1-9]\d*)(?:\.\d{1,2})?$/;
 
 // Converts string money (e.g. "10.00" or "50") to integer paise for comparison without Number()
 function parseMoneyToPaise(val: string): number {
@@ -48,6 +49,24 @@ function parseMoneyToPaise(val: string): number {
   const whole = parseInt(parts[0] || '0', 10);
   const frac = parseInt((parts[1] || '').padEnd(2, '0').slice(0, 2), 10);
   return whole * 100 + frac;
+}
+
+export function validateCashbackPercent(val: string): string | null {
+  const trimmed = val.trim();
+  if (!PERCENT_REGEX.test(trimmed)) {
+    return 'Cashback percentage must be a number between 0 and 100 with at most 2 decimal places.';
+  }
+  const parts = trimmed.split('.');
+  const whole = parseInt(parts[0] || '0', 10);
+  let frac = 0;
+  if (parts.length > 1) {
+    frac = parseInt((parts[1] || '').padEnd(2, '0').slice(0, 2), 10);
+  }
+  const bp = whole * 100 + frac;
+  if (bp < 0 || bp > 10000) {
+    return 'Cashback percentage must be between 0 and 100.';
+  }
+  return null;
 }
 
 export const Settings: React.FC = () => {
@@ -67,6 +86,11 @@ export const Settings: React.FC = () => {
   const [paymentUpiId, setPaymentUpiId] = useState('');
   const [paymentQrUrl, setPaymentQrUrl] = useState('');
   const [paymentQrKey, setPaymentQrKey] = useState('');
+
+  // Cashback entry fee cap state
+  const [cashbackMaxPercent, setCashbackMaxPercent] = useState('5');
+  const [initialCashbackMaxPercent, setInitialCashbackMaxPercent] = useState('5');
+  const [showCashbackModal, setShowCashbackModal] = useState(false);
 
   // Maintenance mode state
   const [maintenanceEnabled, setMaintenanceEnabled] = useState(false);
@@ -128,6 +152,10 @@ export const Settings: React.FC = () => {
           const tClean = tPart.split('+')[0].split('-')[0].split('Z')[0];
           setMaintenanceTime(tClean ? tClean.slice(0, 5) : '');
         }
+      }
+      if (s.cashback_max_percent !== undefined) {
+        setCashbackMaxPercent(s.cashback_max_percent || '5');
+        setInitialCashbackMaxPercent(s.cashback_max_percent || '5');
       }
     } catch (err) {
       setFormError(getFriendlyErrorMessage(err, 'settings'));
@@ -207,6 +235,7 @@ export const Settings: React.FC = () => {
         maintenance_enabled: maintenanceEnabled ? 'true' : 'false',
         maintenance_message: maintenanceMessage.trim(),
         maintenance_until: maintenanceUntil.trim(),
+        cashback_max_percent: cashbackMaxPercent.trim(),
       };
 
       await updateAdminSettings(payload);
@@ -246,6 +275,13 @@ export const Settings: React.FC = () => {
       return;
     }
 
+    // Cashback percent validation
+    const cashbackError = validateCashbackPercent(cashbackMaxPercent);
+    if (cashbackError) {
+      setFormError(cashbackError);
+      return;
+    }
+
     // Maintenance validations
     if (CONTROL_CHAR_REGEX.test(maintenanceMessage)) {
       setFormError('Maintenance message cannot contain control characters.');
@@ -259,6 +295,12 @@ export const Settings: React.FC = () => {
     // Confirmation modal required before saving maintenance mode toggle change
     if (maintenanceEnabled !== initialMaintenanceEnabled) {
       setShowMaintenanceModal(true);
+      return;
+    }
+
+    // Confirmation modal required before saving cashback cap change
+    if (cashbackMaxPercent.trim() !== initialCashbackMaxPercent.trim()) {
+      setShowCashbackModal(true);
       return;
     }
 
@@ -435,6 +477,35 @@ export const Settings: React.FC = () => {
                 <span className="text-[10px] text-slate-500 mt-1 block">
                   Two-step approval active: all requests require staff review and admin approval.
                 </span>
+              </div>
+            </div>
+
+            {/* Cashback Wallet Entry Fee Cap */}
+            <div className="border-t border-slate-800/80 pt-4 space-y-2">
+              <div className="max-w-md">
+                <label className="block text-[11px] font-semibold text-slate-300 mb-1">
+                  Cashback Entry Fee Cap (%)
+                </label>
+                <input
+                  type="text"
+                  required
+                  value={cashbackMaxPercent}
+                  onChange={(e) => setCashbackMaxPercent(e.target.value)}
+                  placeholder="e.g. 5 or 12.50"
+                  data-testid="settings-cashback-percent-input"
+                  className="w-full rounded-xl border border-slate-800 bg-slate-950 px-3 py-2 text-xs text-slate-200 font-mono focus:border-emerald-500 focus:outline-none"
+                />
+                <span className="text-[10px] text-amber-400/90 mt-1 block">
+                  Note: Raising the percentage costs the business more cashback, as players can cover a larger share of entry fees using promotional rewards.
+                </span>
+                {validateCashbackPercent(cashbackMaxPercent) && (
+                  <span
+                    data-testid="settings-cashback-warning"
+                    className="text-[10px] text-rose-400 mt-1 block font-medium"
+                  >
+                    {validateCashbackPercent(cashbackMaxPercent)}
+                  </span>
+                )}
               </div>
             </div>
           </div>
@@ -767,12 +838,79 @@ export const Settings: React.FC = () => {
                 type="button"
                 onClick={() => {
                   setShowMaintenanceModal(false);
-                  executeSaveSettings();
+                  if (cashbackMaxPercent.trim() !== initialCashbackMaxPercent.trim()) {
+                    setShowCashbackModal(true);
+                  } else {
+                    executeSaveSettings();
+                  }
                 }}
                 data-testid="maintenance-confirm-save-btn"
                 className="rounded-xl bg-amber-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-amber-400 transition-colors"
               >
                 {maintenanceEnabled ? 'Confirm & Enable' : 'Confirm & Disable'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal before Saving Cashback Percentage Change */}
+      {showCashbackModal && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-950/80 backdrop-blur-sm"
+          data-testid="cashback-confirm-modal"
+        >
+          <div className="w-full max-w-md rounded-2xl border border-slate-800 bg-slate-900 p-6 shadow-2xl space-y-4">
+            <div className="flex items-center gap-3 text-amber-400">
+              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-amber-500/10 border border-amber-500/20">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="text-sm font-bold text-slate-100">
+                  Confirm Cashback Cap Change
+                </h3>
+                <p className="text-[11px] text-slate-400">Review business cost impact</p>
+              </div>
+            </div>
+
+            <div className="rounded-xl border border-slate-800 bg-slate-950 p-3 space-y-2 text-xs font-mono">
+              <div className="flex justify-between items-center text-slate-400">
+                <span>Previous Cap:</span>
+                <span className="text-slate-200 font-bold" data-testid="modal-old-cashback-cap">
+                  {initialCashbackMaxPercent}%
+                </span>
+              </div>
+              <div className="flex justify-between items-center text-slate-400 border-t border-slate-800 pt-1.5">
+                <span>New Cap:</span>
+                <span className="text-emerald-400 font-bold" data-testid="modal-new-cashback-cap">
+                  {cashbackMaxPercent.trim()}%
+                </span>
+              </div>
+            </div>
+
+            <p className="text-xs text-amber-300 bg-amber-500/10 border border-amber-500/20 rounded-xl p-3 leading-relaxed">
+              <strong>Notice:</strong> Raising the cashback percentage costs the business more cashback, as players can cover a larger share of entry fees using promotional rewards.
+            </p>
+
+            <div className="flex items-center justify-end gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowCashbackModal(false)}
+                data-testid="cancel-cashback-save-btn"
+                className="px-3.5 py-2 text-xs font-semibold text-slate-400 hover:text-slate-200 transition-colors"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={async () => {
+                  setShowCashbackModal(false);
+                  await executeSaveSettings();
+                }}
+                data-testid="confirm-cashback-save-btn"
+                className="rounded-xl bg-emerald-500 px-4 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-400 transition-colors shadow-lg shadow-emerald-500/10"
+              >
+                Confirm & Save Cap
               </button>
             </div>
           </div>

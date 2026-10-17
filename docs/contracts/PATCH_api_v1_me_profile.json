@@ -9,9 +9,11 @@
       "ffName": "ProPlayerUpdated",
       "upiId": "user@upi",
       "dateOfBirth": "2000-01-01",
-      "referralCode": "V2KPTH95",
+      "referralCode": "Q453533C",
       "referredBy": null,
-      "createdAt": "2026-10-13T13:39:20.067Z"
+      "avatarUrl": null,
+      "language": "en",
+      "createdAt": "2026-10-17T05:04:37.336Z"
     },
     "wallets": {
       "addMoney": "0.00",
@@ -22,7 +24,7 @@
     "cooldowns": {
       "mobileAvailableAt": null,
       "ffIdAvailableAt": null,
-      "ffNameAvailableAt": "2026-11-12T13:39:20.364Z",
+      "ffNameAvailableAt": "2026-11-16T05:04:37.682Z",
       "upiIdAvailableAt": null
     }
   }

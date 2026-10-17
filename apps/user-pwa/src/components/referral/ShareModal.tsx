@@ -14,6 +14,7 @@ import {
   getFacebookShareUrl,
   getTwitterShareUrl,
 } from '../../utils/share.js';
+import { useTranslation } from '../../i18n/LanguageContext.js';
 
 interface ShareModalProps {
   isOpen: boolean;
@@ -30,6 +31,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   referralCode,
   onNotify,
 }) => {
+  const { t } = useTranslation();
   const [copiedLink, setCopiedLink] = useState(false);
   const [copiedCode, setCopiedCode] = useState(false);
 
@@ -38,20 +40,20 @@ export const ShareModal: React.FC<ShareModalProps> = ({
   const handleCopyLink = () => {
     navigator.clipboard.writeText(payload.url);
     setCopiedLink(true);
-    onNotify('Referral link copied to clipboard!');
+    onNotify(t('referral.linkCopied'));
     setTimeout(() => setCopiedLink(false), 2000);
   };
 
   const handleCopyCode = () => {
     navigator.clipboard.writeText(referralCode);
     setCopiedCode(true);
-    onNotify('Referral code copied!');
+    onNotify(t('referral.codeCopied'));
     setTimeout(() => setCopiedCode(false), 2000);
   };
 
   const handleShareClick = (url: string) => {
     window.open(url, '_blank', 'noopener,noreferrer');
-    onNotify('Opening share window...');
+    onNotify(t('referral.openingShare'));
   };
 
   return (
@@ -74,13 +76,13 @@ export const ShareModal: React.FC<ShareModalProps> = ({
               <Share2 className="h-4 w-4" />
             </div>
             <div>
-              <h2 className="text-sm font-black text-slate-100">Share with Friends</h2>
-              <p className="text-[10px] text-slate-400">Earn instant cash bonuses together</p>
+              <h2 className="text-sm font-black text-slate-100">{t('referral.shareWithFriends')}</h2>
+              <p className="text-[10px] text-slate-400">{t('referral.earnTogether')}</p>
             </div>
           </div>
           <button
             onClick={onClose}
-            aria-label="Close modal"
+            aria-label={t('common.close')}
             data-testid="share-modal-close-btn"
             className="rounded-xl p-1.5 text-slate-400 hover:text-white hover:bg-slate-800 transition"
           >
@@ -91,14 +93,14 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         {/* Code Box */}
         <div className="rounded-2xl border border-slate-800 bg-slate-950/70 p-3 space-y-1.5">
           <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400">
-            <span>Your Code</span>
+            <span>{t('referral.yourCodeLabel')}</span>
             <button
               onClick={handleCopyCode}
               data-testid="share-modal-copy-code-btn"
               className="flex items-center gap-1 text-emerald-400 hover:text-emerald-300 font-bold"
             >
               {copiedCode ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-              <span>{copiedCode ? 'Copied' : 'Copy Code'}</span>
+              <span>{copiedCode ? t('common.copied') : t('referral.copyCode')}</span>
             </button>
           </div>
           <div className="font-mono text-base font-black tracking-widest text-emerald-400 select-all">
@@ -109,7 +111,7 @@ export const ShareModal: React.FC<ShareModalProps> = ({
         {/* Social Share Options */}
         <div className="space-y-2">
           <p className="text-[11px] font-bold uppercase tracking-wider text-slate-400">
-            Share Directly
+            {t('referral.shareDirectly')}
           </p>
           <div className="grid grid-cols-2 gap-2">
             {/* WhatsApp */}
@@ -168,12 +170,12 @@ export const ShareModal: React.FC<ShareModalProps> = ({
           {copiedLink ? (
             <>
               <Check className="h-4 w-4 text-emerald-400" />
-              <span className="text-emerald-400">Link Copied to Clipboard!</span>
+              <span className="text-emerald-400">{t('referral.linkCopied')}</span>
             </>
           ) : (
             <>
               <Copy className="h-4 w-4" />
-              <span>Copy Referral Link</span>
+              <span>{t('referral.copyReferralLink')}</span>
             </>
           )}
         </button>

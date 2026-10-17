@@ -36,6 +36,7 @@ export const ERROR_CODE_MESSAGES: Record<string, string> = {
   [ErrorCodes.EMAIL_EXISTS]: 'An account with this email address already exists.',
   [ErrorCodes.ADMINS_APPROVE_DIRECTLY]: 'Admins approve directly',
   [ErrorCodes.MAINTENANCE_MODE]: 'System is currently in maintenance mode. Mutating actions are temporarily restricted.',
+  [ErrorCodes.REAUTH_REQUIRED]: 'Security verification required. Please verify OTP to proceed.',
   NETWORK_ERROR: DEV_NETWORK_MESSAGE,
   NON_JSON_RESPONSE: DEV_NON_JSON_MESSAGE,
   TIMEOUT_ERROR: 'Request timed out. Please try again.',

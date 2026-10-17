@@ -52,6 +52,7 @@ export function sanitizeContractData(val: any, keyName?: string): any {
     if (
       keyName === 'screenshotUrl' ||
       keyName === 'signedScreenshotUrl' ||
+      keyName === 'avatarUrl' ||
       val.startsWith('http://') ||
       val.startsWith('https://') ||
       val.startsWith('/uploads/') ||
@@ -704,6 +705,25 @@ describe('Real API Contracts Generator & Strict Parity Verifier', () => {
     saveOrVerifyContract('POST_staff_auth_logout.json', res.body);
   });
 
+  it('captures POST /api/v1/staff/auth/step-up/request-otp', async () => {
+    await query(`UPDATE otp_requests SET created_at = NOW() - interval '2 minutes'`);
+    const res = await request(app)
+      .post('/api/v1/staff/auth/step-up/request-otp')
+      .set('Authorization', `Bearer ${employeeToken}`);
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('POST_staff_auth_step-up_request-otp.json', res.body);
+  });
+
+  it('captures POST /api/v1/staff/auth/step-up/verify-otp', async () => {
+    const otp = testOtpStore.get('employee@booyah.win');
+    const res = await request(app)
+      .post('/api/v1/staff/auth/step-up/verify-otp')
+      .set('Authorization', `Bearer ${employeeToken}`)
+      .send({ otp });
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('POST_staff_auth_step-up_verify-otp.json', res.body);
+  });
+
   // ─── 4. Staff Portal Operational Contracts ──────────────────────────────────
   it('captures GET /api/v1/staff/me', async () => {
     const res = await request(app)
@@ -1038,6 +1058,32 @@ describe('Real API Contracts Generator & Strict Parity Verifier', () => {
     saveOrVerifyContract('PATCH_api_v1_me_profile.json', res.body);
   });
 
+  it('captures PATCH /api/v1/me/language', async () => {
+    const res = await request(app)
+      .patch('/api/v1/me/language')
+      .set('Authorization', `Bearer ${newPlayerToken}`)
+      .send({ language: 'bn' });
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('PATCH_api_v1_me_language.json', res.body);
+  });
+
+  it('captures POST /api/v1/me/avatar', async () => {
+    const res = await request(app)
+      .post('/api/v1/me/avatar')
+      .set('Authorization', `Bearer ${userToken}`)
+      .attach('avatar', validPngBuffer, 'avatar.png');
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('POST_api_v1_me_avatar.json', res.body);
+  });
+
+  it('captures DELETE /api/v1/me/avatar', async () => {
+    const res = await request(app)
+      .delete('/api/v1/me/avatar')
+      .set('Authorization', `Bearer ${userToken}`);
+    expect(res.status).toBe(200);
+    saveOrVerifyContract('DELETE_api_v1_me_avatar.json', res.body);
+  });
+
   it('captures POST /api/v1/wallet/deposits', async () => {
     const res = await request(app)
       .post('/api/v1/wallet/deposits')
@@ -1255,6 +1301,10 @@ describe('Real API Contracts Generator & Strict Parity Verifier', () => {
     saveOrVerifyContract('POST_api_v1_matches_id_teams__forming.json', res.body);
 
     // 3. Pending invites variant (for user2)
+    await query(
+      `INSERT INTO team_invites (team_id, invited_user_id, status) VALUES ($1, $2, 'pending')`,
+      [res.body.data.team.id, user2Id]
+    );
     const pendingInvRes = await request(app)
       .get('/api/v1/me/team-invites')
       .set('Authorization', `Bearer ${user2Token}`);
@@ -1272,6 +1322,7 @@ describe('Real API Contracts Generator & Strict Parity Verifier', () => {
     saveOrVerifyContract('POST_api_v1_matches_id_teams_mine_replace.json', replaceRes.body);
 
     // 5. Disband team
+    await query(`UPDATE teams SET status = 'forming' WHERE id = $1`, [res.body.data.team.id]);
     const disbandRes = await request(app)
       .delete(`/api/v1/matches/${mDuoId}/teams/mine`)
       .set('Authorization', `Bearer ${userToken}`);
@@ -1290,8 +1341,13 @@ describe('Real API Contracts Generator & Strict Parity Verifier', () => {
       .set('Authorization', `Bearer ${userToken}`)
       .send({ teamName: 'Delta Team', memberFfIds: ['87654321'] });
 
-    const decInvQuery = await query(`SELECT id FROM team_invites WHERE invited_user_id = $1 ORDER BY id DESC LIMIT 1`, [user2Id]);
-    const decInviteId = decInvQuery.rows[0].id.toString();
+    const teamDeltaId = (await query(`SELECT id FROM teams WHERE match_id = $1 ORDER BY id DESC LIMIT 1`, [mDuoDecId])).rows[0].id;
+    await query(`UPDATE teams SET status = 'forming' WHERE id = $1`, [teamDeltaId]);
+    const decInvRes = await query(
+      `INSERT INTO team_invites (team_id, invited_user_id, status) VALUES ($1, $2, 'pending') RETURNING id`,
+      [teamDeltaId, user2Id]
+    );
+    const decInviteId = decInvRes.rows[0].id.toString();
 
     const decRes = await request(app)
       .post(`/api/v1/team-invites/${decInviteId}/decline`)
@@ -1311,8 +1367,14 @@ describe('Real API Contracts Generator & Strict Parity Verifier', () => {
       .set('Authorization', `Bearer ${userToken}`)
       .send({ teamName: 'Charlie Team', memberFfIds: ['87654321'] });
 
-    const accInvQuery = await query(`SELECT id FROM team_invites WHERE invited_user_id = $1 ORDER BY id DESC LIMIT 1`, [user2Id]);
-    const accInviteId = accInvQuery.rows[0].id.toString();
+    const teamCharlieId = (await query(`SELECT id FROM teams WHERE match_id = $1 ORDER BY id DESC LIMIT 1`, [mDuoAccId])).rows[0].id;
+    await query(`UPDATE teams SET status = 'forming' WHERE id = $1`, [teamCharlieId]);
+    await query(`DELETE FROM match_players WHERE match_id = $1 AND user_id = $2`, [mDuoAccId, user2Id]);
+    const accInvRes = await query(
+      `INSERT INTO team_invites (team_id, invited_user_id, status) VALUES ($1, $2, 'pending') RETURNING id`,
+      [teamCharlieId, user2Id]
+    );
+    const accInviteId = accInvRes.rows[0].id.toString();
 
     const accRes = await request(app)
       .post(`/api/v1/team-invites/${accInviteId}/accept`)

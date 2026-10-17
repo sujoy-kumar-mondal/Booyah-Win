@@ -17,6 +17,7 @@ import {
   formatDbNumeric,
   paiseToString,
   stringToPaise,
+  parseCashbackPercentToBasisPoints,
   ErrorCodes,
 } from '@booyah/shared';
 import { AppError } from '../../middleware/errorHandler.js';
@@ -220,7 +221,20 @@ export async function allocateEntryFee(
   }
   const w = walletPaise(walletRes.rows[0]);
 
-  const cashbackCap  = Math.floor(feePaise * RULES.CASHBACK_ENTRY_FEE_CAP_PERCENT / 100);
+  // Read cashback_max_percent setting INSIDE transaction from DB (no cache)
+  const settingRes = await client.query<{ value: string }>(
+    "SELECT value FROM app_settings WHERE key = 'cashback_max_percent'"
+  );
+  const rawPercent = settingRes.rows[0]?.value?.trim() || '5';
+  let basisPoints = 500;
+  try {
+    basisPoints = parseCashbackPercentToBasisPoints(rawPercent);
+  } catch {
+    basisPoints = 500;
+  }
+
+  // Integer BigInt math: cap = floor(feePaise * basisPoints / 10000)
+  const cashbackCap = Number((BigInt(feePaise) * BigInt(basisPoints)) / 10000n);
   const cashbackPart = Math.min(w.cashback, cashbackCap);
 
   let remaining = feePaise - cashbackPart;

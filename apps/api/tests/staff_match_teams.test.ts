@@ -193,35 +193,19 @@ describe('GET /staff/matches/:id - Team Membership & Teams Array', () => {
       memberFfIds: [member.ffId],
     });
 
-    // Before member accepts: status is 'forming'
-    let res = await request(app)
+    // Team is formed directly and confirmed immediately
+    const res = await request(app)
       .get(`/api/v1/staff/matches/${match.id}`)
       .set('Authorization', `Bearer ${adminToken}`)
       .expect(200);
 
-    let matchData = res.body.data.match;
+    const matchData = res.body.data.match;
     expect(matchData.teams).toHaveLength(1);
     expect(matchData.teams[0].id).toBe(team.id);
     expect(matchData.teams[0].name).toBe('Duo Champs');
     expect(matchData.teams[0].size).toBe(2);
-    expect(matchData.teams[0].status).toBe('forming');
-    expect(matchData.teams[0].leaderId).toBe(leader.id);
-    expect(matchData.teams[0].memberUserIds).toEqual([leader.id]);
-
-    // Member accepts invite
-    const inviteRes = await query<{ id: string }>(
-      'SELECT id FROM team_invites WHERE team_id = $1 AND invited_user_id = $2',
-      [team.id, member.id]
-    );
-    await acceptInvite(member.id, inviteRes.rows[0].id.toString());
-
-    res = await request(app)
-      .get(`/api/v1/staff/matches/${match.id}`)
-      .set('Authorization', `Bearer ${adminToken}`)
-      .expect(200);
-
-    matchData = res.body.data.match;
     expect(matchData.teams[0].status).toBe('confirmed');
+    expect(matchData.teams[0].leaderId).toBe(leader.id);
     expect(matchData.teams[0].memberUserIds).toEqual([leader.id, member.id]);
     expect(matchData.players).toHaveLength(2);
     expect(matchData.players[0].teamId).toBe(team.id);
@@ -251,14 +235,7 @@ describe('GET /staff/matches/:id - Team Membership & Teams Array', () => {
       memberFfIds: [m1.ffId, m2.ffId, m3.ffId],
     });
 
-    for (const member of [m1, m2, m3]) {
-      const inv = await query<{ id: string }>(
-        'SELECT id FROM team_invites WHERE team_id = $1 AND invited_user_id = $2',
-        [team.id, member.id]
-      );
-      await acceptInvite(member.id, inv.rows[0].id.toString());
-    }
-
+    // Squad team formed directly and confirmed immediately
     const res = await request(app)
       .get(`/api/v1/staff/matches/${match.id}`)
       .set('Authorization', `Bearer ${adminToken}`)
@@ -293,13 +270,6 @@ describe('GET /staff/matches/:id - Team Membership & Teams Array', () => {
       teamName: 'CS Team 1',
       memberFfIds: [t1_m1.ffId, t1_m2.ffId, t1_m3.ffId],
     });
-    for (const member of [t1_m1, t1_m2, t1_m3]) {
-      const inv = await query<{ id: string }>(
-        'SELECT id FROM team_invites WHERE team_id = $1 AND invited_user_id = $2',
-        [team1.id, member.id]
-      );
-      await acceptInvite(member.id, inv.rows[0].id.toString());
-    }
 
     // Team 2
     const l2 = await createUser();
@@ -312,13 +282,6 @@ describe('GET /staff/matches/:id - Team Membership & Teams Array', () => {
       teamName: 'CS Team 2',
       memberFfIds: [t2_m1.ffId, t2_m2.ffId, t2_m3.ffId],
     });
-    for (const member of [t2_m1, t2_m2, t2_m3]) {
-      const inv = await query<{ id: string }>(
-        'SELECT id FROM team_invites WHERE team_id = $1 AND invited_user_id = $2',
-        [team2.id, member.id]
-      );
-      await acceptInvite(member.id, inv.rows[0].id.toString());
-    }
 
     const res = await request(app)
       .get(`/api/v1/staff/matches/${match.id}`)
@@ -354,8 +317,9 @@ describe('GET /staff/matches/:id - Team Membership & Teams Array', () => {
       memberFfIds: [member.ffId],
     });
 
-    // Leader disbands team -> refunds leader
-    await disbandTeam(leader.id, match.id);
+    // Simulate team disbanded & refunded (e.g. by scheduler cancellation)
+    await query(`UPDATE teams SET status = 'disbanded' WHERE id = $1`, [team.id]);
+    await query(`UPDATE match_players SET refunded_at = now() WHERE team_id = $1`, [team.id]);
 
     const res = await request(app)
       .get(`/api/v1/staff/matches/${match.id}`)
@@ -391,13 +355,7 @@ describe('GET /staff/matches/:id - Team Membership & Teams Array', () => {
       memberFfIds: [member.ffId],
     });
 
-    const inv = await query<{ id: string }>(
-      'SELECT id FROM team_invites WHERE team_id = $1 AND invited_user_id = $2',
-      [team.id, member.id]
-    );
-    await acceptInvite(member.id, inv.rows[0].id.toString());
-
-    // Mark the invited member as refunded (simulating partial refund)
+    // Mark the member as refunded (simulating partial refund)
     await query(
       'UPDATE match_players SET refunded_at = now() WHERE match_id = $1 AND user_id = $2',
       [match.id, member.id]

@@ -51,7 +51,7 @@ List endpoints with pagination return cursor parameters:
 ```
 
 ### 1.5 Master Error Codes
-`UNAUTHENTICATED`, `SESSION_REPLACED`, `FORBIDDEN`, `ADMIN_APPROVAL_REQUIRED`, `ADMINS_APPROVE_DIRECTLY`, `VALIDATION_ERROR`, `INVALID_OTP`, `OTP_RATE_LIMITED`, `EMAIL_EXISTS`, `MOBILE_EXISTS`, `FF_ID_EXISTS`, `UPI_EXISTS`, `INVALID_REFERRAL`, `FIELD_COOLDOWN`, `IN_ACTIVE_MATCH`, `LOW_BALANCE`, `UTR_EXISTS`, `DEPOSIT_LIMIT`, `WITHDRAWAL_PENDING`, `UPI_RECENTLY_CHANGED`, `MATCH_FULL`, `ALREADY_JOINED`, `MATCH_NOT_JOINABLE`, `TEAM_INVALID`, `INVITE_EXPIRED`, `RESULT_INVALID`, `RESULT_LOCKED`, `NOT_FOUND`, `RATE_LIMITED`, `INTERNAL_ERROR`, `INVALID_TRANSITION`, `DATABASE_BUSY`, `MAINTENANCE_MODE`.
+`UNAUTHENTICATED`, `SESSION_REPLACED`, `FORBIDDEN`, `ADMIN_APPROVAL_REQUIRED`, `ADMINS_APPROVE_DIRECTLY`, `VALIDATION_ERROR`, `INVALID_OTP`, `OTP_RATE_LIMITED`, `EMAIL_EXISTS`, `MOBILE_EXISTS`, `FF_ID_EXISTS`, `UPI_EXISTS`, `INVALID_REFERRAL`, `FIELD_COOLDOWN`, `IN_ACTIVE_MATCH`, `LOW_BALANCE`, `UTR_EXISTS`, `DEPOSIT_LIMIT`, `WITHDRAWAL_PENDING`, `UPI_RECENTLY_CHANGED`, `MATCH_FULL`, `ALREADY_JOINED`, `MATCH_NOT_JOINABLE`, `TEAM_INVALID`, `INVITE_EXPIRED`, `RESULT_INVALID`, `RESULT_LOCKED`, `NOT_FOUND`, `RATE_LIMITED`, `INTERNAL_ERROR`, `INVALID_TRANSITION`, `DATABASE_BUSY`, `MAINTENANCE_MODE`, `REAUTH_REQUIRED`.
 
 ---
 
@@ -433,6 +433,40 @@ List endpoints with pagination return cursor parameters:
   ```
 - **Error Codes**: `UNAUTHENTICATED`, `SESSION_REPLACED`
 
+#### `POST /api/v1/staff/auth/step-up/request-otp`
+- **Auth**: `requireStaff`
+- **Rate Limit**: 20 req/hour per IP
+- **Description**: Requests a step-up OTP for sensitive staff/admin actions.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Step-up OTP has been sent to your email address"
+    }
+  }
+  ```
+- **Error Codes**: `UNAUTHENTICATED`, `SESSION_REPLACED`, `OTP_RATE_LIMITED`
+
+#### `POST /api/v1/staff/auth/step-up/verify-otp`
+- **Auth**: `requireStaff`
+- **Rate Limit**: Maximum 5 attempts per OTP code
+- **Request Body**:
+  ```json
+  {
+    "otp": "123456"
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Session elevated successfully",
+      "elevatedUntil": "2026-10-16T21:00:00.000Z"
+    }
+  }
+  ```
+- **Error Codes**: `UNAUTHENTICATED`, `SESSION_REPLACED`, `INVALID_OTP`
+
 ---
 
 ### Group 4: Player Profile & Match History
@@ -499,6 +533,55 @@ List endpoints with pagination return cursor parameters:
   }
   ```
 - **Error Codes**: `VALIDATION_ERROR`, `FIELD_COOLDOWN`, `MOBILE_EXISTS`, `FF_ID_EXISTS`, `UPI_EXISTS`
+
+#### `PATCH /api/v1/me/language` (and `PATCH /api/v1/users/me/language`, `PATCH /api/v1/language`, `PATCH /api/v1/users/language`)
+- **Auth**: `requireUser`
+- **Maintenance Allowlisted**: Yes (accessible during active maintenance mode)
+- **Rate Limit**: Global (100 req/min)
+- **Request Body**:
+  ```json
+  {
+    "language": "bn"
+  }
+  ```
+- **Validation**: `language` must be `'en'` or `'bn'`.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "success": true,
+      "language": "bn"
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `UNAUTHENTICATED`
+
+#### `POST /api/v1/me/avatar` (and `POST /api/v1/users/me/avatar`)
+- **Auth**: `requireUser`
+- **Rate Limit**: 10 req/min per user
+- **Request Format**: `multipart/form-data` with field `avatar` (JPEG, PNG, WebP; max 2 MB)
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "avatarUrl": "https://storage.example.com/placeholder.jpg"
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `UNAUTHENTICATED`
+
+#### `DELETE /api/v1/me/avatar` (and `DELETE /api/v1/users/me/avatar`)
+- **Auth**: `requireUser`
+- **Rate Limit**: 10 req/min per user
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "success": true
+    }
+  }
+  ```
+- **Error Codes**: `UNAUTHENTICATED`
 
 #### `GET /api/v1/me/match-history` (and `GET /api/v1/users/me/match-history`, `GET /api/v1/match-history`, `GET /api/v1/users/match-history`)
 - **Auth**: `requireUser`
@@ -750,6 +833,23 @@ List endpoints with pagination return cursor parameters:
 ### Group 6: Matches & Teams
 > **Verified against**: `apps/api/tests/matches.test.ts`, `apps/api/tests/teams_and_scheduler.test.ts`
 > Untested endpoints: **None**
+
+#### `GET /api/v1/matches/lookup-teammate`
+- **Auth**: `requireUser`
+- **Query Params**:
+  - `ffId`: string (Free Fire UID to validate)
+  - `matchId`: string (optional, check if user is already joined)
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "exists": true,
+      "ffId": "1457625118",
+      "ffName": "kingrohitt",
+      "name": "Sujoy Kumar Mondal"
+    }
+  }
+  ```
 
 #### `GET /api/v1/matches`
 - **Auth**: `requireUser`
@@ -2124,3 +2224,26 @@ List endpoints with pagination return cursor parameters:
     }
   }
   ```
+
+---
+
+### Group 13: Referral & OpenGraph Endpoints
+> **Verified against**: `apps/api/tests/referralOg.test.ts`
+> Untested endpoints: **None**
+
+#### `GET /api/v1/refer/:code`
+- **Auth**: None
+- **Description**: Public referral link landing page rendering OpenGraph dynamic meta tags.
+
+#### `GET /api/v1/refer/lookup/:code`
+- **Auth**: None
+- **Description**: Public API endpoint to lookup referrer details by referral code.
+
+#### `GET /refer/:code`
+- **Auth**: None
+- **Description**: Root-level public alias for referral link landing page.
+
+#### `GET /refer/lookup/:code`
+- **Auth**: None
+- **Description**: Root-level public alias for referral lookup endpoint.
+

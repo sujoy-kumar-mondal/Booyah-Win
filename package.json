@@ -19,6 +19,7 @@
     "seed:settings": "npm run seed:settings --workspace=apps/api --",
     "seed:tiers": "npm run seed:tiers --workspace=apps/api --",
     "seed:leaderboard": "npm run seed:leaderboard --workspace=apps/api --",
+    "update:user-ffids": "npm run update:user-ffids --workspace=apps/api --",
     "migrate:dev": "npm run migrate:dev --workspace=apps/api --",
     "migrate:test": "npm run migrate:test --workspace=apps/api --",
     "dev:api": "npm run dev --workspace=apps/api",

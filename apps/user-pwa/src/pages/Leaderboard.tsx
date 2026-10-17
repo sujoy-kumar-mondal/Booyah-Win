@@ -5,9 +5,11 @@ import { useAuth } from '../context/AuthContext.js';
 import { getWeeklyLeaderboard, getUserLeaderboardRank } from '../api/leaderboard.js';
 import type { LeaderboardResponse, LeaderboardRankResponse, LeaderboardEntry } from '../api/types.js';
 import { formatIndianRupees, formatWeekRange } from '../utils/formatters.js';
+import { useTranslation } from '../i18n/LanguageContext.js';
 
 export const Leaderboard: React.FC = () => {
   const { isAuthenticated } = useAuth();
+  const { t } = useTranslation();
 
   const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null);
   const [userRank, setUserRank] = useState<LeaderboardRankResponse | null>(null);
@@ -24,11 +26,11 @@ export const Leaderboard: React.FC = () => {
       setUserRank(rankRes);
       setError(null);
     } catch (err: any) {
-      setError(err?.message || 'Failed to load leaderboard. Please try again.');
+      setError(err?.message || t('leaderboard.loadError'));
     } finally {
       setLoading(false);
     }
-  }, [isAuthenticated]);
+  }, [isAuthenticated, t]);
 
   useEffect(() => {
     let lastFetchTime = Date.now();
@@ -71,8 +73,8 @@ export const Leaderboard: React.FC = () => {
           className="flex items-center justify-between rounded-xl border border-emerald-500/30 bg-emerald-950/20 p-3.5 backdrop-blur-sm"
         >
           <div className="space-y-0.5">
-            <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider">Join The Battle</p>
-            <p className="text-[11px] text-slate-300">Login or register to claim your rank and prizes</p>
+            <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider">{t('leaderboard.guestTitle')}</p>
+            <p className="text-[11px] text-slate-300">{t('leaderboard.guestSubtitle')}</p>
           </div>
           <div className="flex items-center gap-2">
             <Link
@@ -80,14 +82,14 @@ export const Leaderboard: React.FC = () => {
               className="flex items-center gap-1 rounded-lg bg-slate-800 border border-slate-700 px-2.5 py-1.5 text-xs font-semibold text-slate-200 hover:bg-slate-700 transition"
             >
               <LogIn className="h-3.5 w-3.5" />
-              <span>Login</span>
+              <span>{t('leaderboard.loginBtn')}</span>
             </Link>
             <Link
               to="/register"
               className="flex items-center gap-1 rounded-lg bg-emerald-500 px-2.5 py-1.5 text-xs font-bold text-slate-950 hover:bg-emerald-400 transition"
             >
               <UserPlus className="h-3.5 w-3.5" />
-              <span>Register</span>
+              <span>{t('leaderboard.registerBtn')}</span>
             </Link>
           </div>
         </div>
@@ -102,10 +104,10 @@ export const Leaderboard: React.FC = () => {
             </div>
             <div>
               <h1 className="text-lg font-black text-slate-100 tracking-tight flex items-center gap-1.5">
-                Weekly Leaderboard
+                {t('leaderboard.weeklyTitle')}
               </h1>
               <p className="text-xs text-amber-400/90 font-medium">
-                {leaderboard ? formatWeekRange(leaderboard.weekStart, leaderboard.weekEnd) : 'Loading week...'}
+                {leaderboard ? formatWeekRange(leaderboard.weekStart, leaderboard.weekEnd) : t('leaderboard.loadingWeek')}
               </p>
             </div>
           </div>
@@ -115,7 +117,7 @@ export const Leaderboard: React.FC = () => {
               fetchLeaderboardData();
             }}
             disabled={loading}
-            aria-label="Refresh leaderboard"
+            aria-label={t('leaderboard.refresh')}
             className="flex h-8 w-8 items-center justify-center rounded-lg border border-slate-700 bg-slate-800/80 text-slate-300 hover:text-white transition disabled:opacity-50"
           >
             <RefreshCw className={`h-4 w-4 ${loading ? 'animate-spin' : ''}`} />
@@ -125,7 +127,7 @@ export const Leaderboard: React.FC = () => {
         <div className="rounded-lg bg-slate-950/60 border border-slate-800/80 p-2.5 flex items-start gap-2 text-[11px] text-slate-400">
           <Info className="h-4 w-4 text-slate-400 shrink-0 mt-0.5" />
           <p>
-            Resets every Monday at 12:00 AM IST · Only match winnings count · Ties broken by earlier win
+            {t('leaderboard.resetNotice')}
           </p>
         </div>
       </div>
@@ -144,7 +146,7 @@ export const Leaderboard: React.FC = () => {
             }}
             className="rounded bg-rose-500/20 px-2 py-1 font-semibold hover:bg-rose-500/30 text-rose-200"
           >
-            Retry
+            {t('common.retry')}
           </button>
         </div>
       )}
@@ -174,7 +176,7 @@ export const Leaderboard: React.FC = () => {
                   <div>
                     <div className="flex items-center gap-1.5">
                       <span className="rounded-md bg-amber-400/20 px-1.5 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-300 border border-amber-400/30">
-                        Rank 1 · Champion
+                        {t('leaderboard.rank1Champion')}
                       </span>
                     </div>
                     <p className="text-base font-black text-slate-100 truncate max-w-[180px] mt-0.5">
@@ -183,7 +185,7 @@ export const Leaderboard: React.FC = () => {
                   </div>
                 </div>
                 <div className="text-right">
-                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">Winnings</p>
+                  <p className="text-[10px] font-medium uppercase tracking-wider text-slate-400">{t('leaderboard.winningsLabel')}</p>
                   <p className="text-lg font-black text-amber-400 tracking-tight">
                     {formatIndianRupees(top3[0].winnings)}
                   </p>
@@ -205,7 +207,7 @@ export const Leaderboard: React.FC = () => {
                     <Medal className="h-5 w-5" />
                   </div>
                   <span className="rounded bg-amber-900/60 px-1.5 py-0.5 text-[9px] font-black uppercase text-amber-200">
-                    Rank 2
+                    {t('leaderboard.rank2')}
                   </span>
                 </div>
                 <p className="text-xs font-bold text-slate-100 truncate">{top3[1].name}</p>
@@ -215,7 +217,7 @@ export const Leaderboard: React.FC = () => {
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-slate-800 p-3 text-center text-xs text-slate-500">
-                Awaiting 2nd Place
+                {t('leaderboard.awaiting2nd')}
               </div>
             )}
 
@@ -230,7 +232,7 @@ export const Leaderboard: React.FC = () => {
                     <Medal className="h-5 w-5" />
                   </div>
                   <span className="rounded bg-slate-700/60 px-1.5 py-0.5 text-[9px] font-black uppercase text-slate-200">
-                    Rank 3
+                    {t('leaderboard.rank3')}
                   </span>
                 </div>
                 <p className="text-xs font-bold text-slate-100 truncate">{top3[2].name}</p>
@@ -240,7 +242,7 @@ export const Leaderboard: React.FC = () => {
               </div>
             ) : (
               <div className="rounded-xl border border-dashed border-slate-800 p-3 text-center text-xs text-slate-500">
-                Awaiting 3rd Place
+                {t('leaderboard.awaiting3rd')}
               </div>
             )}
           </div>
@@ -248,9 +250,9 @@ export const Leaderboard: React.FC = () => {
       ) : (
         <div className="rounded-2xl border border-dashed border-slate-800 bg-slate-900/30 p-8 text-center space-y-2">
           <Trophy className="h-10 w-10 text-slate-600 mx-auto" />
-          <p className="text-sm font-bold text-slate-300">No Winners Yet This Week</p>
+          <p className="text-sm font-bold text-slate-300">{t('leaderboard.noWinnersTitle')}</p>
           <p className="text-xs text-slate-500">
-            Be the first to join a match, claim victory, and take the #1 spot!
+            {t('leaderboard.noWinnersDesc')}
           </p>
         </div>
       )}
@@ -259,7 +261,7 @@ export const Leaderboard: React.FC = () => {
       {restEntries.length > 0 && (
         <div className="rounded-2xl border border-slate-800 bg-slate-900/40 p-3 space-y-2">
           <h2 className="text-xs font-bold text-slate-400 uppercase tracking-wider px-1">
-            Top Contenders (4 – 50)
+            {t('leaderboard.topContenders')}
           </h2>
           <div className="divide-y divide-slate-800/60" data-testid="leaderboard-list">
             {restEntries.map((entry: LeaderboardEntry) => (
@@ -297,21 +299,21 @@ export const Leaderboard: React.FC = () => {
                 <Medal className="h-4 w-4" />
               </div>
               <div>
-                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">Your Rank</p>
+                <p className="text-[10px] font-bold uppercase tracking-wider text-emerald-400">{t('leaderboard.yourRankTitle')}</p>
                 {userRank ? (
                   <p className="text-xs font-extrabold text-slate-100">
-                    Rank #{userRank.rank}
+                    {t('leaderboard.rankN', { rank: userRank.rank })}
                   </p>
                 ) : (
                   <p className="text-xs font-medium text-slate-400">
-                    Unranked — win a match to enter
+                    {t('leaderboard.unrankedDesc')}
                   </p>
                 )}
               </div>
             </div>
             {userRank && (
               <div className="text-right">
-                <p className="text-[10px] text-slate-400 font-medium">Your Winnings</p>
+                <p className="text-[10px] text-slate-400 font-medium">{t('leaderboard.yourWinnings')}</p>
                 <p className="text-xs font-black text-emerald-400">
                   {formatIndianRupees(userRank.winnings)}
                 </p>

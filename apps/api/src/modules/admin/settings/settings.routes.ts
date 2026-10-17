@@ -2,7 +2,7 @@ import { Router, Request, Response, NextFunction } from 'express';
 import multer from 'multer';
 import { ErrorCodes } from '@booyah/shared';
 import { AppError } from '../../../middleware/errorHandler.js';
-import { authenticateStaff, requireAdmin } from '../../../middleware/auth.js';
+import { authenticateStaff, requireAdmin, requireElevatedSession } from '../../../middleware/auth.js';
 import { staffWriteRateLimit } from '../../../middleware/rateLimiters.js';
 import { SettingsController } from './settings.controller.js';
 
@@ -60,4 +60,4 @@ settingsAdminRouter.use(authenticateStaff, requireAdmin, staffWriteRateLimit);
 
 settingsAdminRouter.get('/', SettingsController.getSettings);
 settingsAdminRouter.patch('/', SettingsController.updateSettings);
-settingsAdminRouter.post('/payment-qr', paymentQrUpload, SettingsController.uploadPaymentQr);
+settingsAdminRouter.post('/payment-qr', requireElevatedSession, paymentQrUpload, SettingsController.uploadPaymentQr);

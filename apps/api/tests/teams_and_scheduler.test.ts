@@ -46,6 +46,7 @@ interface TestUser {
   id: string;
   email: string;
   ffId: string;
+  ffName: string;
   upiId: string;
   referralCode: string;
 }
@@ -63,7 +64,7 @@ async function createUser(opts: { referredBy?: string } = {}): Promise<TestUser>
   const res = await query(
     `INSERT INTO users (email, name, mobile, ff_id, ff_name, upi_id, date_of_birth, referral_code, referred_by)
      VALUES ($1, $2, $3, $4, $5, $6, '1990-01-01', $7, $8)
-     RETURNING id, email, ff_id, upi_id, referral_code`,
+     RETURNING id, email, ff_id, ff_name, upi_id, referral_code`,
     [
       `tuser${i}@test.com`,
       `User ${i}`,
@@ -81,6 +82,7 @@ async function createUser(opts: { referredBy?: string } = {}): Promise<TestUser>
     id:           row.id.toString(),
     email:        row.email,
     ffId:         row.ff_id,
+    ffName:       row.ff_name,
     upiId:        row.upi_id,
     referralCode: row.referral_code,
   };
@@ -245,7 +247,7 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
 
     // Verify seats taken in DB
     const teamsInDb = await query(
-      `SELECT count(*)::int AS count, SUM(size)::int AS seats FROM teams WHERE match_id = $1 AND status = 'forming'`,
+      `SELECT count(*)::int AS count, SUM(size)::int AS seats FROM teams WHERE match_id = $1 AND status = 'confirmed'`,
       [match.id]
     );
     expect(teamsInDb.rows[0].count).toBe(2);
@@ -255,7 +257,7 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
   // ─── 2. Clash Squad rejects a third team ──────────────────────────────────────
   it('Clash Squad rejects a third team (allows at most 2 teams)', async () => {
     const admin = await createStaff('admin');
-    const tierId = await createClashSquadTier();
+    const tierId = await createClashSquadTier({ entryFee: '10.00' });
     const startTime = new Date(Date.now() + 3600000).toISOString();
     const match = await createMatchStaff(admin.id, { tierId, startTime });
 
@@ -277,10 +279,11 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     const m3_3 = await createUser();
     await setWallet(l3.id, 5000, 0, 0);
 
-    // Team 1 succeeds
+    // Team 1 succeeds (charges single team fee of 10.00, not 40.00)
     await expect(
       createTeam(l1.id, match.id, { memberFfIds: [m1_1.ffId, m1_2.ffId, m1_3.ffId] })
     ).resolves.toBeDefined();
+    expect((await getWallet(l1.id)).addMoney).toBe(4000); // 5000 - 1000 = 4000 paise
 
     // Team 2 succeeds
     await expect(
@@ -293,8 +296,73 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     ).rejects.toMatchObject({ code: ErrorCodes.MATCH_FULL, statusCode: 409 });
   });
 
-  // ─── 3. Forming team of 4 where 3 accept and 1 never does is disbanded at cutoff ─
-  it('team of 4 where 3 accept and 1 never does is disbanded at cutoff with exact refunds', async () => {
+  // ─── 3. Squad team formation: leader pays full team fee, underfilled cancelled at cutoff ─
+  it('team of 4 formed directly: leader pays full team fee, refunded if underfilled at start_time', async () => {
+    const admin = await createStaff('admin');
+    const tierId = await createSquadBRTier({ entryFee: '10.00', minPlayers: 8 });
+    const startTime = new Date(Date.now() + 3600000).toISOString();
+    const match = await createMatchStaff(admin.id, { tierId, startTime });
+
+    const leader = await createUser();
+    const m1 = await createUser();
+    const m2 = await createUser();
+    const m3 = await createUser();
+
+    await setWallet(leader.id, 5000, 0, 0); // Rs50
+
+    const team = await createTeam(leader.id, match.id, {
+      memberFfIds: [m1.ffId, m2.ffId, m3.ffId],
+    });
+
+    // Leader was charged for the entire squad (4 * 1000 = 4000 paise)
+    expect((await getWallet(leader.id)).addMoney).toBe(1000);
+
+    // Team status is confirmed
+    const teamDb = await query(`SELECT status FROM teams WHERE id = $1`, [team.id]);
+    expect(teamDb.rows[0].status).toBe('confirmed');
+
+    // Move start_time into the past
+    await query(
+      `UPDATE matches SET start_time = now() - INTERVAL '1 minute' WHERE id = $1`,
+      [match.id]
+    );
+
+    // Run tick -> match underfilled, so cancelled
+    const tickRes = await runSchedulerTick();
+    expect(tickRes.cancelledMatchesCount).toBeGreaterThanOrEqual(1);
+
+    // Match cancelled
+    const mDb = await query(`SELECT status FROM matches WHERE id = $1`, [match.id]);
+    expect(mDb.rows[0].status).toBe('cancelled');
+
+    // Leader refunded full team fee (1000 + 4000 = 5000)
+    expect((await getWallet(leader.id)).addMoney).toBe(5000);
+  });
+
+  // ─── 4. Creating team with low balance is rejected with LOW_BALANCE ───────────
+  it('creating team with low balance is rejected with LOW_BALANCE', async () => {
+    const admin = await createStaff('admin');
+    const tierId = await createDuoBRTier({ entryFee: '10.00' });
+    const startTime = new Date(Date.now() + 3600000).toISOString();
+    const match = await createMatchStaff(admin.id, { tierId, startTime });
+
+    const leader = await createUser();
+    const teammate = await createUser();
+    await setWallet(leader.id, 1000, 0, 0); // only Rs10, Duo team fee is Rs20 (2000 paise)
+
+    await expect(
+      createTeam(leader.id, match.id, { memberFfIds: [teammate.ffId] })
+    ).rejects.toMatchObject({ code: ErrorCodes.LOW_BALANCE, statusCode: 402 });
+
+    // Leader adds money and retries -> succeeds
+    await setWallet(leader.id, 2500, 0, 0);
+    const team = await createTeam(leader.id, match.id, { memberFfIds: [teammate.ffId] });
+    expect(team.status).toBe('confirmed');
+    expect((await getWallet(leader.id)).addMoney).toBe(500);
+  });
+
+  // ─── 5. Direct squad team formation confirms team and adds all 4 players ──────
+  it('direct squad team formation confirms team and adds all 4 players to match_players', async () => {
     const admin = await createStaff('admin');
     const tierId = await createSquadBRTier({ entryFee: '10.00' });
     const startTime = new Date(Date.now() + 3600000).toISOString();
@@ -304,62 +372,27 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     const m1 = await createUser();
     const m2 = await createUser();
     const m3 = await createUser();
-
-    await setWallet(leader.id, 1000, 0, 0); // Rs10
-    await setWallet(m1.id, 1000, 0, 0);
-    await setWallet(m2.id, 1000, 0, 0);
-    await setWallet(m3.id, 1000, 0, 0);
+    await setWallet(leader.id, 5000, 0, 0);
 
     const team = await createTeam(leader.id, match.id, {
       memberFfIds: [m1.ffId, m2.ffId, m3.ffId],
     });
 
-    // m1 and m2 accept
-    const invites = await query<{ id: number; invited_user_id: number }>(
-      `SELECT id, invited_user_id FROM team_invites WHERE team_id = $1`,
-      [team.id]
+    expect(team.status).toBe('confirmed');
+
+    const mpRows = await query(
+      `SELECT user_id, paid_add_money FROM match_players WHERE match_id = $1 AND team_id = $2 ORDER BY id ASC`,
+      [match.id, team.id]
     );
-    const inv1 = invites.rows.find((r) => r.invited_user_id.toString() === m1.id)!;
-    const inv2 = invites.rows.find((r) => r.invited_user_id.toString() === m2.id)!;
-    const inv3 = invites.rows.find((r) => r.invited_user_id.toString() === m3.id)!;
-
-    await acceptInvite(m1.id, inv1.id.toString());
-    await acceptInvite(m2.id, inv2.id.toString());
-    // m3 never accepts
-
-    // Wallets charged for leader, m1, m2
-    expect((await getWallet(leader.id)).addMoney).toBe(0);
-    expect((await getWallet(m1.id)).addMoney).toBe(0);
-    expect((await getWallet(m2.id)).addMoney).toBe(0);
-    expect((await getWallet(m3.id)).addMoney).toBe(1000); // untouched
-
-    // Move start_time to within 10 minutes of now() in DB
-    await query(
-      `UPDATE matches SET start_time = now() + INTERVAL '5 minutes' WHERE id = $1`,
-      [match.id]
-    );
-
-    // Run tick
-    const tickRes = await runSchedulerTick();
-    expect(tickRes.disbandedTeamsCount).toBeGreaterThanOrEqual(1);
-
-    // Team status is disbanded
-    const teamDb = await query(`SELECT status FROM teams WHERE id = $1`, [team.id]);
-    expect(teamDb.rows[0].status).toBe('disbanded');
-
-    // All paid members refunded exactly
-    expect((await getWallet(leader.id)).addMoney).toBe(1000);
-    expect((await getWallet(m1.id)).addMoney).toBe(1000);
-    expect((await getWallet(m2.id)).addMoney).toBe(1000);
-    expect((await getWallet(m3.id)).addMoney).toBe(1000);
-
-    // m3's pending invite is now expired
-    const inv3Db = await query(`SELECT status FROM team_invites WHERE id = $1`, [inv3.id]);
-    expect(inv3Db.rows[0].status).toBe('expired');
+    expect(mpRows.rows).toHaveLength(4);
+    expect(Number(mpRows.rows[0].paid_add_money)).toBe(40);
+    expect(Number(mpRows.rows[1].paid_add_money)).toBe(0);
+    expect(Number(mpRows.rows[2].paid_add_money)).toBe(0);
+    expect(Number(mpRows.rows[3].paid_add_money)).toBe(0);
   });
 
-  // ─── 4. Accept with low balance leaves invite pending ─────────────────────────
-  it('accept with low balance leaves the invite pending', async () => {
+  // ─── 6. Cannot disband team once formed ────────────────────────────────────────
+  it('leader cannot disband a formed team: returns 409 MATCH_NOT_JOINABLE', async () => {
     const admin = await createStaff('admin');
     const tierId = await createDuoBRTier({ entryFee: '10.00' });
     const startTime = new Date(Date.now() + 3600000).toISOString();
@@ -367,116 +400,17 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
 
     const leader = await createUser();
     const teammate = await createUser();
-    await setWallet(leader.id, 1000, 0, 0);
-    await setWallet(teammate.id, 500, 0, 0); // only Rs5, fee is Rs10
-
-    const team = await createTeam(leader.id, match.id, { memberFfIds: [teammate.ffId] });
-    const invites = await listUserInvites(teammate.id);
-    expect(invites).toHaveLength(1);
-    const inviteId = invites[0].id;
-
-    // Teammate attempts accept -> 402 LOW_BALANCE
-    await expect(
-      acceptInvite(teammate.id, inviteId)
-    ).rejects.toMatchObject({ code: ErrorCodes.LOW_BALANCE, statusCode: 402 });
-
-    // Invite is still pending in DB
-    const invDb = await query(`SELECT status FROM team_invites WHERE id = $1`, [inviteId]);
-    expect(invDb.rows[0].status).toBe('pending');
-
-    // Teammate adds money and retries -> succeeds
-    await setWallet(teammate.id, 1500, 0, 0);
-    await expect(acceptInvite(teammate.id, inviteId)).resolves.toBeUndefined();
-
-    // Now accepted and team confirmed
-    const invDbAfter = await query(`SELECT status FROM team_invites WHERE id = $1`, [inviteId]);
-    expect(invDbAfter.rows[0].status).toBe('accepted');
-    const teamDbAfter = await query(`SELECT status FROM teams WHERE id = $1`, [team.id]);
-    expect(teamDbAfter.rows[0].status).toBe('confirmed');
-  });
-
-  // ─── 5. Two simultaneous accepts of different invites on same team ────────────
-  it('two simultaneous accepts of different invites succeed and confirm team', async () => {
-    const admin = await createStaff('admin');
-    const tierId = await createSquadBRTier();
-    const startTime = new Date(Date.now() + 3600000).toISOString();
-    const match = await createMatchStaff(admin.id, { tierId, startTime });
-
-    const leader = await createUser();
-    const m1 = await createUser();
-    const m2 = await createUser();
-    const m3 = await createUser();
-    await setWallet(leader.id, 1000, 0, 0);
-    await setWallet(m1.id, 1000, 0, 0);
-    await setWallet(m2.id, 1000, 0, 0);
-    await setWallet(m3.id, 1000, 0, 0);
-
-    const team = await createTeam(leader.id, match.id, {
-      memberFfIds: [m1.ffId, m2.ffId, m3.ffId],
-    });
-
-    const inv1 = (await listUserInvites(m1.id))[0];
-    const inv2 = (await listUserInvites(m2.id))[0];
-    const inv3 = (await listUserInvites(m3.id))[0];
-
-    // m1 accepts first
-    await acceptInvite(m1.id, inv1.id);
-
-    // m2 and m3 accept at the exact same instant
-    const results = await Promise.allSettled([
-      acceptInvite(m2.id, inv2.id),
-      acceptInvite(m3.id, inv3.id),
-    ]);
-
-    expect(results[0].status).toBe('fulfilled');
-    expect(results[1].status).toBe('fulfilled');
-
-    // All 4 members confirmed
-    const teamDb = await query(`SELECT status FROM teams WHERE id = $1`, [team.id]);
-    expect(teamDb.rows[0].status).toBe('confirmed');
-  });
-
-  // ─── 6. Leader disband vs teammate accept race ─────────────────────────────────
-  it('leader disband versus teammate accept race: no double charge, no lost refund', async () => {
-    const admin = await createStaff('admin');
-    const tierId = await createDuoBRTier({ entryFee: '10.00' });
-    const startTime = new Date(Date.now() + 3600000).toISOString();
-    const match = await createMatchStaff(admin.id, { tierId, startTime });
-
-    const leader = await createUser();
-    const teammate = await createUser();
-    await setWallet(leader.id, 1000, 0, 0);
-    await setWallet(teammate.id, 1000, 0, 0);
+    await setWallet(leader.id, 5000, 0, 0);
 
     await createTeam(leader.id, match.id, { memberFfIds: [teammate.ffId] });
-    const invite = (await listUserInvites(teammate.id))[0];
 
-    // Race: leader disbands while teammate accepts
-    await Promise.allSettled([
-      disbandTeam(leader.id, match.id),
-      acceptInvite(teammate.id, invite.id),
-    ]);
-
-    // Leader always refunded
-    const leaderW = await getWallet(leader.id);
-    expect(leaderW.addMoney).toBe(1000);
-
-    // Teammate wallet must either have never been charged or refunded
-    const teammateW = await getWallet(teammate.id);
-    expect(teammateW.addMoney).toBe(1000);
-
-    // If teammate had a match_players row inserted, it must be refunded
-    const mpRows = await query(
-      `SELECT refunded_at FROM match_players WHERE match_id = $1 AND user_id = $2`,
-      [match.id, teammate.id]
-    );
-    if (mpRows.rowCount) {
-      expect(mpRows.rows[0].refunded_at).not.toBeNull();
-    }
+    await expect(
+      disbandTeam(leader.id, match.id)
+    ).rejects.toMatchObject({ code: ErrorCodes.MATCH_NOT_JOINABLE, statusCode: 409 });
   });
 
   // ─── 7. Replace flow ──────────────────────────────────────────────────────────
-  it('leader replaces a declined/expired invite; new user receives invite and accepts', async () => {
+  it('leader replaces a teammate before 10-minute cutoff directly in match_players', async () => {
     const admin = await createStaff('admin');
     const tierId = await createDuoBRTier();
     const startTime = new Date(Date.now() + 3600000).toISOString();
@@ -485,34 +419,24 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     const leader = await createUser();
     const mOld = await createUser();
     const mNew = await createUser();
-    await setWallet(leader.id, 1000, 0, 0);
-    await setWallet(mOld.id, 1000, 0, 0);
-    await setWallet(mNew.id, 1000, 0, 0);
+    await setWallet(leader.id, 5000, 0, 0);
 
     const team = await createTeam(leader.id, match.id, { memberFfIds: [mOld.ffId] });
-    const oldInv = (await listUserInvites(mOld.id))[0];
-
-    // mOld declines
-    await declineInvite(mOld.id, oldInv.id);
 
     // Leader replaces mOld with mNew
     await replaceInvite(leader.id, match.id, { oldFfId: mOld.ffId, newFfId: mNew.ffId });
 
-    // mOld invite is expired in DB
-    const oldDb = await query(`SELECT status FROM team_invites WHERE id = $1`, [oldInv.id]);
-    expect(oldDb.rows[0].status).toBe('expired');
+    const mpRows = await query(
+      `SELECT user_id FROM match_players WHERE match_id = $1 AND team_id = $2 ORDER BY id ASC`,
+      [match.id, team.id]
+    );
+    expect(mpRows.rows.map((r) => r.user_id.toString())).toEqual([leader.id, mNew.id]);
 
-    // mNew has pending invite
-    const newInvs = await listUserInvites(mNew.id);
-    expect(newInvs).toHaveLength(1);
-    expect(newInvs[0].status).toBe('pending');
-
-    // mNew accepts
-    await acceptInvite(mNew.id, newInvs[0].id);
-
-    // Team confirmed
-    const teamDb = await query(`SELECT status FROM teams WHERE id = $1`, [team.id]);
-    expect(teamDb.rows[0].status).toBe('confirmed');
+    // Team member (mNew) attempts to replace teammate -> rejected with 403 FORBIDDEN
+    const mAnother = await createUser();
+    await expect(
+      replaceInvite(mNew.id, match.id, { oldFfId: leader.ffId, newFfId: mAnother.ffId })
+    ).rejects.toMatchObject({ code: ErrorCodes.FORBIDDEN, statusCode: 403 });
   });
 
   // ─── 8. First-match referral credits once per user across leader and member ───
@@ -537,9 +461,7 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     expect(refW1.cashback).toBe(500); // Rs5.00
 
     // Second match as teammate member does not credit again
-    const buddyTeam = await createTeam(buddy.id, m2.id, { memberFfIds: [referred.ffId] });
-    const inv = (await listUserInvites(referred.id))[0];
-    await acceptInvite(referred.id, inv.id);
+    await createTeam(buddy.id, m2.id, { memberFfIds: [referred.ffId] });
 
     const refW2 = await getWallet(referrer.id);
     expect(refW2.cashback).toBe(500); // unchanged
@@ -560,15 +482,16 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
       await createReferral(commonReferrer.id, leader.id, '5.00');
       await createReferral(commonReferrer.id, member.id, '5.00');
 
-      await setWallet(leader.id, 1000, 0, 0);
-      await setWallet(member.id, 1000, 0, 0);
+      await setWallet(leader.id, 5000, 0, 0);
+      await setWallet(member.id, 5000, 0, 0);
 
-      const team = await createTeam(leader.id, match.id, { memberFfIds: [member.ffId] });
-      const invite = (await listUserInvites(member.id))[0];
+      const replacer = await createUser();
 
-      // Simulate simultaneous accept and another concurrent wallet action on leader
+      await createTeam(leader.id, match.id, { memberFfIds: [member.ffId] });
+
+      // Simulate simultaneous replace and another concurrent wallet action on leader
       const results = await Promise.allSettled([
-        acceptInvite(member.id, invite.id),
+        replaceInvite(leader.id, match.id, { oldFfId: member.ffId, newFfId: replacer.ffId }),
         setWallet(leader.id, 2000, 0, 0),
       ]);
 
@@ -581,8 +504,8 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     }
   });
 
-  // ─── 10. Change #1: Accept and Disband simultaneously 20x without deadlock ─────
-  it('runs accept and disband simultaneously 20 times with no 40P01 errors', async () => {
+  // ─── 10. Concurrency: Concurrent team creates 20x without deadlock ────────────
+  it('runs concurrent team actions 20 times with no 40P01 errors', async () => {
     const admin = await createStaff('admin');
     const tierId = await createDuoBRTier({ entryFee: '10.00' });
     const startTime = new Date(Date.now() + 3600000).toISOString();
@@ -590,17 +513,16 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     for (let round = 0; round < 20; round++) {
       const match = await createMatchStaff(admin.id, { tierId, startTime });
 
-      const leader = await createUser();
-      const member = await createUser();
-      await setWallet(leader.id, 1000, 0, 0);
-      await setWallet(member.id, 1000, 0, 0);
-
-      await createTeam(leader.id, match.id, { memberFfIds: [member.ffId] });
-      const invite = (await listUserInvites(member.id))[0];
+      const l1 = await createUser();
+      const m1 = await createUser();
+      const l2 = await createUser();
+      const m2 = await createUser();
+      await setWallet(l1.id, 5000, 0, 0);
+      await setWallet(l2.id, 5000, 0, 0);
 
       const results = await Promise.allSettled([
-        disbandTeam(leader.id, match.id),
-        acceptInvite(member.id, invite.id),
+        createTeam(l1.id, match.id, { memberFfIds: [m1.ffId] }),
+        createTeam(l2.id, match.id, { memberFfIds: [m2.ffId] }),
       ]);
 
       for (const r of results) {
@@ -637,7 +559,7 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
   // ─── 12. Idempotent Tick: Running tick twice at once refunds only once ─────────
   it('running tick twice at once refunds only once', async () => {
     const admin = await createStaff('admin');
-    const tierId = await createSquadBRTier({ entryFee: '10.00' });
+    const tierId = await createSquadBRTier({ entryFee: '10.00', minPlayers: 8 });
     const startTime = new Date(Date.now() + 3600000).toISOString();
     const match = await createMatchStaff(admin.id, { tierId, startTime });
 
@@ -645,29 +567,24 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     const m1 = await createUser();
     const m2 = await createUser();
     const m3 = await createUser();
-    await setWallet(leader.id, 1000, 0, 0);
-    await setWallet(m1.id, 1000, 0, 0);
+    await setWallet(leader.id, 5000, 0, 0);
 
-    const team = await createTeam(leader.id, match.id, {
+    await createTeam(leader.id, match.id, {
       memberFfIds: [m1.ffId, m2.ffId, m3.ffId],
     });
-    const inv1 = (await listUserInvites(m1.id))[0];
-    await acceptInvite(m1.id, inv1.id);
 
-    // Set match within 10 minutes cutoff
+    // Move start_time into the past so underfilled match triggers cancel
     await query(
-      `UPDATE matches SET start_time = now() + INTERVAL '5 minutes' WHERE id = $1`,
+      `UPDATE matches SET start_time = now() - INTERVAL '1 minute' WHERE id = $1`,
       [match.id]
     );
 
     // Run tick twice concurrently
     await Promise.all([runSchedulerTick(), runSchedulerTick()]);
 
-    // Wallets refunded exactly once
+    // Leader wallet refunded full 4000 paise exactly once
     const leaderW = await getWallet(leader.id);
-    const m1W = await getWallet(m1.id);
-    expect(leaderW.addMoney).toBe(1000);
-    expect(m1W.addMoney).toBe(1000);
+    expect(leaderW.addMoney).toBe(5000);
   });
 
   // ─── 13. Auto-cancel underfilled matches past start_time ──────────────────────
@@ -735,8 +652,8 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     expect(u1W.addMoney).toBe(1000);
   });
 
-  // ─── 14. Ledger reconciliation after teams, disbands and cancels ──────────────
-  it('ledger reconciliation after teams, disbands and cancels', async () => {
+  // ─── 14. Ledger reconciliation after teams and cancellations ──────────────
+  it('ledger reconciliation after teams and cancellations', async () => {
     const admin = await createStaff('admin');
     const tierId = await createDuoBRTier({ entryFee: '10.00' });
     const startTime = new Date(Date.now() + 3600000).toISOString();
@@ -744,15 +661,14 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
 
     const leader = await createUser();
     const teammate = await createUser();
-    await setWallet(leader.id, 2000, 50, 1000);
+    await setWallet(leader.id, 5000, 50, 1000);
     await setWallet(teammate.id, 2000, 50, 1000);
 
     await createTeam(leader.id, match.id, { memberFfIds: [teammate.ffId] });
-    const inv = (await listUserInvites(teammate.id))[0];
-    await acceptInvite(teammate.id, inv.id);
 
-    // Disband team
-    await disbandTeam(leader.id, match.id);
+    // Cancel match
+    await query(`UPDATE matches SET start_time = now() - INTERVAL '1 minute' WHERE id = $1`, [match.id]);
+    await runSchedulerTick();
 
     // Leader wallet matches ledger total_after
     const leaderLedger = await query(
@@ -762,15 +678,6 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     const leaderW = await getWallet(leader.id);
     const leaderTotal = leaderW.addMoney + leaderW.cashback + leaderW.winning;
     expect(stringToPaise(leaderLedger.rows[0].total_after.toString())).toBe(leaderTotal);
-
-    // Teammate wallet matches ledger total_after
-    const teammateLedger = await query(
-      `SELECT total_after FROM wallet_ledger WHERE user_id = $1 ORDER BY id DESC LIMIT 1`,
-      [teammate.id]
-    );
-    const teammateW = await getWallet(teammate.id);
-    const teammateTotal = teammateW.addMoney + teammateW.cashback + teammateW.winning;
-    expect(stringToPaise(teammateLedger.rows[0].total_after.toString())).toBe(teammateTotal);
   });
 
   // ─── 15. Change #2: Partial unique index on match_players ─────────────────────
@@ -785,27 +692,27 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     await setWallet(leader.id, 5000, 0, 0);
     await setWallet(teammate.id, 5000, 0, 0);
 
-    // 1. Create team & accept
+    // 1. Create team
     await createTeam(leader.id, match.id, { memberFfIds: [teammate.ffId] });
-    const inv1 = (await listUserInvites(teammate.id))[0];
-    await acceptInvite(teammate.id, inv1.id);
 
-    // 2. Disband team
-    await disbandTeam(leader.id, match.id);
+    // 2. Match cancelled & refunded
+    await query(`UPDATE matches SET start_time = now() - INTERVAL '1 minute' WHERE id = $1`, [match.id]);
+    await runSchedulerTick();
 
-    // 3. Leader can recreate a team on the same match without unique constraint failure
+    // 3. Leader can recreate a team on another match without unique constraint failure
+    const match2 = await createMatchStaff(admin.id, { tierId, startTime });
     await expect(
-      createTeam(leader.id, match.id, { memberFfIds: [teammate.ffId] })
+      createTeam(leader.id, match2.id, { memberFfIds: [teammate.ffId] })
     ).resolves.toBeDefined();
 
-    // 4. Capacity ignores refunded rows: seats taken is 2 (current forming team), not 4
+    // 4. Capacity ignores refunded rows: seats taken is 2, not 4
     const list = await listMatchesUser(leader.id);
-    const mInfo = list.find((m) => m.id === match.id);
+    const mInfo = list.find((m) => m.id === match2.id);
     expect(mInfo?.seatsTaken).toBe(2);
   });
 
   // ─── 16. Change #4: Cutoff enforcement in endpoints with database clock ────────
-  it('enforces 10m cutoff in endpoints: create, accept, replace, disband return 409 MATCH_NOT_JOINABLE', async () => {
+  it('enforces 10m cutoff in endpoints: create, replace, disband return 409 MATCH_NOT_JOINABLE', async () => {
     const admin = await createStaff('admin');
     const tierId = await createDuoBRTier();
     const startTime = new Date(Date.now() + 3600000).toISOString();
@@ -819,7 +726,6 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     await setWallet(replacer.id, 5000, 0, 0);
 
     await createTeam(leader.id, match.id, { memberFfIds: [teammate.ffId] });
-    const inv = (await listUserInvites(teammate.id))[0];
 
     // Move start_time to within 10 minutes (now() + 5 minutes)
     await query(
@@ -835,24 +741,19 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
       createTeam(l2.id, match.id, { memberFfIds: [m2.ffId] })
     ).rejects.toMatchObject({ code: ErrorCodes.MATCH_NOT_JOINABLE, statusCode: 409 });
 
-    // 2. Teammate cannot accept -> 409 MATCH_NOT_JOINABLE
-    await expect(
-      acceptInvite(teammate.id, inv.id)
-    ).rejects.toMatchObject({ code: ErrorCodes.MATCH_NOT_JOINABLE, statusCode: 409 });
-
-    // 3. Leader cannot replace -> 409 MATCH_NOT_JOINABLE
+    // 2. Leader cannot replace -> 409 MATCH_NOT_JOINABLE
     await expect(
       replaceInvite(leader.id, match.id, { oldFfId: teammate.ffId, newFfId: replacer.ffId })
     ).rejects.toMatchObject({ code: ErrorCodes.MATCH_NOT_JOINABLE, statusCode: 409 });
 
-    // 4. Leader cannot disband -> 409 MATCH_NOT_JOINABLE
+    // 3. Leader cannot disband -> 409 MATCH_NOT_JOINABLE
     await expect(
       disbandTeam(leader.id, match.id)
     ).rejects.toMatchObject({ code: ErrorCodes.MATCH_NOT_JOINABLE, statusCode: 409 });
   });
 
-  // ─── 17. Change #5: Expire replaced invites & allow re-inviting ───────────────
-  it('expires replaced invites and allows re-inviting previously declined/expired user on same team', async () => {
+  // ─── 17. Change #5: Replaces teammate directly before cutoff ─────────────────
+  it('replaces teammate directly and allows re-replacing before cutoff', async () => {
     const admin = await createStaff('admin');
     const tierId = await createDuoBRTier();
     const startTime = new Date(Date.now() + 3600000).toISOString();
@@ -862,26 +763,18 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     const playerA = await createUser();
     const playerB = await createUser();
     await setWallet(leader.id, 5000, 0, 0);
-    await setWallet(playerA.id, 5000, 0, 0);
-    await setWallet(playerB.id, 5000, 0, 0);
 
     const team = await createTeam(leader.id, match.id, { memberFfIds: [playerA.ffId] });
-    const invA = (await listUserInvites(playerA.id))[0];
 
-    // Replace A with B -> A is expired, B is pending
+    // Replace A with B
     await replaceInvite(leader.id, match.id, { oldFfId: playerA.ffId, newFfId: playerB.ffId });
-    const invAExpired = await query(`SELECT status FROM team_invites WHERE id = $1`, [invA.id]);
-    expect(invAExpired.rows[0].status).toBe('expired');
+    let mp = await query(`SELECT user_id FROM match_players WHERE team_id = $1 ORDER BY id ASC`, [team.id]);
+    expect(mp.rows.map(r => r.user_id.toString())).toEqual([leader.id, playerB.id]);
 
-    // Replace B back with A -> reactivates A's row to pending!
+    // Replace B back with A
     await replaceInvite(leader.id, match.id, { oldFfId: playerB.ffId, newFfId: playerA.ffId });
-    const invAReactivated = await query(`SELECT status FROM team_invites WHERE id = $1`, [invA.id]);
-    expect(invAReactivated.rows[0].status).toBe('pending');
-
-    // A accepts -> team confirmed
-    await acceptInvite(playerA.id, invA.id);
-    const teamDb = await query(`SELECT status FROM teams WHERE id = $1`, [team.id]);
-    expect(teamDb.rows[0].status).toBe('confirmed');
+    mp = await query(`SELECT user_id FROM match_players WHERE team_id = $1 ORDER BY id ASC`, [team.id]);
+    expect(mp.rows.map(r => r.user_id.toString())).toEqual([leader.id, playerA.id]);
   });
 
   // ─── 18. Match cannot go live until minimum players requirement is fulfilled ─
@@ -927,9 +820,9 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
   });
 
   // ─── 19. Change #7: Seat-count invariant test on 8-seat match ─────────────────
-  it('seat-count invariant holds after a mix of creates, disbands and refunds on 8-seat match', async () => {
+  it('seat-count invariant holds after multiple team creates on 8-seat match', async () => {
     const admin = await createStaff('admin');
-    const tierId = await createClashSquadTier(); // 8 seats, 4 per team
+    const tierId = await createClashSquadTier({ entryFee: '10.00' }); // 8 seats, 4 per team
     const startTime = new Date(Date.now() + 3600000).toISOString();
     const match = await createMatchStaff(admin.id, { tierId, startTime });
 
@@ -958,16 +851,6 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     await createTeam(l2.id, match.id, { memberFfIds: [m2_1.ffId, m2_2.ffId, m2_3.ffId] });
     list = await listMatchesUser(l1.id);
     expect(list[0].seatsTaken).toBe(8);
-
-    // Team 1 disbands: exactly 4 seats taken remaining
-    await disbandTeam(l1.id, match.id);
-    list = await listMatchesUser(l1.id);
-    expect(list[0].seatsTaken).toBe(4);
-
-    // Team 2 disbands: 0 seats taken remaining
-    await disbandTeam(l2.id, match.id);
-    list = await listMatchesUser(l1.id);
-    expect(list[0].seatsTaken).toBe(0);
   });
 
   // ─── 20. Rate limit on team creation (10/min per user) ────────────────────────
@@ -1014,7 +897,7 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     const match = await createMatchStaff(admin.id, { tierId, startTime });
 
     const leader = await createUser();
-    await setWallet(leader.id, 1000, 0, 0);
+    await setWallet(leader.id, 5000, 0, 0);
 
     // Non-existent FF ID
     await expect(
@@ -1029,8 +912,8 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     ).rejects.toMatchObject({ code: ErrorCodes.NOT_FOUND, statusCode: 404 });
   });
 
-  // ─── 22. Direct HTTP test for GET /me/team-invites ───────────────────────────
-  it('direct HTTP test for GET /me/team-invites returns invites with match & leader info', async () => {
+  // ─── 22. Direct HTTP test for lookup-teammate endpoint ───────────────────────
+  it('lookup-teammate validates FF ID existence, returns game name, and guards duplicates', async () => {
     const admin = await createStaff('admin');
     const tierId = await createDuoBRTier();
     const startTime = new Date(Date.now() + 3600000).toISOString();
@@ -1038,27 +921,35 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
 
     const leader = await createUser();
     const teammate = await createUser();
-    await setWallet(leader.id, 1000, 0, 0);
+    await setWallet(leader.id, 5000, 0, 0);
+    const leaderToken = await createAuthToken(leader);
 
-    await createTeam(leader.id, match.id, { teamName: 'Alpha Duo', memberFfIds: [teammate.ffId] });
-    const teammateToken = await createAuthToken(teammate);
+    // 1. Valid teammate returns exists: true and game name
+    const res1 = await request(app)
+      .get(`/api/v1/matches/lookup-teammate?ffId=${teammate.ffId}&matchId=${match.id}`)
+      .set('Authorization', `Bearer ${leaderToken}`);
+    expect(res1.status).toBe(200);
+    expect(res1.body.data.exists).toBe(true);
+    expect(res1.body.data.ffName).toBe(teammate.ffName);
 
-    const res = await request(app)
-      .get('/api/v1/me/team-invites')
-      .set('Authorization', `Bearer ${teammateToken}`);
+    // 2. Non-existent UID returns exists: false
+    const res2 = await request(app)
+      .get(`/api/v1/matches/lookup-teammate?ffId=NON_EXISTENT_9999&matchId=${match.id}`)
+      .set('Authorization', `Bearer ${leaderToken}`);
+    expect(res2.status).toBe(200);
+    expect(res2.body.data.exists).toBe(false);
 
-    expect(res.status).toBe(200);
-    expect(res.body.data.invites).toHaveLength(1);
-    const inv = res.body.data.invites[0];
-    expect(inv.teamName).toBe('Alpha Duo');
-    expect(inv.teamSize).toBe(2);
-    expect(inv.matchId).toBe(match.id);
-    expect(inv.status).toBe('pending');
-    expect(inv.leaderId).toBe(leader.id);
+    // 3. Leader's own UID returns exists: false with message
+    const res3 = await request(app)
+      .get(`/api/v1/matches/lookup-teammate?ffId=${leader.ffId}&matchId=${match.id}`)
+      .set('Authorization', `Bearer ${leaderToken}`);
+    expect(res3.status).toBe(200);
+    expect(res3.body.data.exists).toBe(false);
+    expect(res3.body.data.message).toBe('You cannot add yourself as a teammate');
   });
 
-  // ─── 23. Direct HTTP test for POST /team-invites/:id/decline ─────────────────
-  it('direct HTTP test for POST /team-invites/:id/decline marks invite declined and preserves reserved seats', async () => {
+  // ─── 23. Lookup-teammate blocks already joined players ────────────────────────
+  it('lookup-teammate returns already joined error if player is in match', async () => {
     const admin = await createStaff('admin');
     const tierId = await createDuoBRTier();
     const startTime = new Date(Date.now() + 3600000).toISOString();
@@ -1066,30 +957,19 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
 
     const leader = await createUser();
     const teammate = await createUser();
-    await setWallet(leader.id, 1000, 0, 0);
+    await setWallet(leader.id, 5000, 0, 0);
+    const leaderToken = await createAuthToken(leader);
 
+    // Join team
     await createTeam(leader.id, match.id, { memberFfIds: [teammate.ffId] });
-    const teammateToken = await createAuthToken(teammate);
 
-    const listRes = await request(app)
-      .get('/api/v1/me/team-invites')
-      .set('Authorization', `Bearer ${teammateToken}`);
-    const inviteId = listRes.body.data.invites[0].id;
-
-    // Decline via HTTP
-    const declineRes = await request(app)
-      .post(`/api/v1/team-invites/${inviteId}/decline`)
-      .set('Authorization', `Bearer ${teammateToken}`);
-
-    expect(declineRes.status).toBe(200);
-
-    // Invite is now declined
-    const invDb = await query(`SELECT status FROM team_invites WHERE id = $1`, [inviteId]);
-    expect(invDb.rows[0].status).toBe('declined');
-
-    // Seat stays reserved (duo team takes 2 seats)
-    const matchDetail = await getMatchUser(leader.id, match.id);
-    expect(matchDetail.seatsTaken).toBe(2);
+    // Lookup teammate now returns exists: false, already joined
+    const res = await request(app)
+      .get(`/api/v1/matches/lookup-teammate?ffId=${teammate.ffId}&matchId=${match.id}`)
+      .set('Authorization', `Bearer ${leaderToken}`);
+    expect(res.status).toBe(200);
+    expect(res.body.data.exists).toBe(false);
+    expect(res.body.data.message).toBe('Player has already joined this match');
   });
 
   // ─── 24. Direct HTTP test for seatsTaken and isInTeam in match lists ──────────
@@ -1102,8 +982,7 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     const leader = await createUser();
     const teammate = await createUser();
     const outsider = await createUser();
-    await setWallet(leader.id, 1000, 0, 0);
-    await setWallet(teammate.id, 1000, 0, 0);
+    await setWallet(leader.id, 5000, 0, 0);
 
     const leaderToken = await createAuthToken(leader);
     const teammateToken = await createAuthToken(teammate);
@@ -1130,22 +1009,19 @@ describe('Milestone 6: Teams, Invites, Disband, Scheduler & Cutoffs', () => {
     expect(resLeader.body.data.match.seatsTaken).toBe(4);
     expect(resLeader.body.data.match.isInTeam).toBe(true);
 
+    // Teammate immediately sees seatsTaken = 4, isInTeam = true (direct team formation)
+    const resTeammate = await request(app)
+      .get(`/api/v1/matches/${match.id}`)
+      .set('Authorization', `Bearer ${teammateToken}`);
+    expect(resTeammate.body.data.match.seatsTaken).toBe(4);
+    expect(resTeammate.body.data.match.isInTeam).toBe(true);
+
     // Outsider sees seatsTaken = 4, isInTeam = false
     const resOutsider = await request(app)
       .get(`/api/v1/matches/${match.id}`)
       .set('Authorization', `Bearer ${outsiderToken}`);
     expect(resOutsider.body.data.match.seatsTaken).toBe(4);
     expect(resOutsider.body.data.match.isInTeam).toBe(false);
-
-    // 3. Teammate accepts invite -> teammate now has isInTeam = true
-    const inv = (await listUserInvites(teammate.id))[0];
-    await acceptInvite(teammate.id, inv.id);
-
-    const resTeammate = await request(app)
-      .get(`/api/v1/matches/${match.id}`)
-      .set('Authorization', `Bearer ${teammateToken}`);
-    expect(resTeammate.body.data.match.seatsTaken).toBe(4);
-    expect(resTeammate.body.data.match.isInTeam).toBe(true);
   });
 });
 

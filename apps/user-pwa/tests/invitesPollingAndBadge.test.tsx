@@ -51,7 +51,7 @@ describe('Requirement 5: Invites Polling & Badge Visibility Rules', () => {
     vi.clearAllMocks();
   });
 
-  it('Requirement 5: fetches invite count at app start and updates badge', async () => {
+  it('Requirement 5: does not show invite badge on BottomNav as invitation mechanism is removed', async () => {
     const fetchSpy = vi.spyOn(matchesApi, 'fetchTeamInvites').mockResolvedValueOnce(pendingInvites);
 
     render(
@@ -70,9 +70,8 @@ describe('Requirement 5: Invites Polling & Badge Visibility Rules', () => {
       await Promise.resolve();
     });
 
-    const badge = screen.getByTestId('nav-badge-matches');
-    expect(badge).toBeInTheDocument();
-    expect(badge.textContent).toBe('1');
+    // Invitation mechanism removed from UI: no badge on matches
+    expect(screen.queryByTestId('nav-badge-matches')).toBeNull();
   });
 
   it('Requirement 5: polls invite count every 60 seconds while tab is visible', async () => {

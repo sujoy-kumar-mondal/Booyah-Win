@@ -219,6 +219,52 @@ export function requireStaff(req: Request, res: Response, next: NextFunction): v
   next();
 }
 
+/**
+ * assertSessionElevated – verifies that the active staff session has elevated_until > now().
+ * If not elevated, throws HTTP 403 with code REAUTH_REQUIRED (never 401).
+ */
+export async function assertSessionElevated(req: Request): Promise<void> {
+  if (!req.staff) {
+    throw new AppError(ErrorCodes.UNAUTHENTICATED, 'Staff authentication required', 401);
+  }
+  const sessionRes = await query(
+    'SELECT elevated_until FROM sessions WHERE id = $1 AND account_type = $2 AND account_id = $3',
+    [req.sessionId, 'staff', req.staff.id]
+  );
+
+  if (sessionRes.rowCount === 0) {
+    throw new AppError(ErrorCodes.UNAUTHENTICATED, 'Session not found or expired', 401);
+  }
+
+  const elevatedUntil = sessionRes.rows[0].elevated_until
+    ? new Date(sessionRes.rows[0].elevated_until)
+    : null;
+
+  if (!elevatedUntil || elevatedUntil.getTime() <= Date.now()) {
+    throw new AppError(
+      ErrorCodes.REAUTH_REQUIRED,
+      'Elevated session required. Please verify OTP to proceed.',
+      403
+    );
+  }
+}
+
+/**
+ * requireElevatedSession – middleware that asserts the session is elevated.
+ */
+export async function requireElevatedSession(
+  req: Request,
+  res: Response,
+  next: NextFunction
+): Promise<void> {
+  try {
+    await assertSessionElevated(req);
+    next();
+  } catch (err) {
+    next(err);
+  }
+}
+
 /** requireUser – confirms req.user is populated. */
 export function requireUser(req: Request, res: Response, next: NextFunction): void {
   if (!req.user) {

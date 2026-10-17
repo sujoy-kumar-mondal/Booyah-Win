@@ -13,6 +13,8 @@ export interface UserProfile {
   dateOfBirth: string;
   referralCode: string;
   referredBy?: string | null;
+  avatarUrl?: string | null;
+  language?: 'en' | 'bn';
   createdAt: string;
 }
 
@@ -48,6 +50,7 @@ export interface LoginVerifyResponse {
     upiId: string;
     referralCode: string;
     dateOfBirth: string;
+    avatarUrl?: string | null;
   };
 }
 
@@ -70,6 +73,7 @@ export interface RegisterCompletePayload {
   dateOfBirth: string;
   confirm18Plus: boolean;
   referralCode?: string;
+  language?: 'en' | 'bn';
 }
 
 export interface UpdateProfilePayload {

@@ -24,6 +24,7 @@ export const Login: React.FC = () => {
   const [step, setStep] = useState<1 | 2>(1);
   const [email, setEmail] = useState('');
   const [otp, setOtp] = useState('');
+  const [remember, setRemember] = useState(true);
 
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -65,8 +66,8 @@ export const Login: React.FC = () => {
     setIsLoading(true);
     setError(null);
     try {
-      const res = await verifyStaffOtp(email.trim(), cleanOtp);
-      login(res.token, res.staff);
+      const res = await verifyStaffOtp(email.trim(), cleanOtp, remember);
+      login(res.token, res.staff, remember);
       navigate('/dashboard', { replace: true });
     } catch (err) {
       setError(getFriendlyErrorMessage(err));
@@ -200,6 +201,22 @@ export const Login: React.FC = () => {
                     className="w-full font-mono tracking-widest text-center rounded-xl border border-slate-700 bg-slate-950 pl-10 pr-3.5 py-2.5 text-base text-slate-100 placeholder-slate-600 focus:border-emerald-500 focus:outline-none transition-colors"
                   />
                 </div>
+              </div>
+
+              <div className="pt-1">
+                <label className="flex items-start gap-2.5 cursor-pointer text-xs text-slate-300 select-none">
+                  <input
+                    type="checkbox"
+                    checked={remember}
+                    onChange={(e) => setRemember(e.target.checked)}
+                    data-testid="remember-device-checkbox"
+                    className="mt-0.5 h-4 w-4 rounded border-slate-700 bg-slate-950 text-emerald-500 focus:ring-emerald-400 focus:ring-offset-slate-900"
+                  />
+                  <div>
+                    <span className="font-semibold text-slate-200">Keep me signed in on this device</span>
+                    <p className="text-[11px] text-slate-400">Only use this on your own device</p>
+                  </div>
+                </label>
               </div>
 
               <button

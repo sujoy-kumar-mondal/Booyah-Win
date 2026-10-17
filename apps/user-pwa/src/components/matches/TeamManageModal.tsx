@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import { X, UserMinus, AlertTriangle, AlertCircle, RefreshCw } from 'lucide-react';
-import { replaceTeamInvite, disbandTeam } from '../../api/matches.js';
+import React, { useState, useEffect, useRef } from 'react';
+import { X, UserMinus, AlertTriangle, AlertCircle, RefreshCw, CheckCircle2, Loader2 } from 'lucide-react';
+import { replaceTeamInvite, disbandTeam, lookupTeammate } from '../../api/matches.js';
 import { ApiError } from '../../api/client.js';
 import { useAuth } from '../../context/AuthContext.js';
 import { useInvites } from '../../context/InvitesContext.js';
+import { useTranslation } from '../../i18n/LanguageContext.js';
 
 interface TeamManageModalProps {
   matchId: string;
@@ -22,11 +23,58 @@ export const TeamManageModal: React.FC<TeamManageModalProps> = ({
 }) => {
   const { refreshProfile } = useAuth();
   const { refetchInvites } = useInvites();
+  const { t } = useTranslation();
 
   const [oldFfId, setOldFfId] = useState('');
   const [newFfId, setNewFfId] = useState('');
+  const [newValidation, setNewValidation] = useState<{
+    loading: boolean;
+    exists?: boolean;
+    ffName?: string;
+    message?: string;
+  }>({ loading: false });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+
+  const debounceTimer = useRef<any>(null);
+
+  useEffect(() => {
+    return () => {
+      if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    };
+  }, []);
+
+  const handleNewFfIdChange = (val: string) => {
+    setNewFfId(val);
+    const clean = val.trim();
+    if (!clean) {
+      setNewValidation({ loading: false });
+      return;
+    }
+
+    if (debounceTimer.current) clearTimeout(debounceTimer.current);
+    debounceTimer.current = setTimeout(async () => {
+      setNewValidation({ loading: true });
+      try {
+        const res = await lookupTeammate(clean, matchId);
+        if (res && res.exists) {
+          setNewValidation({ loading: false, exists: true, ffName: res.ffName });
+        } else {
+          setNewValidation({
+            loading: false,
+            exists: false,
+            message: res?.message || t('matches.invalidUidCheck'),
+          });
+        }
+      } catch (err: any) {
+        setNewValidation({
+          loading: false,
+          exists: false,
+          message: err?.message || t('matches.errorVerifyingUid'),
+        });
+      }
+    }, 400);
+  };
 
   if (!isOpen) return null;
 
@@ -34,7 +82,7 @@ export const TeamManageModal: React.FC<TeamManageModalProps> = ({
     e.preventDefault();
     if (isSubmitting) return; // Double-tap guard
     if (!oldFfId.trim() || !newFfId.trim()) {
-      setErrorMessage('Please enter both the current and new Free Fire IDs.');
+      setErrorMessage(t('matches.bothUidsRequired'));
       return;
     }
 
@@ -54,16 +102,18 @@ export const TeamManageModal: React.FC<TeamManageModalProps> = ({
       if (err instanceof ApiError) {
         // Requirement 7: Teammate lookup errors use friendly error text only
         if (err.code === 'NOT_FOUND') {
-          setErrorMessage('Player not found.');
+          setErrorMessage(t('matches.playerNotFound'));
         } else if (err.code === 'MATCH_NOT_JOINABLE') {
-          setErrorMessage('Registration for this match is closed (10-minute cutoff reached).');
+          setErrorMessage(t('matches.cutoffReachedError'));
+        } else if (err.code === 'FORBIDDEN') {
+          setErrorMessage(t('matches.onlyLeaderCanChangeTeammate'));
         } else if (err.code === 'TEAM_INVALID') {
-          setErrorMessage('Invalid team or member replacement.');
+          setErrorMessage(t('matches.invalidTeamReplacement'));
         } else {
-          setErrorMessage(err.message || 'Failed to replace teammate.');
+          setErrorMessage(err.message || t('matches.failedToReplaceTeammate'));
         }
       } else {
-        setErrorMessage('Network error occurred.');
+        setErrorMessage(t('common.networkError'));
       }
     } finally {
       setIsSubmitting(false);
@@ -84,12 +134,12 @@ export const TeamManageModal: React.FC<TeamManageModalProps> = ({
     } catch (err: any) {
       if (err instanceof ApiError) {
         if (err.code === 'MATCH_NOT_JOINABLE') {
-          setErrorMessage('Cannot disband team within 10 minutes of match start.');
+          setErrorMessage(t('matches.cannotDisbandCutoff'));
         } else {
-          setErrorMessage(err.message || 'Failed to disband team.');
+          setErrorMessage(err.message || t('matches.failedToDisband'));
         }
       } else {
-        setErrorMessage('Network error occurred.');
+        setErrorMessage(t('common.networkError'));
       }
     } finally {
       setIsSubmitting(false);
@@ -113,7 +163,7 @@ export const TeamManageModal: React.FC<TeamManageModalProps> = ({
               <UserMinus className="h-5 w-5 text-rose-400" />
             )}
             <h3 className="text-base font-bold text-slate-100">
-              {mode === 'replace' ? 'Replace Teammate' : 'Disband Team'}
+              {mode === 'replace' ? t('matches.replaceTeammate') : t('matches.disbandTeamTitle')}
             </h3>
           </div>
           <button
@@ -131,39 +181,75 @@ export const TeamManageModal: React.FC<TeamManageModalProps> = ({
           data-testid="team-manage-cutoff-rule"
           className="mt-3 rounded-xl bg-amber-500/10 border border-amber-500/20 p-2.5 text-xs text-amber-300"
         >
-          Rule: Team changes close 10 minutes before the start.
+          {t('matches.teamChangesCutoffRule')}
         </div>
 
         {mode === 'replace' ? (
           <form onSubmit={handleReplace} className="mt-4 space-y-3.5">
             <div>
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                Current Teammate Free Fire ID
+                {t('matches.oldFfIdLabel')}
               </label>
               <input
                 type="text"
                 data-testid="old-ffid-input"
                 value={oldFfId}
                 onChange={(e) => setOldFfId(e.target.value)}
-                placeholder="Old Free Fire ID"
+                placeholder={t('matches.oldFfIdPlaceholder')}
                 className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
                 required
               />
             </div>
 
-            <div>
+            <div className="space-y-1">
               <label className="block text-xs font-semibold text-slate-300 mb-1">
-                New Teammate Free Fire ID
+                {t('matches.newFfIdLabel')}
               </label>
-              <input
-                type="text"
-                data-testid="new-ffid-input"
-                value={newFfId}
-                onChange={(e) => setNewFfId(e.target.value)}
-                placeholder="New Free Fire ID"
-                className="w-full rounded-xl border border-slate-700 bg-slate-950 px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:border-emerald-500 focus:outline-none"
-                required
-              />
+              <div className="relative flex items-center">
+                <input
+                  type="text"
+                  data-testid="new-ffid-input"
+                  value={newFfId}
+                  onChange={(e) => handleNewFfIdChange(e.target.value)}
+                  placeholder={t('matches.newFfIdPlaceholder')}
+                  className={`w-full rounded-xl border bg-slate-950 px-3.5 py-2.5 text-xs text-slate-100 placeholder-slate-500 focus:outline-none pr-32 transition-colors ${
+                    newValidation.exists === true
+                      ? 'border-emerald-500/70 focus:border-emerald-400'
+                      : newValidation.exists === false
+                      ? 'border-rose-500/70 focus:border-rose-400'
+                      : 'border-slate-700 focus:border-emerald-500'
+                  }`}
+                  required
+                />
+                <div className="absolute right-2.5 flex items-center gap-1.5 pointer-events-none">
+                  {newValidation.loading && (
+                    <div className="flex items-center gap-1 text-[11px] text-slate-400">
+                      <Loader2 className="h-3 w-3 animate-spin text-slate-400" />
+                      <span>{t('matches.checking')}</span>
+                    </div>
+                  )}
+                  {newValidation.exists === true && (
+                    <span
+                      data-testid="new-member-ffname-badge"
+                      className="flex items-center gap-1 rounded bg-emerald-500/20 px-2 py-0.5 text-[11px] font-bold text-emerald-300 border border-emerald-500/40 truncate max-w-[130px]"
+                      title={newValidation.ffName}
+                    >
+                      <CheckCircle2 className="h-3 w-3 text-emerald-400 shrink-0" />
+                      <span className="truncate">{newValidation.ffName}</span>
+                    </span>
+                  )}
+                </div>
+              </div>
+
+              {newValidation.exists === false && (
+                <div
+                  data-testid="new-member-error-text"
+                  className="text-[11px] text-rose-400 font-medium px-1 flex items-center gap-1"
+                >
+                  <AlertCircle className="h-3 w-3 shrink-0" />
+                  <span>{newValidation.message || t('matches.invalidUidCheck')}</span>
+                </div>
+              )}
             </div>
 
             {errorMessage && (
@@ -184,7 +270,7 @@ export const TeamManageModal: React.FC<TeamManageModalProps> = ({
                 disabled={isSubmitting}
                 className="flex-1 rounded-xl border border-slate-700 bg-slate-800/50 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
               >
-                Cancel
+                {t('common.cancel')}
               </button>
               <button
                 type="submit"
@@ -192,7 +278,7 @@ export const TeamManageModal: React.FC<TeamManageModalProps> = ({
                 disabled={isSubmitting}
                 className="flex-1 rounded-xl bg-emerald-500 py-2.5 text-xs font-bold text-slate-950 hover:bg-emerald-400 disabled:opacity-50"
               >
-                {isSubmitting ? 'Replacing...' : 'Replace'}
+                {isSubmitting ? t('matches.replacing') : t('matches.replace')}
               </button>
             </div>
           </form>
@@ -201,8 +287,7 @@ export const TeamManageModal: React.FC<TeamManageModalProps> = ({
             <div className="rounded-xl bg-rose-500/10 border border-rose-500/20 p-3.5 text-xs text-rose-300 flex items-start gap-2.5">
               <AlertTriangle className="h-5 w-5 shrink-0 text-rose-400" />
               <p>
-                Are you sure you want to disband this team? All joined and pending players will be
-                refunded their entry fee.
+                {t('matches.disbandWarning')}
               </p>
             </div>
 
@@ -224,7 +309,7 @@ export const TeamManageModal: React.FC<TeamManageModalProps> = ({
                 disabled={isSubmitting}
                 className="flex-1 rounded-xl border border-slate-700 bg-slate-800/50 py-2.5 text-xs font-semibold text-slate-300 hover:bg-slate-800"
               >
-                Keep Team
+                {t('matches.keepTeam')}
               </button>
               <button
                 type="button"
@@ -233,7 +318,7 @@ export const TeamManageModal: React.FC<TeamManageModalProps> = ({
                 disabled={isSubmitting}
                 className="flex-1 rounded-xl bg-rose-500 py-2.5 text-xs font-bold text-white hover:bg-rose-600 disabled:opacity-50"
               >
-                {isSubmitting ? 'Disbanding...' : 'Disband & Refund'}
+                {isSubmitting ? t('matches.disbanding') : t('matches.disbandAndRefund')}
               </button>
             </div>
           </div>

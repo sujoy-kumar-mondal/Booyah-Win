@@ -2,7 +2,7 @@
   "data": {
     "items": [
       {
-        "id": "53",
+        "id": "54",
         "staffId": "1",
         "staffName": "Admin User",
         "action": "settings_payment_qr_updated",
@@ -12,26 +12,40 @@
           "newKey": "https://storage.example.com/placeholder.jpg",
           "oldKey": null
         },
-        "createdAt": "2026-10-13T13:39:20.790Z"
+        "createdAt": "2026-10-17T05:04:38.133Z"
       },
       {
-        "id": "52",
+        "id": "53",
         "staffId": "1",
         "staffName": "Admin User",
         "action": "settings_updated",
         "targetType": "app_settings",
         "targetId": null,
         "details": {
+          "changes": {
+            "max_deposit": {
+              "new": "6000.00",
+              "old": "5000.00"
+            },
+            "min_deposit": {
+              "new": "15.00",
+              "old": "10.00"
+            },
+            "support_name": {
+              "new": "Booyah Support Team",
+              "old": "Booyah Win Support"
+            }
+          },
           "updatedKeys": [
             "min_deposit",
             "max_deposit",
             "support_name"
           ]
         },
-        "createdAt": "2026-10-13T13:39:20.782Z"
+        "createdAt": "2026-10-17T05:04:38.125Z"
       },
       {
-        "id": "51",
+        "id": "52",
         "staffId": "1",
         "staffName": "Admin User",
         "action": "user_deleted",
@@ -41,10 +55,10 @@
           "reason": "Terms of service violation",
           "deletedBy": "1"
         },
-        "createdAt": "2026-10-13T13:39:20.772Z"
+        "createdAt": "2026-10-17T05:04:38.113Z"
       },
       {
-        "id": "50",
+        "id": "51",
         "staffId": "1",
         "staffName": "Admin User",
         "action": "balance_adjusted",
@@ -57,10 +71,10 @@
           "adminId": "1",
           "amountPaise": 2000
         },
-        "createdAt": "2026-10-13T13:39:20.764Z"
+        "createdAt": "2026-10-17T05:04:38.105Z"
       },
       {
-        "id": "49",
+        "id": "50",
         "staffId": "1",
         "staffName": "Admin User",
         "action": "user_viewed",
@@ -69,20 +83,20 @@
         "details": {
           "role": "admin"
         },
-        "createdAt": "2026-10-13T13:39:20.759Z"
+        "createdAt": "2026-10-17T05:04:38.100Z"
       },
       {
-        "id": "48",
+        "id": "49",
         "staffId": "1",
         "staffName": "Admin User",
         "action": "tier_deleted",
         "targetType": "entry_tiers",
         "targetId": "7",
         "details": null,
-        "createdAt": "2026-10-13T13:39:20.746Z"
+        "createdAt": "2026-10-17T05:04:38.087Z"
       },
       {
-        "id": "47",
+        "id": "48",
         "staffId": "1",
         "staffName": "Admin User",
         "action": "tier_updated",
@@ -93,10 +107,10 @@
             "killPrice"
           ]
         },
-        "createdAt": "2026-10-13T13:39:20.704Z"
+        "createdAt": "2026-10-17T05:04:38.043Z"
       },
       {
-        "id": "46",
+        "id": "47",
         "staffId": "1",
         "staffName": "Admin User",
         "action": "tier_created",
@@ -108,20 +122,20 @@
           "teamMode": "squad",
           "positionsCount": 2
         },
-        "createdAt": "2026-10-13T13:39:20.692Z"
+        "createdAt": "2026-10-17T05:04:38.030Z"
       },
       {
-        "id": "45",
+        "id": "46",
         "staffId": "1",
         "staffName": "Admin User",
         "action": "employee_deleted",
         "targetType": "staff",
         "targetId": "4",
         "details": null,
-        "createdAt": "2026-10-13T13:39:20.686Z"
+        "createdAt": "2026-10-17T05:04:38.024Z"
       },
       {
-        "id": "44",
+        "id": "45",
         "staffId": "1",
         "staffName": "Admin User",
         "action": "employee_updated",
@@ -132,9 +146,9 @@
             "name"
           ]
         },
-        "createdAt": "2026-10-13T13:39:20.680Z"
+        "createdAt": "2026-10-17T05:04:38.018Z"
       }
     ],
-    "nextCursor": "44"
+    "nextCursor": "45"
   }
 }

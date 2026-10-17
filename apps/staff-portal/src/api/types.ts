@@ -50,6 +50,7 @@ export interface DashboardMetricsDto {
 export interface StaffDepositDto {
   id: string;
   userId: string;
+  userName?: string;
   userEmail: string;
   amount: string;
   utr: string;
@@ -73,6 +74,7 @@ export interface DepositListResponse {
 export interface StaffWithdrawalDto {
   id: string;
   userId: string;
+  userName?: string;
   userEmail: string;
   amount: string;
   upiId: string;

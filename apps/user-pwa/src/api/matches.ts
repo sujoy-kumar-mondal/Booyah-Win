@@ -52,6 +52,21 @@ export async function createTeam(matchId: string, payload: CreateTeamPayload): P
   return validated.team;
 }
 
+export interface LookupTeammateResult {
+  exists: boolean;
+  ffId?: string;
+  ffName?: string;
+  name?: string;
+  message?: string;
+}
+
+export async function lookupTeammate(ffId: string, matchId?: string): Promise<LookupTeammateResult> {
+  const query = new URLSearchParams({ ffId });
+  if (matchId) query.set('matchId', matchId);
+  const data = await apiClient<any>(`/api/v1/matches/lookup-teammate?${query.toString()}`);
+  return (data?.data !== undefined ? data.data : data) as LookupTeammateResult;
+}
+
 export interface ReplaceInvitePayload {
   oldFfId: string;
   newFfId: string;

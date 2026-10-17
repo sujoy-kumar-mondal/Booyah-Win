@@ -350,21 +350,17 @@ A user can join a match **only once**, and cannot join if their account is delet
 ### 11.6 Teams (duo, squad, Clash Squad)
 Team size: duo 2, squad 4, Clash Squad 4 (two teams per match; each team fills 4 of the 8 seats).
 
-**Team form (leader):** `POST /matches/:id/teams` `{ teamName?, memberFfIds: [...] }`
-- `memberFfIds` has `size − 1` entries; each must be a registered, non-deleted user, not the leader, not already in this match, no duplicates.
-- One transaction: check capacity for the **whole team** (seats reserved immediately), charge the leader's entry fee (6.1), create `teams` row (`status='forming'`), `match_players` row for the leader, and a `team_invites` row per teammate (`pending`).
-- Capacity rule: reserved seats = confirmed players + seats of forming teams.
-
-**Teammate side:** `GET /me/team-invites`, `POST /team-invites/:id/accept`, `POST /team-invites/:id/decline`.
-- Accept: one transaction, charge that user's entry fee (6.1) and add their `match_players` row. Fails with `LOW_BALANCE` if they cannot pay. When all invites are accepted, set team `status='confirmed'`.
-- Decline or expiry: the seat stays reserved until the cutoff (below), so the leader may invite a replacement: `POST /matches/:id/teams/mine/replace` `{ oldFfId, newFfId }`.
-
-**Cutoff (10 minutes before start time):** any team still `forming` is disbanded by the scheduler: all paid entries refunded exactly (6.2), pending invites set to `expired`, seats released.
-- Leader may disband earlier: `DELETE /matches/:id/teams/mine` (refund all paid members).
-- Clash Squad: the match starts only with 2 `confirmed` teams.
+**Direct Team Formation (Leader):** `POST /matches/:id/teams` `{ teamName?, memberFfIds: [...] }`
+- `memberFfIds` has `size − 1` entries (1 for Duo, 3 for Squad / Clash Squad); each must be a registered, non-deleted user, not the leader, not already in this match, no duplicates.
+- UID Validation endpoint: `GET /matches/lookup-teammate?ffId=` validates player existence; UI displays Free Fire name if valid, or "Invalid UID, Check UID or Register the Player".
+- **Leader pays for the entire team:** One transaction checks capacity for the whole team, deducts the total team entry fee (`entry_fee × team_size`, e.g., ₹10 × 4 = ₹40 for Squad) from the leader's wallet, creates `teams` row with `status='confirmed'`, and inserts `match_players` rows for the leader and all teammates immediately with `team_id`.
+- All teammates immediately see the match as joined with the "Joined" badge and room access when opened.
+- **No Disbanding:** Once formed, the team cannot be disbanded.
+- **Teammate Replacement (10 minutes before start):** Leader can replace a teammate up to 10 minutes before match start via `POST /matches/:id/teams/replace` `{ oldFfId, newFfId }`. The new player is validated and swapped in `match_players` with no extra fee charged.
+- Cutoff (10 minutes before start): Team replacements close 10 minutes before start time.
 
 ### 11.7 Auto-cancel
-At `start_time`, if confirmed players < `min_players` (Clash Squad: fewer than 2 confirmed teams), the scheduler cancels the match and refunds everyone (reason: "Not enough players").
+At `start_time`, if confirmed players < `min_players` (Clash Squad: fewer than 2 confirmed teams), the scheduler cancels the match and refunds everyone (reason: "Not enough players"). Refunds for team entries go back to the leader who paid the team fee.
 
 ### 11.8 Match cancel (manual)
 `POST /staff/matches/:id/cancel` `{ reason }`: one transaction: lock match, status check, refund every `match_players` row not yet refunded using stored `paid_*` amounts, set `matches.status='cancelled'`, disband teams, audit log.
@@ -401,7 +397,7 @@ killReward     = (k >= min_kills_for_reward) ? k * kill_price : 0
 positionPrize  = position_prizes[p] or 0
 ```
 - Solo: the player receives `killReward + positionPrize`.
-- Duo/Squad: `killReward` goes to the individual player who got the kills; `positionPrize` goes to the **team leader**.
+- Duo/Squad: All rewards of all team members go to the **team leader** (`positionPrize` + sum of all team members' `killReward`). Teammate kills and positions are stored on `match_players` for history/stats, but monetary payout is credited to the team leader's account.
 
 **Clash Squad:** the winning team's **leader** receives `position_prizes[1]` (₹75). Everyone else receives nothing.
 
@@ -582,7 +578,7 @@ The AI must write and pass these before moving on:
 
 ## 22. Error Codes
 
-`UNAUTHENTICATED`, `SESSION_REPLACED`, `FORBIDDEN`, `ADMIN_APPROVAL_REQUIRED`, `VALIDATION_ERROR`, `INVALID_OTP`, `OTP_RATE_LIMITED`, `EMAIL_EXISTS`, `MOBILE_EXISTS`, `FF_ID_EXISTS`, `UPI_EXISTS`, `INVALID_REFERRAL`, `FIELD_COOLDOWN`, `IN_ACTIVE_MATCH`, `LOW_BALANCE`, `UTR_EXISTS`, `DEPOSIT_LIMIT`, `WITHDRAWAL_PENDING`, `UPI_RECENTLY_CHANGED`, `MATCH_FULL`, `ALREADY_JOINED`, `MATCH_NOT_JOINABLE`, `TEAM_INVALID`, `INVITE_EXPIRED`, `RESULT_INVALID`, `RESULT_LOCKED`, `NOT_FOUND`, `RATE_LIMITED`, `INTERNAL_ERROR`, `INVALID_TRANSITION`, `DATABASE_BUSY`, `ADMINS_APPROVE_DIRECTLY`, `MAINTENANCE_MODE`.
+`UNAUTHENTICATED`, `SESSION_REPLACED`, `FORBIDDEN`, `ADMIN_APPROVAL_REQUIRED`, `VALIDATION_ERROR`, `INVALID_OTP`, `OTP_RATE_LIMITED`, `EMAIL_EXISTS`, `MOBILE_EXISTS`, `FF_ID_EXISTS`, `UPI_EXISTS`, `INVALID_REFERRAL`, `FIELD_COOLDOWN`, `IN_ACTIVE_MATCH`, `LOW_BALANCE`, `UTR_EXISTS`, `DEPOSIT_LIMIT`, `WITHDRAWAL_PENDING`, `UPI_RECENTLY_CHANGED`, `MATCH_FULL`, `ALREADY_JOINED`, `MATCH_NOT_JOINABLE`, `TEAM_INVALID`, `INVITE_EXPIRED`, `RESULT_INVALID`, `RESULT_LOCKED`, `NOT_FOUND`, `RATE_LIMITED`, `INTERNAL_ERROR`, `INVALID_TRANSITION`, `DATABASE_BUSY`, `ADMINS_APPROVE_DIRECTLY`, `MAINTENANCE_MODE`, `REAUTH_REQUIRED`.
 
 ---
 

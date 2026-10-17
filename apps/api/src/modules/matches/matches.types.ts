@@ -70,6 +70,7 @@ export interface MatchUserDto {
   status: string;
   hasJoined: boolean;
   isInTeam: boolean;
+  isTeamLeader?: boolean;
   roomId?: string;
   roomPassword?: string;
 }
@@ -87,13 +88,20 @@ export interface TeamInviteDto {
   leaderId: string;
   leaderName?: string;
   leaderFfId?: string;
+  leaderFfName?: string;
+  invitedUserId: string;
+  invitedUserName?: string;
+  invitedUserFfId?: string;
+  invitedUserFfName?: string;
   matchId: string;
   gameMode?: string;
   teamMode?: string;
   entryFee?: string;
   startTime?: string;
   matchStatus?: string;
-  invitedUserId: string;
+  killPrice?: string;
+  firstPlacePrize?: string;
+  positionPrizes?: Record<string, string>;
   status: 'pending' | 'accepted' | 'declined' | 'expired';
   createdAt: string;
   respondedAt: string | null;

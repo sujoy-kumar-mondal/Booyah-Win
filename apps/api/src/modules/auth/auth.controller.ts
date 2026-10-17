@@ -3,6 +3,7 @@ import {
   completeRegistrationSchema,
   requestOtpSchema,
   verifyOtpSchema,
+  stepUpVerifyOtpSchema,
 } from '@booyah/shared';
 import { AuthService } from './auth.service.js';
 
@@ -83,8 +84,33 @@ export class AuthController {
 
   static async verifyStaffLoginOtp(req: Request, res: Response, next: NextFunction): Promise<void> {
     try {
-      const { email, otp } = verifyOtpSchema.parse(req.body);
-      const result = await AuthService.verifyStaffLoginOtp(email, otp);
+      const { email, otp, remember } = verifyOtpSchema.parse(req.body);
+      const result = await AuthService.verifyStaffLoginOtp(email, otp, remember !== false);
+      res.status(200).json({ data: result });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  // Staff Step-Up OTP
+  static async requestStaffStepUpOtp(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const result = await AuthService.requestStaffStepUpOtp(req.staff!.email);
+      res.status(200).json({ data: result });
+    } catch (err) {
+      next(err);
+    }
+  }
+
+  static async verifyStaffStepUpOtp(req: Request, res: Response, next: NextFunction): Promise<void> {
+    try {
+      const { otp } = stepUpVerifyOtpSchema.parse(req.body);
+      const result = await AuthService.verifyStaffStepUpOtp(
+        req.sessionId!,
+        req.staff!.id,
+        req.staff!.email,
+        otp
+      );
       res.status(200).json({ data: result });
     } catch (err) {
       next(err);

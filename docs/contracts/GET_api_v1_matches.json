@@ -21,6 +21,7 @@
         "status": "live",
         "hasJoined": true,
         "isInTeam": true,
+        "isTeamLeader": true,
         "roomId": "887766",
         "roomPassword": "test-room-password"
       },
@@ -43,7 +44,8 @@
         "startTime": "2026-12-01T17:00:00.000Z",
         "status": "upcoming",
         "hasJoined": true,
-        "isInTeam": true
+        "isInTeam": true,
+        "isTeamLeader": true
       },
       {
         "id": "4",
@@ -67,6 +69,7 @@
         "status": "live",
         "hasJoined": true,
         "isInTeam": false,
+        "isTeamLeader": false,
         "roomId": "998877",
         "roomPassword": "test-room-password"
       },
@@ -92,6 +95,7 @@
         "status": "live",
         "hasJoined": true,
         "isInTeam": false,
+        "isTeamLeader": false,
         "roomId": "334455",
         "roomPassword": "test-room-password"
       },
@@ -116,7 +120,8 @@
         "startTime": "2026-12-05T12:00:00.000Z",
         "status": "upcoming",
         "hasJoined": false,
-        "isInTeam": false
+        "isInTeam": false,
+        "isTeamLeader": false
       }
     ]
   }
