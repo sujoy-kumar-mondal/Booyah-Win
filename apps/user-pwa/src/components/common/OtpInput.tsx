@@ -15,20 +15,58 @@ export const OtpInput: React.FC<OtpInputProps> = ({ value, onChange, disabled = 
   }
 
   useEffect(() => {
-    // Focus first empty input on mount if not disabled
-    if (!disabled && inputRefs.current[0]) {
+    // Focus first input on mount or when value is cleared (e.g. on resend)
+    if (!disabled && (value === '' || digits.every((d) => d === '')) && inputRefs.current[0]) {
       inputRefs.current[0].focus();
     }
-  }, [disabled]);
+  }, [value, disabled]);
 
   const handleChange = (index: number, e: React.ChangeEvent<HTMLInputElement>) => {
-    const char = e.target.value.slice(-1);
-    if (!/^\d*$/.test(char)) return;
+    const raw = e.target.value;
+    const clean = raw.replace(/\D/g, '');
 
+    // Multi-digit entry (e.g. mobile clipboard paste, keyboard chip, or SMS autofill)
+    if (clean.length > 1) {
+      if (clean.length >= 6) {
+        onChange(clean.slice(0, 6));
+        inputRefs.current[5]?.focus();
+        return;
+      }
+
+      // If typing 1 char over an existing digit (e.g. "3" -> "34" or "43")
+      if (clean.length === 2 && digits[index]) {
+        const newChar = raw.endsWith(digits[index]) ? raw[0] : raw.slice(-1);
+        if (/^\d$/.test(newChar)) {
+          const newDigits = [...digits];
+          newDigits[index] = newChar;
+          onChange(newDigits.join('').slice(0, 6));
+          if (index < 5) {
+            inputRefs.current[index + 1]?.focus();
+          }
+        }
+        return;
+      }
+
+      // Pasting fewer than 6 digits
+      const newDigits = [...digits];
+      let cur = index;
+      for (const char of clean) {
+        if (cur < 6) {
+          newDigits[cur] = char;
+          cur++;
+        }
+      }
+      onChange(newDigits.join('').slice(0, 6));
+      const targetIndex = Math.min(cur, 5);
+      inputRefs.current[targetIndex]?.focus();
+      return;
+    }
+
+    // Single digit entry or clearing
+    const char = clean;
     const newDigits = [...digits];
     newDigits[index] = char;
-    const combined = newDigits.join('').slice(0, 6);
-    onChange(combined);
+    onChange(newDigits.join('').slice(0, 6));
 
     if (char && index < 5) {
       inputRefs.current[index + 1]?.focus();
@@ -38,6 +76,9 @@ export const OtpInput: React.FC<OtpInputProps> = ({ value, onChange, disabled = 
   const handleKeyDown = (index: number, e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === 'Backspace') {
       if (!digits[index] && index > 0) {
+        const newDigits = [...digits];
+        newDigits[index - 1] = '';
+        onChange(newDigits.join(''));
         inputRefs.current[index - 1]?.focus();
       }
     } else if (e.key === 'ArrowLeft' && index > 0) {
@@ -47,9 +88,9 @@ export const OtpInput: React.FC<OtpInputProps> = ({ value, onChange, disabled = 
     }
   };
 
-  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement>) => {
+  const handlePaste = (e: React.ClipboardEvent<HTMLInputElement | HTMLDivElement>) => {
     e.preventDefault();
-    const pasted = e.clipboardData.getData('text').trim();
+    const pasted = e.clipboardData?.getData('text') || '';
     const cleanDigits = pasted.replace(/\D/g, '').slice(0, 6);
     if (cleanDigits) {
       onChange(cleanDigits);
@@ -59,7 +100,11 @@ export const OtpInput: React.FC<OtpInputProps> = ({ value, onChange, disabled = 
   };
 
   return (
-    <div className="flex items-center justify-between gap-1.5 sm:gap-2 w-full max-w-sm mx-auto" data-testid="otp-input-container">
+    <div
+      className="flex items-center justify-between gap-1.5 sm:gap-2 w-full max-w-sm mx-auto"
+      data-testid="otp-input-container"
+      onPaste={handlePaste}
+    >
       {digits.map((digit, i) => (
         <input
           key={i}
@@ -67,10 +112,11 @@ export const OtpInput: React.FC<OtpInputProps> = ({ value, onChange, disabled = 
           type="text"
           inputMode="numeric"
           pattern="[0-9]*"
-          autoComplete="one-time-code"
-          maxLength={1}
+          autoComplete={i === 0 ? 'one-time-code' : 'off'}
+          maxLength={6}
           value={digit}
           disabled={disabled}
+          onFocus={(e) => e.target.select()}
           onChange={(e) => handleChange(i, e)}
           onKeyDown={(e) => handleKeyDown(i, e)}
           onPaste={handlePaste}

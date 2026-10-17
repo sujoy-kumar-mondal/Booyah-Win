@@ -7,7 +7,7 @@ import { useCountdown } from '../hooks/useCountdown.js';
 import { validateEmail } from '../utils/validation.js';
 import { ApiError } from '../api/client.js';
 import { getUserFriendlyErrorMessage } from '../api/errorMessages.js';
-import { Flame, Mail, ArrowRight, RotateCcw, AlertCircle } from 'lucide-react';
+import { Flame, Mail, ArrowRight, RotateCcw, AlertCircle, Clipboard } from 'lucide-react';
 import { useTranslation } from '../i18n/LanguageContext.js';
 
 export const Login: React.FC = () => {
@@ -22,6 +22,20 @@ export const Login: React.FC = () => {
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const { secondsLeft, isCounting, startCountdown } = useCountdown(60);
+
+  const handleClipboardPaste = async () => {
+    try {
+      if (typeof navigator !== 'undefined' && navigator.clipboard && typeof navigator.clipboard.readText === 'function') {
+        const text = await navigator.clipboard.readText();
+        const clean = text.replace(/\D/g, '').slice(0, 6);
+        if (clean) {
+          setOtp(clean);
+        }
+      }
+    } catch {
+      // Ignored if user cancels or permission denied
+    }
+  };
 
   const handleSendOtp = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -101,6 +115,7 @@ export const Login: React.FC = () => {
         setStep('email');
         return;
       }
+      setOtp('');
       startCountdown(60);
     } catch (err: any) {
       setError(
@@ -191,9 +206,22 @@ export const Login: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-center text-xs font-semibold text-slate-300 mb-3">
-                {t('auth.enterOtp')}
-              </label>
+              <div className="flex items-center justify-between mb-2.5 px-1">
+                <label className="text-xs font-semibold text-slate-300">
+                  {t('auth.enterOtp')}
+                </label>
+                {typeof navigator !== 'undefined' && !!navigator.clipboard && (
+                  <button
+                    type="button"
+                    onClick={handleClipboardPaste}
+                    disabled={isSubmitting}
+                    className="flex items-center gap-1 text-xs text-emerald-400 hover:text-emerald-300 disabled:opacity-50 transition-colors"
+                  >
+                    <Clipboard className="h-3 w-3" />
+                    <span>{language === 'bn' ? 'পেস্ট করুন' : 'Paste'}</span>
+                  </button>
+                )}
+              </div>
               <OtpInput value={otp} onChange={setOtp} disabled={isSubmitting} />
             </div>
 

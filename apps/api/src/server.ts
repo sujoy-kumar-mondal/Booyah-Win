@@ -6,6 +6,7 @@ import {
   isUntrustedCertificateError,
   UNTRUSTED_CERT_SAFE_REASON,
 } from './db/index.js';
+import { ensureDatabaseSchema } from './db/ensureSchema.js';
 import { isSchedulerTickRunning, runSchedulerTick } from './modules/matches/scheduler.service.js';
 import { logger } from './utils/logger.js';
 
@@ -24,6 +25,7 @@ if (config.NODE_ENV === 'production' || process.env.RENDER === 'true' || process
 try {
   await assertDatabaseConnection();
   logger.info('Database connection established successfully');
+  await ensureDatabaseSchema();
 } catch (err: any) {
   if (isUntrustedCertificateError(err) || err.message === UNTRUSTED_CERT_SAFE_REASON) {
     logger.fatal(UNTRUSTED_CERT_SAFE_REASON);
