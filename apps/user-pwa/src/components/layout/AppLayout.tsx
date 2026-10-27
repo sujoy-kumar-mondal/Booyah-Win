@@ -1,5 +1,5 @@
 import React from 'react';
-import { Outlet, Link, useLocation } from 'react-router-dom';
+import { Outlet, Link } from 'react-router-dom';
 import { BottomNav } from './BottomNav.js';
 import { SlowServerBanner } from '../common/SlowServerBanner.js';
 import { MaintenanceBanner } from '../common/MaintenanceBanner.js';
@@ -7,20 +7,21 @@ import { Flame, Headphones } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext.js';
 import { useAuth } from '../../context/AuthContext.js';
 
+import { PlayerTopBar } from './PlayerTopBar.js';
+
 export const AppLayout: React.FC = () => {
   const { t } = useTranslation();
   const { isAuthenticated } = useAuth();
-  const location = useLocation();
-
-  const isHomeAndAuthenticated = location.pathname === '/' && isAuthenticated;
 
   return (
     <div className="flex min-h-screen flex-col bg-slate-950 text-slate-100">
       <SlowServerBanner />
       <MaintenanceBanner />
 
-      {/* Top Header (shown on non-home pages, or for guest users on landing) */}
-      {!isHomeAndAuthenticated && (
+      {/* Persistent Top Header: Player Bar when authenticated, or Guest Header */}
+      {isAuthenticated ? (
+        <PlayerTopBar />
+      ) : (
         <header className="sticky top-0 z-20 border-b border-slate-800/80 bg-slate-950/80 backdrop-blur-md px-4 py-3">
           <div className="mx-auto flex max-w-md items-center justify-between">
             <Link to="/" className="flex items-center gap-2">

@@ -1,11 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { useAuth } from '../context/AuthContext.js';
 import { useTranslation } from '../i18n/LanguageContext.js';
 import {
   formatIndianRupees,
   formatCompactRupees,
-  getUserInitials,
   formatRelativeTime,
   formatMatchTimeBadge,
   formatGameMode,
@@ -16,7 +14,6 @@ import { ImportantNoticeModal } from '../components/common/ImportantNoticeModal.
 import {
   ChevronRight,
   Headphones,
-  Bell,
   Users,
   User,
   Clock,
@@ -27,7 +24,6 @@ import {
 } from 'lucide-react';
 
 export const Home: React.FC = () => {
-  const { user, wallets } = useAuth();
   const { t, language, formatEnum } = useTranslation();
   const navigate = useNavigate();
   const [ongoingMatches, setOngoingMatches] = useState<MatchUserDto[]>([]);
@@ -50,94 +46,12 @@ export const Home: React.FC = () => {
     };
   }, []);
 
-  // Compute username: use name or email prefix or ffName
-  const username =
-    user?.name || user?.email?.split('@')[0] || user?.ffName || 'Player';
-
-  // Compute avatar initials: e.g. "sujoy kumar mondal" -> "SKM"
-  const avatarInitials = getUserInitials(user?.name);
-
-  // Formatted compact balance for the pill (e.g. "5" or "145")
-  const compactBalance = formatCompactRupees(wallets?.total || '0');
-
   return (
     <div className="space-y-4 sm:space-y-5" data-testid="home-screen">
       <ImportantNoticeModal
         isOpen={isNoticeOpen}
         onClose={() => setIsNoticeOpen(false)}
       />
-
-      {/* ─────────────────────────────────────────────────────────────
-          1. TOP BAR / PLAYER HEADER
-          ───────────────────────────────────────────────────────────── */}
-      <div className="flex items-center justify-between py-1">
-        {/* Left: Avatar + Username + Subtitle */}
-        <div
-          onClick={() => navigate('/profile')}
-          className="flex items-center gap-3 cursor-pointer group"
-        >
-          {/* Avatar with Esports ring */}
-          <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 via-indigo-600 to-purple-800 text-white font-extrabold shadow-md shadow-violet-500/20 ring-2 ring-violet-500/40 transition-transform group-hover:scale-105 active:scale-95 overflow-hidden">
-            {user?.avatarUrl ? (
-              <img
-                src={user.avatarUrl}
-                alt={user.name || 'User Avatar'}
-                className="h-full w-full object-cover"
-              />
-            ) : (
-              <span className="text-sm font-black tracking-wider text-slate-100">
-                {avatarInitials}
-              </span>
-            )}
-          </div>
-
-          {/* Username & App Subtitle */}
-          <div>
-            <h2 className="text-base font-black tracking-wide text-slate-100 group-hover:text-emerald-400 transition-colors leading-tight">
-              {username}
-            </h2>
-            <p className="text-xs font-semibold text-indigo-400">Booyah Win</p>
-          </div>
-        </div>
-
-        {/* Right: Wallet pill + Support Headphone + Bell */}
-        <div className="flex items-center gap-2">
-          {/* Wallet pill button */}
-          <div
-            onClick={() => navigate('/wallet?tab=add')}
-            className="flex items-center gap-2 rounded-full border border-slate-800 bg-[#121320] pl-3 pr-1 py-1 text-xs font-bold text-slate-100 shadow-sm cursor-pointer hover:border-slate-700 transition active:scale-95"
-          >
-            <span className="font-extrabold text-sm text-slate-100">{compactBalance}</span>
-            <span data-testid="total-balance" className="sr-only">
-              {formatIndianRupees(wallets?.total || '0.00')}
-            </span>
-            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-white font-bold text-xs shadow-sm">
-              +
-            </div>
-          </div>
-
-          {/* Customer Support Headphones */}
-          <button
-            type="button"
-            onClick={() => navigate('/support')}
-            aria-label="Customer Support"
-            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-300 hover:text-white transition active:scale-95"
-          >
-            <Headphones className="h-5 w-5" />
-          </button>
-
-          {/* Notification Bell */}
-          <button
-            type="button"
-            onClick={() => setIsNoticeOpen(true)}
-            aria-label="Important Updates"
-            className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-300 hover:text-white transition active:scale-95"
-          >
-            <Bell className="h-5 w-5" />
-            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-slate-950" />
-          </button>
-        </div>
-      </div>
 
       {/* ─────────────────────────────────────────────────────────────
           2. IMPORTANT NOTICE TICKER ("HOT" BAR)
