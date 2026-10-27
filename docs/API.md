@@ -61,6 +61,10 @@ List endpoints with pagination return cursor parameters:
 3. **Error Code `DATABASE_BUSY`**: Used for retryable database locks (PostgreSQL `55P03`) and statement query timeouts (`57014`), returning HTTP 503.
 4. **Position Ordinal Formatting**: Positions beyond 3rd use English ordinals (`4th`, `11th`, `12th`, `13th`, `21st`, `22nd`, etc.) rather than generic numbers.
 5. **Session Pooler Port**: Production strictly requires Supabase session pooler on port 5432 and rejects transaction pooler on port 6543.
+6. **Language Preference**: Users have a `language` column (`'en'` or `'bn'`, defaulting to `'en'`) persisted in `users`, editable via `PATCH /api/v1/me/language` (allowlisted during maintenance mode).
+7. **Profile Avatar Uploads**: Players can upload profile pictures via `POST /api/v1/me/avatar` (`multipart/form-data`, max 2 MB, JPEG/PNG/WebP) and remove them via `DELETE /api/v1/me/avatar`.
+8. **Customer Support Endpoint**: `GET /api/v1/support` provides public contact information (`supportName`, `supportPhone`, `supportEmail`, `supportHours`) configured in platform settings.
+9. **Email Delivery**: Dual-mode email infrastructure supporting Brevo HTTPS REST API (`BREVO_API_KEY`) to bypass cloud hosting outbound SMTP port restrictions, alongside standard Gmail SMTP (`GMAIL_USER`, `GMAIL_APP_PASSWORD`).
 
 ---
 
@@ -108,16 +112,30 @@ List endpoints with pagination return cursor parameters:
 #### `GET /api/v1/support`
 - **Auth**: None
 - **Rate Limit**: Global (100 req/min)
-- **Description**: Retrieves public support contact details.
+- **Description**: Retrieves public customer support contact details (configured by admin in platform settings).
 - **Success Response (200)**:
-  ```json
-  {
-    "data": {
-      "support_email": "support@booyahwin.com",
-      "support_whatsapp": "+919876543210"
+  - When configured:
+    ```json
+    {
+      "data": {
+        "supportName": "Booyah Win Support",
+        "supportPhone": "+91 9999999999",
+        "supportEmail": "support@booyahwin.com",
+        "supportHours": "10:00 AM - 10:00 PM IST"
+      }
     }
-  }
-  ```
+    ```
+  - When not configured / fallback:
+    ```json
+    {
+      "data": {
+        "supportName": "Booyah Win Support",
+        "supportPhone": "",
+        "supportEmail": "",
+        "supportHours": "10:00 AM - 10:00 PM IST"
+      }
+    }
+    ```
 
 #### `GET /api/v1/payment-info`
 - **Auth**: None
@@ -302,7 +320,20 @@ List endpoints with pagination return cursor parameters:
   {
     "data": {
       "token": "eyJhbGciOi...",
-      "user": { ... }
+      "user": {
+        "id": "1",
+        "email": "player@example.com",
+        "name": "Player One",
+        "mobile": "9876543210",
+        "ffId": "11223344",
+        "ffName": "ProKiller",
+        "upiId": "player@upi",
+        "dateOfBirth": "2000-01-01",
+        "referralCode": "BOOYAH123",
+        "referredBy": "REF456",
+        "language": "en",
+        "createdAt": "2026-10-01T00:00:00.000Z"
+      }
     }
   }
   ```
@@ -351,7 +382,9 @@ List endpoints with pagination return cursor parameters:
         "ffName": "ProKiller",
         "upiId": "player@upi",
         "referralCode": "BOOYAH123",
-        "dateOfBirth": "2000-01-01"
+        "referredBy": null,
+        "language": "en",
+        "createdAt": "2026-10-01T00:00:00.000Z"
       }
     }
   }
@@ -490,6 +523,8 @@ List endpoints with pagination return cursor parameters:
         "dateOfBirth": "2000-01-01",
         "referralCode": "BOOYAH123",
         "referredBy": null,
+        "avatarUrl": null,
+        "language": "en",
         "createdAt": "2026-10-01T00:00:00.000Z"
       },
       "wallets": {
