@@ -1,10 +1,12 @@
 import React, { useState, useEffect } from 'react';
-import { Headphones, Phone, Mail, Clock, AlertCircle } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { ArrowLeft, Headphones, Phone, Mail, Clock, AlertCircle } from 'lucide-react';
 import { fetchSupportInfo, type SupportInfo } from '../api/support.js';
 import { useTranslation } from '../i18n/LanguageContext.js';
 
 export const Support: React.FC = () => {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [support, setSupport] = useState<SupportInfo | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -31,9 +33,19 @@ export const Support: React.FC = () => {
 
   return (
     <div data-testid="support-page" className="space-y-4">
-      <div className="flex items-center gap-2.5 pb-2 border-b border-slate-800">
-        <Headphones className="h-6 w-6 text-emerald-400" />
-        <h1 className="text-lg font-bold text-slate-100">{t('support.helpAndSupport')}</h1>
+      <div className="flex items-center gap-3 pb-3 border-b border-slate-800">
+        <button
+          type="button"
+          onClick={() => navigate(-1)}
+          aria-label="Back"
+          className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-800 bg-slate-900 text-slate-300 hover:bg-slate-800 hover:text-white transition active:scale-95"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+        <div className="flex items-center gap-2">
+          <Headphones className="h-5 w-5 text-emerald-400" />
+          <h1 className="text-lg font-bold text-slate-100">{t('support.helpAndSupport')}</h1>
+        </div>
       </div>
 
       {isLoading && (

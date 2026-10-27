@@ -22,9 +22,9 @@ export const BottomNav: React.FC = () => {
       icon: Trophy,
       testIdKey: 'matches',
     },
-    { to: '/leaderboard', label: t('nav.leaderboard'), icon: BarChart2, testIdKey: 'rankings' },
+    { to: '/leaderboard', label: t('nav.ranks'), icon: BarChart2, testIdKey: 'rankings' },
     { to: '/wallet', label: t('nav.wallet'), icon: Wallet, testIdKey: 'wallet' },
-    { to: '/profile', label: t('nav.profile'), icon: User, testIdKey: 'profile' },
+    { to: '/profile', label: t('nav.account'), icon: User, testIdKey: 'profile' },
   ];
 
   return (
@@ -32,14 +32,14 @@ export const BottomNav: React.FC = () => {
       data-testid="bottom-nav"
       className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-800/80 bg-[#0d0e17]/95 backdrop-blur-md pb-safe"
     >
-      <div className="mx-auto flex max-w-md items-center justify-between px-1 py-1.5">
+      <div className="mx-auto grid w-full max-w-md grid-cols-5 items-center px-1 py-1.5">
         {navItems.map((item) => {
           const Icon = item.icon;
           return (
             <NavLink
               key={item.to}
               to={item.to}
-              className="flex-1 min-w-0 flex flex-col items-center justify-center py-0.5 select-none"
+              className="flex w-full flex-col items-center justify-center py-0.5 select-none"
             >
               {({ isActive }) => {
                 const active = isRouteActive(item.to, isActive);
@@ -55,7 +55,7 @@ export const BottomNav: React.FC = () => {
                       <Icon className={`h-5 w-5 ${active ? 'stroke-[2.5]' : 'stroke-2'}`} />
                     </div>
                     <span
-                      className={`mt-0.5 text-center text-[10.5px] leading-tight tracking-tight truncate max-w-full ${
+                      className={`mt-0.5 block w-full text-center text-[10.5px] leading-tight tracking-tight truncate ${
                         active ? 'font-bold text-slate-100' : 'font-medium text-slate-400'
                       }`}
                     >

@@ -121,9 +121,9 @@ export const Home: React.FC = () => {
             type="button"
             onClick={() => navigate('/support')}
             aria-label="Customer Support"
-            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-800 bg-[#121320] text-slate-300 hover:text-white hover:border-slate-700 transition active:scale-95"
+            className="flex h-9 w-9 items-center justify-center rounded-full text-slate-300 hover:text-white transition active:scale-95"
           >
-            <Headphones className="h-4 w-4" />
+            <Headphones className="h-5 w-5" />
           </button>
 
           {/* Notification Bell */}
@@ -131,10 +131,10 @@ export const Home: React.FC = () => {
             type="button"
             onClick={() => setIsNoticeOpen(true)}
             aria-label="Important Updates"
-            className="relative flex h-9 w-9 items-center justify-center rounded-full border border-slate-800 bg-[#121320] text-slate-300 hover:text-white hover:border-slate-700 transition active:scale-95"
+            className="relative flex h-9 w-9 items-center justify-center rounded-full text-slate-300 hover:text-white transition active:scale-95"
           >
-            <Bell className="h-4 w-4" />
-            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-[#121320]" />
+            <Bell className="h-5 w-5" />
+            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-slate-950" />
           </button>
         </div>
       </div>
@@ -392,14 +392,16 @@ export const Home: React.FC = () => {
       {/* ─────────────────────────────────────────────────────────────
           6. FLOATING QUICK ACTION (CUSTOMER SUPPORT)
           ───────────────────────────────────────────────────────────── */}
-      <button
-        type="button"
-        onClick={() => navigate('/support')}
-        aria-label="Quick Customer Support"
-        className="fixed bottom-20 left-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500 text-slate-950 shadow-xl shadow-emerald-500/30 hover:bg-emerald-400 transition-all active:scale-90 ring-4 ring-slate-950/40"
-      >
-        <Headphones className="h-6 w-6 stroke-[2.5]" />
-      </button>
+      <div className="pointer-events-none fixed bottom-20 left-0 right-0 z-40 mx-auto w-full max-w-md px-4">
+        <button
+          type="button"
+          onClick={() => navigate('/support')}
+          aria-label="Help & Support"
+          className="pointer-events-auto flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500 text-slate-950 shadow-xl shadow-emerald-500/30 hover:bg-emerald-400 active:scale-90 transition-all ring-4 ring-slate-950/40"
+        >
+          <Headphones className="h-6 w-6 stroke-[2.5]" />
+        </button>
+      </div>
     </div>
   );
 };
