@@ -226,4 +226,115 @@ export function formatDateOfBirth(dob: string | null | undefined): string {
   return trimmed || '—';
 }
 
+/**
+ * Extracts initials from a user's full name.
+ * e.g. "sujoy kumar mondal" -> "SKM"
+ * e.g. "Pro Player" -> "PP"
+ */
+export function getUserInitials(name: string | null | undefined): string {
+  if (!name || typeof name !== 'string') return 'BW';
+  const parts = name.trim().split(/\s+/).filter(Boolean);
+  if (parts.length === 0) return 'BW';
+  const initials = parts.map((p) => p[0].toUpperCase()).join('');
+  return initials.slice(0, 4) || 'BW';
+}
+
+/**
+ * Calculates remaining time until match start:
+ * e.g. "in 51m", "in 3h", "in 2d", or "Live" if already started
+ */
+export function formatRelativeTime(isoString: string | null | undefined): string {
+  if (!isoString) return '';
+  try {
+    const target = new Date(isoString).getTime();
+    if (isNaN(target)) return '';
+    const now = Date.now();
+    const diffMs = target - now;
+
+    if (diffMs <= 0) {
+      return 'Live';
+    }
+
+    const diffMins = Math.floor(diffMs / (1000 * 60));
+    if (diffMins < 60) {
+      return `in ${Math.max(1, diffMins)}m`;
+    }
+
+    const diffHours = Math.floor(diffMins / 60);
+    if (diffHours < 24) {
+      return `in ${diffHours}h`;
+    }
+
+    const diffDays = Math.floor(diffHours / 24);
+    return `in ${diffDays}d`;
+  } catch {
+    return '';
+  }
+}
+
+/**
+ * Formats match start time for card badge:
+ * e.g. "Today 6:30 PM", "Tomorrow 9:00 PM", or "15 Oct 6:30 PM"
+ */
+export function formatMatchTimeBadge(isoString: string | null | undefined): string {
+  if (!isoString) return '';
+  try {
+    const target = new Date(isoString);
+    if (isNaN(target.getTime())) return '';
+
+    // IST date comparison
+    const now = new Date();
+    const targetIST = new Date(target.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+    const nowIST = new Date(now.toLocaleString('en-US', { timeZone: 'Asia/Kolkata' }));
+
+    const isToday =
+      targetIST.getDate() === nowIST.getDate() &&
+      targetIST.getMonth() === nowIST.getMonth() &&
+      targetIST.getFullYear() === nowIST.getFullYear();
+
+    const tomorrow = new Date(nowIST);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    const isTomorrow =
+      targetIST.getDate() === tomorrow.getDate() &&
+      targetIST.getMonth() === tomorrow.getMonth() &&
+      targetIST.getFullYear() === tomorrow.getFullYear();
+
+    const timeStr = new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      hour: 'numeric',
+      minute: '2-digit',
+      hour12: true,
+      numberingSystem: 'latn',
+    }).format(target).replace(/\b(am|pm)\b/i, (m) => m.toUpperCase());
+
+    if (isToday) return `Today ${timeStr}`;
+    if (isTomorrow) return `Tomorrow ${timeStr}`;
+
+    const dateStr = new Intl.DateTimeFormat('en-IN', {
+      timeZone: 'Asia/Kolkata',
+      day: 'numeric',
+      month: 'short',
+      numberingSystem: 'latn',
+    }).format(target);
+
+    return `${dateStr} ${timeStr}`;
+  } catch {
+    return formatISTDateTime(isoString);
+  }
+}
+
+/**
+ * Returns integer rupees without decimal digits if .00:
+ * e.g. "1340.00" -> "1340", "5.00" -> "5", "12.50" -> "12.50"
+ */
+export function formatCompactRupees(amountStr: string | null | undefined): string {
+  if (!amountStr || typeof amountStr !== 'string') return '0';
+  const clean = amountStr.trim().replace(/^Rs/i, '').trim();
+  if (clean.endsWith('.00')) {
+    return clean.slice(0, -3);
+  }
+  return clean;
+}
+
+
 

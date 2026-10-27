@@ -2,27 +2,36 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext.js';
 import { useTranslation } from '../i18n/LanguageContext.js';
-import { formatIndianRupees, formatISTDateTime, formatGameMode } from '../utils/formatters.js';
-import { fetchMatches, type MatchUserDto } from '../api/matches.js';
 import {
-  Wallet,
-  PlusCircle,
-  ArrowDownToLine,
-  Trophy,
-  Flame,
-  ShieldAlert,
-  Swords,
+  formatIndianRupees,
+  formatCompactRupees,
+  getUserInitials,
+  formatRelativeTime,
+  formatMatchTimeBadge,
+  formatGameMode,
+} from '../utils/formatters.js';
+import { fetchMatches, type MatchUserDto } from '../api/matches.js';
+import { BannerCarousel } from '../components/common/BannerCarousel.js';
+import { ImportantNoticeModal } from '../components/common/ImportantNoticeModal.js';
+import {
   ChevronRight,
+  Headphones,
+  Bell,
+  Users,
+  User,
   Clock,
+  MapPin,
+  Trophy,
+  Swords,
   CheckCircle2,
-  Gift,
 } from 'lucide-react';
 
 export const Home: React.FC = () => {
   const { user, wallets } = useAuth();
-  const { t, formatEnum } = useTranslation();
+  const { t, language, formatEnum } = useTranslation();
   const navigate = useNavigate();
   const [ongoingMatches, setOngoingMatches] = useState<MatchUserDto[]>([]);
+  const [isNoticeOpen, setIsNoticeOpen] = useState(false);
 
   useEffect(() => {
     let isMounted = true;
@@ -33,7 +42,7 @@ export const Home: React.FC = () => {
         }
       })
       .catch(() => {
-        // Ignored, defaults to lobby CTA card
+        // Defaults to match lobby CTA card on error
       });
 
     return () => {
@@ -41,197 +50,356 @@ export const Home: React.FC = () => {
     };
   }, []);
 
+  // Compute username: use name or email prefix or ffName
+  const username =
+    user?.name || user?.email?.split('@')[0] || user?.ffName || 'Player';
+
+  // Compute avatar initials: e.g. "sujoy kumar mondal" -> "SKM"
+  const avatarInitials = getUserInitials(user?.name);
+
+  // Formatted compact balance for the pill (e.g. "5" or "145")
+  const compactBalance = formatCompactRupees(wallets?.total || '0');
+
   return (
-    <div className="space-y-5" data-testid="home-screen">
-      {/* Player Header Banner */}
-      <div className="flex items-center justify-between rounded-2xl border border-slate-800 bg-slate-900/80 p-4 shadow-lg backdrop-blur-sm">
-        <div className="flex items-center gap-3">
-          <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <Flame className="h-6 w-6" />
+    <div className="space-y-4 sm:space-y-5" data-testid="home-screen">
+      <ImportantNoticeModal
+        isOpen={isNoticeOpen}
+        onClose={() => setIsNoticeOpen(false)}
+      />
+
+      {/* ─────────────────────────────────────────────────────────────
+          1. TOP BAR / PLAYER HEADER
+          ───────────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between py-1">
+        {/* Left: Avatar + Username + Subtitle */}
+        <div
+          onClick={() => navigate('/profile')}
+          className="flex items-center gap-3 cursor-pointer group"
+        >
+          {/* Avatar with Esports ring */}
+          <div className="relative flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-violet-600 via-indigo-600 to-purple-800 text-white font-extrabold shadow-md shadow-violet-500/20 ring-2 ring-violet-500/40 transition-transform group-hover:scale-105 active:scale-95 overflow-hidden">
+            {user?.avatarUrl ? (
+              <img
+                src={user.avatarUrl}
+                alt={user.name || 'User Avatar'}
+                className="h-full w-full object-cover"
+              />
+            ) : (
+              <span className="text-sm font-black tracking-wider text-slate-100">
+                {avatarInitials}
+              </span>
+            )}
           </div>
+
+          {/* Username & App Subtitle */}
           <div>
-            <h2 className="text-base font-bold text-slate-100">{user?.name || t('home.player')}</h2>
-            <div className="flex items-center gap-2 text-xs text-slate-400">
-              <span className="font-mono text-emerald-400 font-semibold">{user?.ffName || t('home.player')}</span>
-              <span>•</span>
-              <span className="font-mono">{t('home.idLabel', { id: user?.ffId || '—' })}</span>
+            <h2 className="text-base font-black tracking-wide text-slate-100 group-hover:text-emerald-400 transition-colors leading-tight">
+              {username}
+            </h2>
+            <p className="text-xs font-semibold text-indigo-400">Booyah Win</p>
+          </div>
+        </div>
+
+        {/* Right: Wallet pill + Support Headphone + Bell */}
+        <div className="flex items-center gap-2">
+          {/* Wallet pill button */}
+          <div
+            onClick={() => navigate('/wallet?tab=add')}
+            className="flex items-center gap-2 rounded-full border border-slate-800 bg-[#121320] pl-3 pr-1 py-1 text-xs font-bold text-slate-100 shadow-sm cursor-pointer hover:border-slate-700 transition active:scale-95"
+          >
+            <span className="font-extrabold text-sm text-slate-100">{compactBalance}</span>
+            <span data-testid="total-balance" className="sr-only">
+              {formatIndianRupees(wallets?.total || '0.00')}
+            </span>
+            <div className="flex h-5 w-5 items-center justify-center rounded-full bg-violet-600 text-white font-bold text-xs shadow-sm">
+              +
             </div>
           </div>
-        </div>
-        <div className="text-right">
-          <span className="rounded-full bg-emerald-500/10 px-2.5 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/20">
-            {t('home.active')}
-          </span>
-        </div>
-      </div>
 
-      {/* Main Total Balance Card (Compact) */}
-      <div className="relative overflow-hidden rounded-2xl border border-emerald-500/25 bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950/30 p-3.5 sm:p-4 shadow-lg">
-        <div className="flex items-center justify-between text-[11px] font-semibold text-slate-400 mb-0.5">
-          <span className="flex items-center gap-1.5">
-            <Wallet className="h-3.5 w-3.5 text-emerald-400" />
-            {t('home.totalUsableBalance')}
-          </span>
-          <span className="text-[10px] text-emerald-400">{t('home.secure100')}</span>
-        </div>
-        <div className="text-2xl sm:text-3xl font-extrabold tracking-tight text-slate-100" data-testid="total-balance">
-          {formatIndianRupees(wallets?.total || '0.00')}
-        </div>
-
-        {/* Quick Action Buttons */}
-        <div className="mt-2.5 grid grid-cols-2 gap-2.5">
+          {/* Customer Support Headphones */}
           <button
             type="button"
-            onClick={() => navigate('/wallet?tab=add')}
-            data-testid="home-add-money-btn"
-            className="flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500 py-2 text-xs font-bold text-slate-950 transition-all hover:bg-emerald-400 active:scale-[0.98]"
+            onClick={() => navigate('/support')}
+            aria-label="Customer Support"
+            className="flex h-9 w-9 items-center justify-center rounded-full border border-slate-800 bg-[#121320] text-slate-300 hover:text-white hover:border-slate-700 transition active:scale-95"
           >
-            <PlusCircle className="h-3.5 w-3.5" />
-            {t('common.addMoney')}
+            <Headphones className="h-4 w-4" />
           </button>
+
+          {/* Notification Bell */}
           <button
             type="button"
-            onClick={() => navigate('/wallet?tab=withdraw')}
-            data-testid="home-withdraw-btn"
-            className="flex items-center justify-center gap-1.5 rounded-lg border border-slate-700 bg-slate-800/80 py-2 text-xs font-bold text-slate-200 transition-all hover:bg-slate-700 active:scale-[0.98]"
+            onClick={() => setIsNoticeOpen(true)}
+            aria-label="Important Updates"
+            className="relative flex h-9 w-9 items-center justify-center rounded-full border border-slate-800 bg-[#121320] text-slate-300 hover:text-white hover:border-slate-700 transition active:scale-95"
           >
-            <ArrowDownToLine className="h-3.5 w-3.5" />
-            {t('common.withdraw')}
+            <Bell className="h-4 w-4" />
+            <span className="absolute top-1.5 right-1.5 h-2 w-2 rounded-full bg-rose-500 ring-2 ring-[#121320]" />
           </button>
         </div>
       </div>
 
-      {/* Quick Action Banner: Leaderboard & Referral */}
-      <div className="grid grid-cols-2 gap-2.5">
+      {/* ─────────────────────────────────────────────────────────────
+          2. IMPORTANT NOTICE TICKER ("HOT" BAR)
+          ───────────────────────────────────────────────────────────── */}
+      <div
+        onClick={() => setIsNoticeOpen(true)}
+        className="flex items-center justify-between rounded-full border border-slate-800/80 bg-[#121320] px-3.5 py-2 cursor-pointer shadow-md hover:border-slate-700 transition active:scale-[0.99]"
+      >
+        <div className="flex items-center gap-2 min-w-0 flex-1">
+          <span className="rounded-full bg-rose-500 px-2 py-0.5 text-[10px] font-black uppercase text-white shadow-sm shrink-0">
+            HOT
+          </span>
+          <span className="text-xs shrink-0">🔥🚨</span>
+          <p className="text-xs font-semibold text-slate-200 truncate">
+            {language === 'bn'
+              ? 'স্কোয়াড ও CS ম্যাচে স্নাইপার নিষিদ্ধ সম্পর্কিত নোটিশ...'
+              : 'Notification About Snipers Ban in Squad & CS...'}
+          </p>
+        </div>
+        <ChevronRight className="h-4 w-4 text-slate-400 shrink-0 ml-1.5" />
+      </div>
+
+      {/* ─────────────────────────────────────────────────────────────
+          3. AUTO-SLIDING PROMOTIONAL CAROUSEL BANNER
+          ───────────────────────────────────────────────────────────── */}
+      <BannerCarousel />
+
+      {/* ─────────────────────────────────────────────────────────────
+          4. MATCHES SECTION HEADER
+          ───────────────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between pt-1">
+        <div className="flex items-center gap-2.5">
+          <div className="w-1.5 h-6 rounded-full bg-amber-400" />
+          <div>
+            <h3 className="text-base font-black tracking-wide text-slate-100 leading-tight">
+              {language === 'bn' ? 'ম্যাচসমূহ' : 'Matches'}
+            </h3>
+            <p className="text-[11px] text-slate-400 font-medium">
+              {language === 'bn' ? 'আসন্ন টুর্নামেন্ট' : 'Upcoming tournaments'}
+            </p>
+          </div>
+        </div>
+
         <button
           type="button"
-          onClick={() => navigate('/leaderboard')}
-          data-testid="home-nav-leaderboard"
-          className="flex items-center gap-2.5 rounded-xl border border-amber-500/20 bg-gradient-to-br from-amber-950/30 to-slate-900 p-3 text-left transition hover:border-amber-500/40 active:scale-98"
+          onClick={() => navigate('/matches')}
+          data-testid="home-view-all-matches"
+          className="flex items-center gap-1 rounded-full border border-slate-800 bg-[#121320] px-3.5 py-1.5 text-xs font-bold text-slate-200 hover:border-slate-700 hover:text-white transition active:scale-95"
         >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400 border border-amber-500/20">
-            <Trophy className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-100">{t('home.leaderboard')}</p>
-            <p className="text-[10px] text-amber-400 font-medium">{t('home.weeklyTop50')}</p>
-          </div>
-        </button>
-
-        <button
-          type="button"
-          onClick={() => navigate('/referral')}
-          data-testid="home-nav-referral"
-          className="flex items-center gap-2.5 rounded-xl border border-emerald-500/20 bg-gradient-to-br from-emerald-950/30 to-slate-900 p-3 text-left transition hover:border-emerald-500/40 active:scale-98"
-        >
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
-            <Gift className="h-5 w-5" />
-          </div>
-          <div>
-            <p className="text-xs font-bold text-slate-100">{t('home.referAndEarn')}</p>
-            <p className="text-[10px] text-emerald-400 font-medium">{t('home.cashbackBonus')}</p>
-          </div>
+          <span>{language === 'bn' ? 'সব দেখুন' : 'View all'}</span>
+          <ChevronRight className="h-3.5 w-3.5" />
         </button>
       </div>
 
-      {/* Ongoing Matches / Custom Match Lobby */}
-      <div className="space-y-3">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2">
-            <Trophy className="h-4 w-4 text-amber-400" />
-            <h3 className="text-sm font-bold text-slate-100">{t('home.customMatchLobby')}</h3>
-          </div>
-          <button
-            type="button"
-            onClick={() => navigate('/matches')}
-            data-testid="home-view-all-matches"
-            className="flex items-center gap-1 text-xs font-semibold text-emerald-400 hover:text-emerald-300 transition-colors"
-          >
-            <span>{t('common.viewAll')}</span>
-            <ChevronRight className="h-3.5 w-3.5" />
-          </button>
-        </div>
+      {/* ─────────────────────────────────────────────────────────────
+          5. TOURNAMENT MATCH CARDS
+          ───────────────────────────────────────────────────────────── */}
+      {ongoingMatches.length > 0 ? (
+        <div className="space-y-3.5">
+          {ongoingMatches.slice(0, 5).map((match) => {
+            const matchTime = (match as any).startTime || (match as any).scheduledAt;
+            const firstPrize =
+              match.prizes?.positions?.['1'] || match.prizes?.positions?.['1st'] || '0.00';
+            const rawKillPrice = (match.prizes as any)?.perKill || match.prizes?.killPrice || '0';
+            const compactPrize = formatCompactRupees(firstPrize);
+            const compactPerKill = formatCompactRupees(rawKillPrice);
+            const compactEntry = formatCompactRupees(match.entryFee);
+            const relativeTime = formatRelativeTime(matchTime);
+            const timeBadge = formatMatchTimeBadge(matchTime);
 
-        {ongoingMatches.length > 0 ? (
-          <div className="space-y-2.5">
-            {ongoingMatches.slice(0, 3).map((match) => {
-              const firstPrize =
-                match.prizes?.positions?.['1'] || match.prizes?.positions?.['1st'] || '0.00';
-              return (
-                <div
-                  key={match.id}
-                  onClick={() => navigate('/matches')}
-                  data-testid={`home-match-card-${match.id}`}
-                  className="group cursor-pointer rounded-2xl border border-slate-800 bg-slate-900/90 p-4 transition-all hover:border-slate-700 hover:bg-slate-900 shadow-md"
-                >
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-300">
-                          {formatGameMode(match.gameMode)}
-                        </span>
-                        <span className="rounded bg-slate-800 px-2 py-0.5 text-[10px] font-bold uppercase text-slate-300">
-                          {formatEnum('teamMode', match.teamMode)}
-                        </span>
-                        {match.hasJoined && (
-                          <span className="flex items-center gap-1 rounded bg-emerald-500/20 px-2 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/30">
-                            <CheckCircle2 className="h-3 w-3" />
-                            {t('matches.joined')}
-                          </span>
-                        )}
-                      </div>
-                      <h4 className="mt-2 text-sm font-bold text-slate-100 group-hover:text-emerald-400 transition-colors">
-                        {(match as any).map || 'Bermuda'}
+            // Capacity calculation
+            const maxPlayers = match.maxPlayers || 48;
+            const seatsTaken =
+              (match as any).registeredCount ?? match.seatsTaken ?? match.joinedPlayers ?? 0;
+            const seatsLeft = Math.max(0, maxPlayers - seatsTaken);
+            const fillPercent = Math.min(100, Math.round((seatsTaken / maxPlayers) * 100));
+
+            // Game Mode label (e.g. BATTLE ROYALE | DUO)
+            const rawGame = formatGameMode(match.gameMode);
+            const rawTeam = formatEnum('teamMode', match.teamMode);
+
+            return (
+              <div
+                key={match.id}
+                data-testid={`home-match-card-${match.id}`}
+                onClick={() => navigate('/matches')}
+                className="group relative overflow-hidden rounded-2xl border border-slate-800/90 bg-[#121320] p-4 text-left shadow-lg cursor-pointer transition-all duration-200 hover:border-slate-700 hover:bg-[#141626]"
+              >
+                {/* Top Row: Thumbnail + Title + Countdown + ID + Badges */}
+                <div className="flex items-start gap-3">
+                  {/* Mode Artwork Thumbnail */}
+                  <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-slate-700/60 bg-gradient-to-br from-indigo-900 via-slate-900 to-amber-950/60 flex items-center justify-center shadow-inner">
+                    <div className="text-amber-400 font-black text-xs text-center leading-none">
+                      <Swords className="h-6 w-6 mx-auto mb-0.5 text-amber-400 drop-shadow" />
+                      <span className="text-[9px] uppercase tracking-tighter text-slate-300">
+                        FF MAX
+                      </span>
+                    </div>
+                  </div>
+
+                  {/* Title & Metadata */}
+                  <div className="min-w-0 flex-1">
+                    {/* Line 1: Title & Countdown */}
+                    <div className="flex items-center justify-between gap-2">
+                      <h4 className="text-sm font-black tracking-wide text-slate-100 group-hover:text-violet-400 transition-colors truncate uppercase">
+                        <span>{rawGame}</span>
+                        <span className="mx-1 text-slate-500">|</span>
+                        <span>{rawTeam}</span>
                       </h4>
-                      <div className="mt-1 flex items-center gap-3 text-xs text-slate-400">
-                        <span className="flex items-center gap-1">
-                          <Clock className="h-3.5 w-3.5 text-slate-500" />
-                          {formatISTDateTime(match.startTime)}
+                      {relativeTime && (
+                        <span className="shrink-0 text-xs font-black text-amber-400">
+                          {relativeTime}
                         </span>
-                      </div>
+                      )}
                     </div>
 
-                    <div className="text-right">
-                      <div className="text-[10px] font-semibold text-slate-400">{t('matches.entryFee')}</div>
-                      <div className="font-mono text-sm font-bold text-slate-100">
-                        {formatIndianRupees(match.entryFee)}
-                      </div>
-                      <div className="mt-1 text-[10px] font-semibold text-amber-400">
-                        {t('home.prizeLabel', { amount: formatIndianRupees(firstPrize) })}
-                      </div>
+                    {/* Line 2: Match ID */}
+                    <div className="flex items-center gap-2 mt-0.5">
+                      <span className="font-mono text-xs font-bold text-slate-200">
+                        #{match.id}
+                      </span>
+                      {match.hasJoined && (
+                        <span className="flex items-center gap-1 rounded bg-emerald-500/20 px-1.5 py-0.5 text-[10px] font-bold text-emerald-400 border border-emerald-500/30">
+                          <CheckCircle2 className="h-2.5 w-2.5" />
+                          <span className="sr-only">Registered</span>
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Line 3: Badges Row */}
+                    <div className="mt-2 flex items-center gap-1.5 flex-wrap">
+                      {/* Team Mode Badge */}
+                      <span className="inline-flex items-center gap-1 rounded-lg bg-slate-800/80 px-2 py-0.5 text-[11px] font-semibold text-slate-300 border border-slate-700/50">
+                        {match.teamMode === 'solo' ? (
+                          <User className="h-3 w-3 text-slate-400" />
+                        ) : (
+                          <Users className="h-3 w-3 text-slate-400" />
+                        )}
+                        <span>{rawTeam}</span>
+                      </span>
+
+                      {/* Time Badge */}
+                      <span className="inline-flex items-center gap-1 rounded-lg bg-slate-800/80 px-2 py-0.5 text-[11px] font-semibold text-slate-300 border border-slate-700/50">
+                        <Clock className="h-3 w-3 text-slate-400" />
+                        <span>{timeBadge}</span>
+                      </span>
+
+                      {/* Map Badge */}
+                      <span className="inline-flex items-center gap-1 rounded-lg bg-slate-800/80 px-2 py-0.5 text-[11px] font-semibold text-slate-300 border border-slate-700/50">
+                        <MapPin className="h-3 w-3 text-slate-400" />
+                        <span>{(match as any).map || 'Bermuda'}</span>
+                      </span>
                     </div>
                   </div>
                 </div>
-              );
-            })}
-          </div>
-        ) : (
-          <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-900/90 via-slate-900/70 to-slate-950 p-5 text-center shadow-lg">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-inner">
-              <Trophy className="h-6 w-6" />
-            </div>
-            <h4 className="text-sm font-bold text-slate-100">{t('home.liveRoomsTitle')}</h4>
-            <p className="mt-1 text-xs text-slate-400 leading-relaxed max-w-xs mx-auto">
-              {t('home.liveRoomsDesc')}
-            </p>
-            <button
-              type="button"
-              onClick={() => navigate('/matches')}
-              data-testid="enter-matches-btn"
-              className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 px-5 py-2.5 text-xs font-bold text-slate-950 shadow-md transition-all hover:from-emerald-400 hover:to-teal-400 active:scale-[0.98]"
-            >
-              <Swords className="h-4 w-4" />
-              {t('home.enterMatchLobby')}
-            </button>
-          </div>
-        )}
-      </div>
 
-      {/* Platform Fair Play Notice */}
-      <div className="flex items-center gap-2 rounded-xl border border-slate-800 bg-slate-900/30 p-3 text-xs text-slate-400">
-        <ShieldAlert className="h-4 w-4 shrink-0 text-slate-500" />
-        <span>{t('home.antiCheatNotice')}</span>
-      </div>
+                {/* Middle Row: Prize Pool, Per kill, Entry, Join Button */}
+                <div className="mt-3.5 flex items-center justify-between border-t border-slate-800/80 pt-3">
+                  <div className="flex items-center gap-5 sm:gap-6 text-left">
+                    {/* Prize Pool */}
+                    <div>
+                      <span className="flex items-center text-[10px] font-semibold text-slate-400">
+                        Prize Pool <ChevronRight className="h-2.5 w-2.5 ml-0.5" />
+                      </span>
+                      <p className="text-base font-black text-amber-400 leading-tight">
+                        {compactPrize}
+                      </p>
+                    </div>
+
+                    {/* Per kill */}
+                    <div>
+                      <span className="text-[10px] font-semibold text-slate-400 block">
+                        Per kill
+                      </span>
+                      <p className="text-base font-black text-slate-100 leading-tight">
+                        {compactPerKill}
+                      </p>
+                    </div>
+
+                    {/* Entry */}
+                    <div>
+                      <span className="text-[10px] font-semibold text-slate-400 block">
+                        Entry
+                      </span>
+                      <p className="text-base font-black text-slate-100 leading-tight">
+                        {compactEntry}
+                      </p>
+                      <span className="sr-only">{formatIndianRupees(match.entryFee)}</span>
+                    </div>
+                  </div>
+
+                  {/* Join Action Button */}
+                  <div>
+                    {match.hasJoined ? (
+                      <span className="inline-flex items-center justify-center gap-1.5 rounded-xl bg-emerald-500/20 px-5 py-2 text-xs font-bold text-emerald-400 border border-emerald-500/30">
+                        <CheckCircle2 className="h-3.5 w-3.5" />
+                        <span>{t('matches.joined')}</span>
+                      </span>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          navigate('/matches');
+                        }}
+                        className="rounded-xl bg-violet-600 px-6 py-2 text-sm font-black text-white shadow-md shadow-violet-600/30 transition-all hover:bg-violet-500 active:scale-95"
+                      >
+                        Join
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Bottom Row: Capacity Progress Bar & Left count */}
+                <div className="mt-3 flex items-center gap-3">
+                  <div className="h-1.5 flex-1 rounded-full bg-slate-800 overflow-hidden">
+                    <div
+                      className="h-full rounded-full bg-gradient-to-r from-violet-600 to-indigo-500 transition-all duration-300"
+                      style={{ width: `${fillPercent}%` }}
+                    />
+                  </div>
+                  <span className="text-[11px] font-medium text-slate-400 shrink-0">
+                    {seatsTaken}/{maxPlayers} · {seatsLeft} left
+                  </span>
+                </div>
+              </div>
+            );
+          })}
+        </div>
+      ) : (
+        /* Empty State / Custom Match Lobby CTA */
+        <div className="relative overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-br from-[#121320] via-slate-900 to-slate-950 p-6 text-center shadow-lg">
+          <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-500/10 text-amber-400 border border-amber-500/20 shadow-inner">
+            <Trophy className="h-6 w-6" />
+          </div>
+          <h4 className="text-sm font-bold text-slate-100">Custom Match Lobby</h4>
+          <p className="mt-1 text-xs text-slate-400 leading-relaxed max-w-xs mx-auto">
+            {t('home.liveRoomsDesc')}
+          </p>
+          <button
+            type="button"
+            onClick={() => navigate('/matches')}
+            data-testid="enter-matches-btn"
+            className="mt-4 inline-flex items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-violet-600 to-indigo-600 px-6 py-2.5 text-xs font-bold text-white shadow-md shadow-violet-600/30 transition-all hover:from-violet-500 hover:to-indigo-500 active:scale-[0.98]"
+          >
+            <Swords className="h-4 w-4" />
+            <span>{t('home.enterMatchLobby')}</span>
+          </button>
+        </div>
+      )}
+
+      {/* ─────────────────────────────────────────────────────────────
+          6. FLOATING QUICK ACTION (CUSTOMER SUPPORT)
+          ───────────────────────────────────────────────────────────── */}
+      <button
+        type="button"
+        onClick={() => navigate('/support')}
+        aria-label="Quick Customer Support"
+        className="fixed bottom-20 left-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-emerald-500 text-slate-950 shadow-xl shadow-emerald-500/30 hover:bg-emerald-400 transition-all active:scale-90 ring-4 ring-slate-950/40"
+      >
+        <Headphones className="h-6 w-6 stroke-[2.5]" />
+      </button>
     </div>
   );
 };

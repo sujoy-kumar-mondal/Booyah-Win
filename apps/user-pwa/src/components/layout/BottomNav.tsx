@@ -1,6 +1,6 @@
 import React from 'react';
 import { NavLink, useLocation } from 'react-router-dom';
-import { Home, Swords, Trophy, Wallet, User } from 'lucide-react';
+import { Home, Trophy, BarChart2, Wallet, User } from 'lucide-react';
 import { useTranslation } from '../../i18n/LanguageContext.js';
 
 export const BottomNav: React.FC = () => {
@@ -15,24 +15,22 @@ export const BottomNav: React.FC = () => {
   };
 
   const navItems = [
-    { to: '/', label: t('nav.home'), icon: Home, badge: null, testIdKey: 'home' },
+    { to: '/', label: t('nav.home'), icon: Home, testIdKey: 'home' },
     {
       to: '/matches',
       label: t('nav.matches'),
-      icon: Swords,
-      badge: null,
-      isAlertBadge: false,
+      icon: Trophy,
       testIdKey: 'matches',
     },
-    { to: '/leaderboard', label: t('nav.leaderboard'), icon: Trophy, badge: null, testIdKey: 'rankings' },
-    { to: '/wallet', label: t('nav.wallet'), icon: Wallet, badge: null, testIdKey: 'wallet' },
-    { to: '/profile', label: t('nav.profile'), icon: User, badge: null, testIdKey: 'profile' },
+    { to: '/leaderboard', label: t('nav.leaderboard'), icon: BarChart2, testIdKey: 'rankings' },
+    { to: '/wallet', label: t('nav.wallet'), icon: Wallet, testIdKey: 'wallet' },
+    { to: '/profile', label: t('nav.profile'), icon: User, testIdKey: 'profile' },
   ];
 
   return (
     <nav
       data-testid="bottom-nav"
-      className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-800 bg-slate-950/90 backdrop-blur-md pb-safe"
+      className="fixed bottom-0 left-0 right-0 z-30 border-t border-slate-800/80 bg-[#0d0e17]/95 backdrop-blur-md pb-safe"
     >
       <div className="mx-auto flex max-w-md items-center justify-around px-2 py-2">
         {navItems.map((item) => {
@@ -43,8 +41,8 @@ export const BottomNav: React.FC = () => {
               to={item.to}
               className={({ isActive }) => {
                 const active = isRouteActive(item.to, isActive);
-                return `relative flex flex-col items-center justify-center py-1 px-3 text-xs font-medium transition-all ${
-                  active ? 'text-emerald-400 font-bold' : 'text-slate-400 hover:text-slate-200'
+                return `relative flex flex-col items-center justify-center py-0.5 px-2 text-[11px] font-semibold transition-all ${
+                  active ? 'text-white' : 'text-slate-400 hover:text-slate-200'
                 }`;
               }}
             >
@@ -52,26 +50,22 @@ export const BottomNav: React.FC = () => {
                 const active = isRouteActive(item.to, isActive);
                 return (
                   <>
-                    <div className="relative">
-                      <Icon className={`h-5 w-5 ${active ? 'stroke-[2.5]' : 'stroke-2'}`} />
-                    {item.badge && (
-                      <span
-                        data-testid={`nav-badge-${item.testIdKey}`}
-                        className={`absolute -top-1.5 -right-3 rounded-full px-1.5 py-0.2 text-[10px] font-bold ${
-                          item.isAlertBadge
-                            ? 'bg-emerald-500 text-slate-950 shadow-sm'
-                            : 'bg-slate-800 text-slate-400 border border-slate-700'
-                        }`}
-                      >
-                        {item.badge}
-                      </span>
-                    )}
-                  </div>
-                  <span className="mt-1">{item.label}</span>
-                </>
-              );
-            }}
-          </NavLink>
+                    <div
+                      className={`flex items-center justify-center transition-all duration-200 ${
+                        active
+                          ? 'h-8 px-4 rounded-full bg-violet-600 text-white shadow-md shadow-violet-600/30'
+                          : 'h-7 w-7 text-slate-400'
+                      }`}
+                    >
+                      <Icon className={`h-4.5 w-4.5 ${active ? 'stroke-[2.5]' : 'stroke-2'}`} />
+                    </div>
+                    <span className={`mt-0.5 tracking-tight ${active ? 'font-bold text-slate-100' : 'text-slate-400'}`}>
+                      {item.label}
+                    </span>
+                  </>
+                );
+              }}
+            </NavLink>
           );
         })}
       </div>

@@ -242,7 +242,7 @@ describe('Requirement 8 & Profile Redesign: View Mode, Edit Mode & Avatar Upload
   });
 
   it('disables input and displays cooldown message in IST when field cooldown is active', async () => {
-    const futureIso = '2026-10-25T14:30:00.000Z'; // 25 Oct 2026, 08:00 PM IST
+    const futureIso = new Date(Date.now() + 86400000 * 7).toISOString();
     vi.spyOn(userApi, 'getMe').mockResolvedValue(
       getMeFixture((data) => {
         data.cooldowns.mobileAvailableAt = futureIso;
