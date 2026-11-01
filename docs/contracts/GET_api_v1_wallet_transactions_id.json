@@ -1,0 +1,31 @@
+{
+  "data": {
+    "transactionId": "BW-TRX-18",
+    "id": 18,
+    "type": "withdrawal_hold",
+    "createdAt": "2026-10-31T18:59:29.489Z",
+    "amount": "-50.00",
+    "remainingAmount": "310.00",
+    "wallet": "winning",
+    "walletName": "Winning",
+    "status": "pending",
+    "statusReason": null,
+    "breakdown": {
+      "winning": "50.00"
+    },
+    "match": null,
+    "deposit": null,
+    "withdrawal": {
+      "id": "BW-TRX-18",
+      "amount": "50.00",
+      "upiId": "user@upi",
+      "status": "pending",
+      "rejectReason": null,
+      "payoutRef": null,
+      "createdAt": "2026-10-31T18:59:29.489Z",
+      "processedAt": null
+    },
+    "referral": null,
+    "adjustment": null
+  }
+}

@@ -1,0 +1,175 @@
+{
+  "data": {
+    "items": [
+      {
+        "transactionId": "BW-TRX-18",
+        "type": "withdrawal_hold",
+        "createdAt": "2026-10-31T18:59:29.489Z",
+        "amount": "-50.00",
+        "remainingAmount": "310.00",
+        "wallet": "winning",
+        "refType": "withdrawal",
+        "refId": "BW-TRX-18",
+        "status": "pending",
+        "statusReason": "Verification in progress"
+      },
+      {
+        "transactionId": "BW-TRX-17",
+        "type": "add_money",
+        "createdAt": "2026-10-31T18:59:29.482Z",
+        "amount": "50.00",
+        "remainingAmount": "310.00",
+        "wallet": "add_money",
+        "refType": "deposit",
+        "refId": "BW-TRX-17",
+        "status": "pending",
+        "statusReason": "Verification in progress"
+      },
+      {
+        "transactionId": "BW-TRX-16",
+        "type": "withdrawal_refund",
+        "createdAt": "2026-10-31T18:59:29.383Z",
+        "amount": "50.00",
+        "remainingAmount": "360.00",
+        "wallet": "winning",
+        "refType": "withdrawal",
+        "refId": "BW-TRX-15",
+        "status": "successful",
+        "statusReason": null
+      },
+      {
+        "transactionId": "BW-TRX-15",
+        "type": "withdrawal_hold",
+        "createdAt": "2026-10-31T18:59:29.376Z",
+        "amount": "-50.00",
+        "remainingAmount": "310.00",
+        "wallet": "winning",
+        "refType": "withdrawal",
+        "refId": "BW-TRX-15",
+        "status": "rejected",
+        "statusReason": "Invalid or unreachable UPI ID handle"
+      },
+      {
+        "transactionId": "BW-TRX-14",
+        "type": "add_money",
+        "createdAt": "2026-10-31T18:59:29.342Z",
+        "amount": "30.00",
+        "remainingAmount": "310.00",
+        "wallet": "add_money",
+        "refType": "deposit",
+        "refId": "BW-TRX-14",
+        "status": "rejected",
+        "statusReason": "UTR already claimed or unverified"
+      },
+      {
+        "transactionId": "BW-TRX-12",
+        "type": "reversal",
+        "createdAt": "2026-10-31T18:59:29.291Z",
+        "amount": "-310.00",
+        "remainingAmount": "310.00",
+        "wallet": "winning",
+        "refType": null,
+        "refId": "BW-MCH-4",
+        "status": "cancelled",
+        "statusReason": null
+      },
+      {
+        "transactionId": "BW-TRX-10",
+        "type": "winning",
+        "createdAt": "2026-10-31T18:59:29.271Z",
+        "amount": "310.00",
+        "remainingAmount": "620.00",
+        "wallet": "winning",
+        "refType": null,
+        "refId": "BW-MCH-4",
+        "status": "successful",
+        "statusReason": null
+      },
+      {
+        "transactionId": "BW-TRX-9",
+        "type": "refund",
+        "createdAt": "2026-10-31T18:59:29.231Z",
+        "amount": "20.00",
+        "remainingAmount": "310.00",
+        "wallet": "add_money",
+        "refType": "match",
+        "refId": "BW-MCH-1",
+        "status": "successful",
+        "statusReason": null
+      },
+      {
+        "transactionId": "BW-TRX-8",
+        "type": "winning",
+        "createdAt": "2026-10-25T18:30:05.000Z",
+        "amount": "250.00",
+        "remainingAmount": "250.00",
+        "wallet": "winning",
+        "refType": null,
+        "refId": "BW-MCH-4",
+        "status": "successful",
+        "statusReason": null
+      },
+      {
+        "transactionId": "BW-TRX-7",
+        "type": "withdrawal_hold",
+        "createdAt": "2026-10-31T18:59:28.941Z",
+        "amount": "-50.00",
+        "remainingAmount": "290.00",
+        "wallet": "winning",
+        "refType": "withdrawal",
+        "refId": "BW-TRX-7",
+        "status": "successful",
+        "statusReason": null
+      },
+      {
+        "transactionId": "BW-TRX-6",
+        "type": "add_money",
+        "createdAt": "2026-10-31T18:59:29.331Z",
+        "amount": "50.00",
+        "remainingAmount": "360.00",
+        "wallet": "add_money",
+        "refType": "deposit",
+        "refId": "BW-TRX-6",
+        "status": "successful",
+        "statusReason": null
+      },
+      {
+        "transactionId": "BW-TRX-4",
+        "type": "join_fee",
+        "createdAt": "2026-10-31T18:59:28.870Z",
+        "amount": "-20.00",
+        "remainingAmount": "340.00",
+        "wallet": "add_money",
+        "refType": "match",
+        "refId": "BW-MCH-6",
+        "status": "successful",
+        "statusReason": null
+      },
+      {
+        "transactionId": "BW-TRX-2",
+        "type": "join_fee",
+        "createdAt": "2026-10-31T18:59:28.819Z",
+        "amount": "-20.00",
+        "remainingAmount": "360.00",
+        "wallet": "add_money",
+        "refType": "match",
+        "refId": "BW-MCH-4",
+        "status": "successful",
+        "statusReason": null
+      },
+      {
+        "transactionId": "BW-TRX-1",
+        "type": "join_fee",
+        "createdAt": "2026-10-31T18:59:28.726Z",
+        "amount": "-20.00",
+        "remainingAmount": "380.00",
+        "wallet": "add_money",
+        "refType": "match",
+        "refId": "BW-MCH-1",
+        "status": "successful",
+        "statusReason": null
+      }
+    ],
+    "nextCursor": null
+  }
+}

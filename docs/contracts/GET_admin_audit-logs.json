@@ -1,0 +1,154 @@
+{
+  "data": {
+    "items": [
+      {
+        "id": "54",
+        "staffId": "BW-STF-1",
+        "staffName": "Admin User",
+        "action": "settings_payment_qr_updated",
+        "targetType": "app_settings",
+        "targetId": null,
+        "details": {
+          "newKey": "https://storage.example.com/placeholder.jpg",
+          "oldKey": null
+        },
+        "createdAt": "2026-10-31T18:59:29.981Z"
+      },
+      {
+        "id": "53",
+        "staffId": "BW-STF-1",
+        "staffName": "Admin User",
+        "action": "settings_updated",
+        "targetType": "app_settings",
+        "targetId": null,
+        "details": {
+          "changes": {
+            "max_deposit": {
+              "new": "6000.00",
+              "old": "5000.00"
+            },
+            "min_deposit": {
+              "new": "15.00",
+              "old": "10.00"
+            },
+            "support_name": {
+              "new": "Booyah Support Team",
+              "old": "Booyah Win Support"
+            }
+          },
+          "updatedKeys": [
+            "min_deposit",
+            "max_deposit",
+            "support_name"
+          ]
+        },
+        "createdAt": "2026-10-31T18:59:29.967Z"
+      },
+      {
+        "id": "52",
+        "staffId": "BW-STF-1",
+        "staffName": "Admin User",
+        "action": "user_deleted",
+        "targetType": "user",
+        "targetId": "BW-USR-6",
+        "details": {
+          "reason": "Terms of service violation",
+          "deletedBy": "BW-STF-1"
+        },
+        "createdAt": "2026-10-31T18:59:29.954Z"
+      },
+      {
+        "id": "51",
+        "staffId": "BW-STF-1",
+        "staffName": "Admin User",
+        "action": "balance_adjusted",
+        "targetType": "user",
+        "targetId": "BW-USR-1",
+        "details": {
+          "amount": "20.00",
+          "reason": "Tournament bonus reward",
+          "wallet": "winning",
+          "adminId": "BW-STF-1",
+          "amountPaise": 2000
+        },
+        "createdAt": "2026-10-31T18:59:29.945Z"
+      },
+      {
+        "id": "50",
+        "staffId": "BW-STF-1",
+        "staffName": "Admin User",
+        "action": "user_viewed",
+        "targetType": "user",
+        "targetId": "BW-USR-1",
+        "details": {
+          "role": "admin"
+        },
+        "createdAt": "2026-10-31T18:59:29.939Z"
+      },
+      {
+        "id": "49",
+        "staffId": "BW-STF-1",
+        "staffName": "Admin User",
+        "action": "tier_deleted",
+        "targetType": "entry_tiers",
+        "targetId": "7",
+        "details": null,
+        "createdAt": "2026-10-31T18:59:29.926Z"
+      },
+      {
+        "id": "48",
+        "staffId": "BW-STF-1",
+        "staffName": "Admin User",
+        "action": "tier_updated",
+        "targetType": "entry_tiers",
+        "targetId": "7",
+        "details": {
+          "updatedFields": [
+            "killPrice"
+          ]
+        },
+        "createdAt": "2026-10-31T18:59:29.916Z"
+      },
+      {
+        "id": "47",
+        "staffId": "BW-STF-1",
+        "staffName": "Admin User",
+        "action": "tier_created",
+        "targetType": "entry_tiers",
+        "targetId": "7",
+        "details": {
+          "entryFee": "25.00",
+          "gameMode": "battle_royale",
+          "teamMode": "squad",
+          "positionsCount": 2
+        },
+        "createdAt": "2026-10-31T18:59:29.903Z"
+      },
+      {
+        "id": "46",
+        "staffId": "BW-STF-1",
+        "staffName": "Admin User",
+        "action": "employee_deleted",
+        "targetType": "staff",
+        "targetId": "BW-STF-4",
+        "details": null,
+        "createdAt": "2026-10-31T18:59:29.896Z"
+      },
+      {
+        "id": "45",
+        "staffId": "BW-STF-1",
+        "staffName": "Admin User",
+        "action": "employee_updated",
+        "targetType": "staff",
+        "targetId": "BW-STF-4",
+        "details": {
+          "updatedFields": [
+            "name"
+          ]
+        },
+        "createdAt": "2026-10-31T18:59:29.889Z"
+      }
+    ],
+    "nextCursor": "45"
+  }
+}

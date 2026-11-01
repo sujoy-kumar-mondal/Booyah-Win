@@ -1,0 +1,20 @@
+{
+  "data": {
+    "token": "test-token-placeholder",
+    "user": {
+      "id": "BW-USR-5",
+      "username": "new_player",
+      "email": "user@example.com",
+      "name": "New Player",
+      "mobile": "9999999999",
+      "ffId": "99887766",
+      "ffName": "NewPlayerPro",
+      "upiId": "user@upi",
+      "dateOfBirth": "2000-01-01",
+      "referralCode": "new_player",
+      "referredBy": null,
+      "language": "en",
+      "createdAt": "2026-10-31T18:59:29.024Z"
+    }
+  }
+}

@@ -1,0 +1,15 @@
+{
+  "data": {
+    "banner": {
+      "id": "1",
+      "title": "Summer Championship",
+      "imageUrl": "https://storage.example.com/placeholder.jpg",
+      "imageKey": "https://storage.example.com/placeholder.jpg",
+      "targetUrl": "/matches",
+      "sortOrder": 1,
+      "isActive": true,
+      "createdAt": "2026-10-31T18:59:29.994Z",
+      "updatedAt": "2026-10-31T18:59:29.994Z"
+    }
+  }
+}

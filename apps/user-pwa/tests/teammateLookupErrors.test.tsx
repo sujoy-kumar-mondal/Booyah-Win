@@ -1,0 +1,187 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { TeamFormModal } from '../src/components/matches/TeamFormModal.js';
+import { TeamManageModal } from '../src/components/matches/TeamManageModal.js';
+import * as matchesApi from '../src/api/matches.js';
+import * as AuthContextModule from '../src/context/AuthContext.js';
+import * as InvitesContextModule from '../src/context/InvitesContext.js';
+import { ApiError } from '../src/api/client.js';
+import { userMatchDetailResponseGuard } from '../src/api/guards.js';
+import { loadContractFixture } from './contractFixtures.js';
+
+describe('Requirement 7: Teammate Lookup Errors Privacy', () => {
+  let queryClient: QueryClient;
+
+  const mockMatch = loadContractFixture(
+    'GET_api_v1_matches_id__upcoming.json',
+    userMatchDetailResponseGuard,
+    'GET /api/v1/matches/:id',
+    (data) => {
+      data.match.teamMode = 'duo';
+    }
+  ).match;
+
+  beforeEach(() => {
+    queryClient = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    vi.spyOn(AuthContextModule, 'useAuth').mockReturnValue({
+      user: { id: '1' } as any,
+      refreshProfile: vi.fn(),
+    });
+    vi.spyOn(InvitesContextModule, 'useInvites').mockReturnValue({
+      refetchInvites: vi.fn(),
+    } as any);
+  });
+
+  it('Requirement 7: displays friendly text for NOT_FOUND error without revealing extra user details', async () => {
+    vi.spyOn(matchesApi, 'createTeam').mockRejectedValueOnce(
+      new ApiError('NOT_FOUND', 'User with given Free Fire ID does not exist in system')
+    );
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TeamFormModal
+            match={mockMatch}
+            isOpen={true}
+            onClose={() => {}}
+            onSuccess={() => {}}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    fireEvent.change(screen.getByTestId('member-ffid-input-0'), {
+      target: { value: '99999999' },
+    });
+    fireEvent.click(screen.getByTestId('submit-team-btn'));
+
+    await waitFor(() => {
+      const err = screen.getByTestId('team-form-error');
+      // Must use friendly text only, revealing NO system internal or user details
+      expect(err.textContent).toBe('Player not found.');
+    });
+  });
+
+  it('Requirement 7: displays friendly text for TEAM_INVALID error without extra wording', async () => {
+    vi.spyOn(matchesApi, 'replaceTeamInvite').mockRejectedValueOnce(
+      new ApiError('TEAM_INVALID', 'Validation failure details')
+    );
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TeamManageModal
+            matchId={mockMatch.id}
+            isOpen={true}
+            mode="replace"
+            onClose={() => {}}
+            onSuccess={() => {}}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    fireEvent.change(screen.getByTestId('old-ffid-input'), { target: { value: '111111' } });
+    fireEvent.change(screen.getByTestId('new-ffid-input'), { target: { value: '222222' } });
+    fireEvent.click(screen.getByTestId('confirm-replace-btn'));
+
+    await waitFor(() => {
+      const err = screen.getByTestId('manage-modal-error');
+      expect(err.textContent).toBe('Invalid team or member replacement.');
+    });
+  });
+
+  it('Teammate lookup: displays Free Fire Name when valid teammate UID is entered', async () => {
+    vi.spyOn(matchesApi, 'lookupTeammate').mockResolvedValueOnce({
+      exists: true,
+      ffId: '123548',
+      ffName: 'Gamer',
+      name: 'SUJOY KUMAR MONDAL BCA',
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TeamFormModal
+            match={mockMatch}
+            isOpen={true}
+            onClose={() => {}}
+            onSuccess={() => {}}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    const input = screen.getByTestId('member-ffid-input-0');
+    fireEvent.change(input, { target: { value: '123548' } });
+    fireEvent.blur(input);
+
+    await waitFor(() => {
+      expect(screen.getByText('Gamer')).toBeInTheDocument();
+    });
+  });
+
+  it('Teammate lookup: displays error message when invalid UID or cannot add self', async () => {
+    vi.spyOn(matchesApi, 'lookupTeammate').mockResolvedValueOnce({
+      exists: false,
+      message: 'You cannot add yourself as a teammate',
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TeamFormModal
+            match={mockMatch}
+            isOpen={true}
+            onClose={() => {}}
+            onSuccess={() => {}}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    const input = screen.getByTestId('member-ffid-input-0');
+    fireEvent.change(input, { target: { value: '1457625118' } });
+    fireEvent.blur(input);
+
+    await waitFor(() => {
+      expect(screen.getByText('You cannot add yourself as a teammate')).toBeInTheDocument();
+    });
+  });
+
+  it('Teammate lookup: supports teammate user id (BW-USR-<number>) and displays In-Game Name', async () => {
+    vi.spyOn(matchesApi, 'lookupTeammate').mockResolvedValueOnce({
+      exists: true,
+      userId: 'BW-USR-5',
+      username: 'delta_mate',
+      ffId: '987654321',
+      ffName: 'DeltaSniper',
+      name: 'Delta Player',
+    });
+
+    render(
+      <QueryClientProvider client={queryClient}>
+        <MemoryRouter>
+          <TeamFormModal
+            match={mockMatch}
+            isOpen={true}
+            onClose={() => {}}
+            onSuccess={() => {}}
+          />
+        </MemoryRouter>
+      </QueryClientProvider>
+    );
+
+    const input = screen.getByTestId('member-ffid-input-0');
+    fireEvent.change(input, { target: { value: 'BW-USR-5' } });
+    fireEvent.blur(input);
+
+    await waitFor(() => {
+      expect(screen.getByText('DeltaSniper')).toBeInTheDocument();
+    });
+  });
+});

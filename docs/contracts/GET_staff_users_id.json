@@ -1,0 +1,259 @@
+{
+  "data": {
+    "profile": {
+      "id": "BW-USR-1",
+      "username": "player_one",
+      "name": "Player One",
+      "email": "user@example.com",
+      "mobile": "******3210",
+      "ffId": "12345678",
+      "ffName": "ProPlayer1",
+      "upiId": "user@upi",
+      "isDeleted": false,
+      "deletedAt": null,
+      "createdAt": "2026-10-31T18:59:28.668Z"
+    },
+    "wallets": {
+      "addMoney": "210.00",
+      "cashback": "0.00",
+      "winning": "150.00",
+      "total": "360.00"
+    },
+    "recentLedger": [
+      {
+        "id": 16,
+        "wallet": "winning",
+        "type": "withdrawal_refund",
+        "amount": "50.00",
+        "balanceAfter": "150.00",
+        "totalAfter": "360.00",
+        "refType": "withdrawal",
+        "refId": "BW-TRX-15",
+        "createdAt": "2026-10-31T18:59:29.383Z"
+      },
+      {
+        "id": 15,
+        "wallet": "winning",
+        "type": "withdrawal_hold",
+        "amount": "-50.00",
+        "balanceAfter": "100.00",
+        "totalAfter": "310.00",
+        "refType": "withdrawal",
+        "refId": "BW-TRX-15",
+        "createdAt": "2026-10-31T18:59:29.376Z"
+      },
+      {
+        "id": 12,
+        "wallet": "winning",
+        "type": "reversal",
+        "amount": "-310.00",
+        "balanceAfter": "150.00",
+        "totalAfter": "310.00",
+        "refType": null,
+        "refId": "BW-MCH-4",
+        "createdAt": "2026-10-31T18:59:29.291Z"
+      },
+      {
+        "id": 10,
+        "wallet": "winning",
+        "type": "winning",
+        "amount": "310.00",
+        "balanceAfter": "460.00",
+        "totalAfter": "620.00",
+        "refType": null,
+        "refId": "BW-MCH-4",
+        "createdAt": "2026-10-31T18:59:29.271Z"
+      },
+      {
+        "id": 9,
+        "wallet": "add_money",
+        "type": "refund",
+        "amount": "20.00",
+        "balanceAfter": "160.00",
+        "totalAfter": "310.00",
+        "refType": "match",
+        "refId": "BW-MCH-1",
+        "createdAt": "2026-10-31T18:59:29.231Z"
+      },
+      {
+        "id": 8,
+        "wallet": "winning",
+        "type": "winning",
+        "amount": "250.00",
+        "balanceAfter": "250.00",
+        "totalAfter": "250.00",
+        "refType": null,
+        "refId": "BW-MCH-4",
+        "createdAt": "2026-10-25T18:30:05.000Z"
+      },
+      {
+        "id": 7,
+        "wallet": "winning",
+        "type": "withdrawal_hold",
+        "amount": "-50.00",
+        "balanceAfter": "150.00",
+        "totalAfter": "290.00",
+        "refType": "withdrawal",
+        "refId": "BW-TRX-7",
+        "createdAt": "2026-10-31T18:59:28.941Z"
+      },
+      {
+        "id": 6,
+        "wallet": "add_money",
+        "type": "add_money",
+        "amount": "50.00",
+        "balanceAfter": "210.00",
+        "totalAfter": "360.00",
+        "refType": "deposit",
+        "refId": "BW-TRX-6",
+        "createdAt": "2026-10-31T18:59:29.331Z"
+      },
+      {
+        "id": 4,
+        "wallet": "add_money",
+        "type": "join_fee",
+        "amount": "-20.00",
+        "balanceAfter": "140.00",
+        "totalAfter": "340.00",
+        "refType": "match",
+        "refId": "BW-MCH-6",
+        "createdAt": "2026-10-31T18:59:28.870Z"
+      },
+      {
+        "id": 2,
+        "wallet": "add_money",
+        "type": "join_fee",
+        "amount": "-20.00",
+        "balanceAfter": "160.00",
+        "totalAfter": "360.00",
+        "refType": "match",
+        "refId": "BW-MCH-4",
+        "createdAt": "2026-10-31T18:59:28.819Z"
+      },
+      {
+        "id": 1,
+        "wallet": "add_money",
+        "type": "join_fee",
+        "amount": "-20.00",
+        "balanceAfter": "180.00",
+        "totalAfter": "380.00",
+        "refType": "match",
+        "refId": "BW-MCH-1",
+        "createdAt": "2026-10-31T18:59:28.726Z"
+      }
+    ],
+    "matchHistory": [
+      {
+        "matchId": "BW-MCH-6",
+        "gameMode": "battle_royale",
+        "teamMode": "solo",
+        "entryFee": "20.00",
+        "startTime": "2026-12-01T20:00:00.000Z",
+        "matchStatus": "live",
+        "kills": 0,
+        "position": null,
+        "payout": "0.00",
+        "displayStatus": "Result pending",
+        "joinedAt": "2026-10-31T18:59:28.870Z"
+      },
+      {
+        "matchId": "BW-MCH-4",
+        "gameMode": "battle_royale",
+        "teamMode": "solo",
+        "entryFee": "20.00",
+        "startTime": "2026-12-01T18:00:00.000Z",
+        "matchStatus": "live",
+        "kills": 0,
+        "position": null,
+        "payout": "0.00",
+        "displayStatus": "Result pending",
+        "joinedAt": "2026-10-31T18:59:28.819Z"
+      },
+      {
+        "matchId": "BW-MCH-3",
+        "gameMode": "clash_squad",
+        "teamMode": "squad",
+        "entryFee": "25.00",
+        "startTime": "2026-12-01T17:00:00.000Z",
+        "matchStatus": "upcoming",
+        "kills": 0,
+        "position": null,
+        "payout": "0.00",
+        "displayStatus": "Result pending",
+        "joinedAt": "2026-10-31T18:59:28.791Z"
+      },
+      {
+        "matchId": "BW-MCH-2",
+        "gameMode": "battle_royale",
+        "teamMode": "duo",
+        "entryFee": "20.00",
+        "startTime": "2026-12-01T16:00:00.000Z",
+        "matchStatus": "live",
+        "kills": 0,
+        "position": null,
+        "payout": "0.00",
+        "displayStatus": "Result pending",
+        "joinedAt": "2026-10-31T18:59:28.779Z"
+      },
+      {
+        "matchId": "BW-MCH-1",
+        "gameMode": "battle_royale",
+        "teamMode": "solo",
+        "entryFee": "20.00",
+        "startTime": "2026-12-01T15:00:00.000Z",
+        "matchStatus": "cancelled",
+        "kills": 0,
+        "position": null,
+        "payout": "0.00",
+        "displayStatus": "Cancelled (refunded)",
+        "joinedAt": "2026-10-31T18:59:28.726Z"
+      }
+    ],
+    "depositHistory": [
+      {
+        "id": "BW-TRX-14",
+        "amount": "30.00",
+        "utr": "123456789012",
+        "status": "rejected",
+        "rejectReason": "UTR already claimed or unverified",
+        "createdAt": "2026-10-31T18:59:29.342Z",
+        "reviewedAt": "2026-10-31T18:59:29.349Z",
+        "employeeReviewedAt": null
+      },
+      {
+        "id": "BW-TRX-6",
+        "amount": "50.00",
+        "utr": "123456789012",
+        "status": "approved",
+        "rejectReason": null,
+        "createdAt": "2026-10-31T18:59:28.922Z",
+        "reviewedAt": "2026-10-31T18:59:29.331Z",
+        "employeeReviewedAt": "2026-10-31T18:59:29.324Z"
+      }
+    ],
+    "withdrawalHistory": [
+      {
+        "id": "BW-TRX-15",
+        "amount": "50.00",
+        "upiId": "user@upi",
+        "status": "rejected",
+        "rejectReason": "Invalid or unreachable UPI ID handle",
+        "payoutRef": null,
+        "createdAt": "2026-10-31T18:59:29.376Z",
+        "processedAt": "2026-10-31T18:59:29.383Z",
+        "employeeReviewedAt": null
+      },
+      {
+        "id": "BW-TRX-7",
+        "amount": "50.00",
+        "upiId": "user@upi",
+        "status": "paid",
+        "rejectReason": null,
+        "payoutRef": "REF123456789",
+        "createdAt": "2026-10-31T18:59:28.941Z",
+        "processedAt": "2026-10-31T18:59:29.369Z",
+        "employeeReviewedAt": "2026-10-31T18:59:29.362Z"
+      }
+    ]
+  }
+}

@@ -1,0 +1,237 @@
+{
+  "data": [
+    {
+      "id": "withdrawal-BW-TRX-15-rejected",
+      "type": "wallet_withdrawal",
+      "title": "Withdrawal Rejected: ₹50",
+      "message": "Your withdrawal request for ₹50 was rejected. Reason: Invalid or unreachable UPI ID handle",
+      "timestamp": "just now",
+      "createdAt": 1793473169383,
+      "actionUrl": "/wallet/transactions/WTH-BW-TRX-15"
+    },
+    {
+      "id": "28",
+      "type": "wallet_withdrawal",
+      "title": "Withdrawal Rejected: ₹50",
+      "message": "Your withdrawal request for ₹50.00 was rejected and refunded to your Winning balance. Reason: Invalid or unreachable UPI ID handle",
+      "timestamp": "just now",
+      "createdAt": 1793473169383,
+      "actionUrl": "/wallet/transactions/BW-TRX-15"
+    },
+    {
+      "id": "27",
+      "type": "wallet_withdrawal",
+      "title": "Withdrawal Requested: ₹50",
+      "message": "user@example.com",
+      "timestamp": "just now",
+      "createdAt": 1793473169376,
+      "actionUrl": "/wallet/transactions/BW-TRX-15"
+    },
+    {
+      "id": "withdrawal-BW-TRX-7-paid",
+      "type": "wallet_withdrawal",
+      "title": "Withdrawal Successful: ₹50",
+      "message": "user@example.com",
+      "timestamp": "just now",
+      "createdAt": 1793473169369,
+      "actionUrl": "/wallet/transactions/WTH-BW-TRX-7"
+    },
+    {
+      "id": "26",
+      "type": "wallet_withdrawal",
+      "title": "Withdrawal Successful: ₹50",
+      "message": "₹50.00 has been transferred to your UPI (undefined). (UTR: REF123456789)",
+      "timestamp": "just now",
+      "createdAt": 1793473169369,
+      "actionUrl": "/wallet/transactions/BW-TRX-7"
+    },
+    {
+      "id": "deposit-BW-TRX-14-rejected",
+      "type": "wallet_deposit",
+      "title": "Deposit Rejected: ₹30",
+      "message": "Your deposit request for ₹30 was rejected. Reason: UTR already claimed or unverified",
+      "timestamp": "just now",
+      "createdAt": 1793473169349,
+      "actionUrl": "/wallet/transactions/DEP-BW-TRX-14"
+    },
+    {
+      "id": "25",
+      "type": "wallet_deposit",
+      "title": "Deposit Rejected: ₹30",
+      "message": "Your deposit request for ₹30.00 was rejected. Reason: UTR already claimed or unverified",
+      "timestamp": "just now",
+      "createdAt": 1793473169349,
+      "actionUrl": "/wallet/transactions/BW-TRX-14"
+    },
+    {
+      "id": "24",
+      "type": "wallet_deposit",
+      "title": "Deposit Submitted: ₹30",
+      "message": "Your deposit request for ₹30.00 (UTR: 998877665544) was submitted and is pending staff verification.",
+      "timestamp": "just now",
+      "createdAt": 1793473169342,
+      "actionUrl": "/wallet/transactions/BW-TRX-14"
+    },
+    {
+      "id": "deposit-BW-TRX-6-approved",
+      "type": "wallet_deposit",
+      "title": "Deposit Approved: ₹50",
+      "message": "₹50 has been successfully added to your wallet balance.",
+      "timestamp": "just now",
+      "createdAt": 1793473169331,
+      "actionUrl": "/wallet/transactions/DEP-BW-TRX-6"
+    },
+    {
+      "id": "23",
+      "type": "wallet_deposit",
+      "title": "Deposit Approved: ₹50",
+      "message": "₹50.00 has been approved and added to your Deposited balance.",
+      "timestamp": "just now",
+      "createdAt": 1793473169331,
+      "actionUrl": "/wallet/transactions/BW-TRX-6"
+    },
+    {
+      "id": "21",
+      "type": "reward",
+      "title": "Tournament Reward: ₹310",
+      "message": "Congratulations! You won ₹310.00 (Rank #1, 1 kills) in Battle Royale #BW-MCH-4. Winnings added to your wallet!",
+      "timestamp": "just now",
+      "createdAt": 1793473169271,
+      "actionUrl": "/matches/BW-MCH-4"
+    },
+    {
+      "id": "20",
+      "type": "match_cancelled",
+      "title": "Match Cancelled: BW-MCH-1",
+      "message": "Match BW-MCH-1 was cancelled and your entry fee has been refunded. Reason: Room host technical network error",
+      "timestamp": "just now",
+      "createdAt": 1793473169231,
+      "actionUrl": "/matches/BW-MCH-1"
+    },
+    {
+      "id": "18",
+      "type": "room_live",
+      "title": "Match Live: Battle Royale BW-MCH-2",
+      "message": "Match BW-MCH-2 is now LIVE! Good luck and secure your Booyah!",
+      "timestamp": "just now",
+      "createdAt": 1793473169223,
+      "actionUrl": "/matches/BW-MCH-2"
+    },
+    {
+      "id": "17",
+      "type": "room_open",
+      "title": "Room Open: BW-MCH-2",
+      "message": "Room credentials are ready! Room ID: 887766 | Password: roomSecret123. Enter custom room now!",
+      "timestamp": "just now",
+      "createdAt": 1793473169212,
+      "actionUrl": "/matches/BW-MCH-2",
+      "roomId": "887766",
+      "roomPassword": "test-room-password"
+    },
+    {
+      "id": "16",
+      "type": "wallet_withdrawal",
+      "title": "Withdrawal Requested: ₹50",
+      "message": "user@example.com",
+      "timestamp": "just now",
+      "createdAt": 1793473168941,
+      "actionUrl": "/wallet/transactions/BW-TRX-7"
+    },
+    {
+      "id": "15",
+      "type": "wallet_deposit",
+      "title": "Deposit Submitted: ₹50",
+      "message": "Your deposit request for ₹50.00 (UTR: 123456789012) was submitted and is pending staff verification.",
+      "timestamp": "just now",
+      "createdAt": 1793473168922,
+      "actionUrl": "/wallet/transactions/BW-TRX-6"
+    },
+    {
+      "id": "13",
+      "type": "room_live",
+      "title": "Match Live: Battle Royale BW-MCH-6",
+      "message": "Match BW-MCH-6 is now LIVE! Good luck and secure your Booyah!",
+      "timestamp": "just now",
+      "createdAt": 1793473168894,
+      "actionUrl": "/matches/BW-MCH-6"
+    },
+    {
+      "id": "11",
+      "type": "room_open",
+      "title": "Room Open: BW-MCH-6",
+      "message": "Room credentials are ready! Room ID: 334455 | Password: roomSecret123. Enter custom room now!",
+      "timestamp": "just now",
+      "createdAt": 1793473168888,
+      "actionUrl": "/matches/BW-MCH-6",
+      "roomId": "334455",
+      "roomPassword": "test-room-password"
+    },
+    {
+      "id": "9",
+      "type": "match_joined",
+      "title": "Match Joined: Battle Royale [SOLO]",
+      "message": "You successfully joined match BW-MCH-6. Match starts at 01:30 am IST.",
+      "timestamp": "just now",
+      "createdAt": 1793473168870,
+      "actionUrl": "/matches/BW-MCH-6"
+    },
+    {
+      "id": "7",
+      "type": "room_live",
+      "title": "Match Live: Battle Royale BW-MCH-4",
+      "message": "Match BW-MCH-4 is now LIVE! Good luck and secure your Booyah!",
+      "timestamp": "just now",
+      "createdAt": 1793473168844,
+      "actionUrl": "/matches/BW-MCH-4"
+    },
+    {
+      "id": "5",
+      "type": "room_open",
+      "title": "Room Open: BW-MCH-4",
+      "message": "Room credentials are ready! Room ID: 998877 | Password: roomSecret123. Enter custom room now!",
+      "timestamp": "just now",
+      "createdAt": 1793473168837,
+      "actionUrl": "/matches/BW-MCH-4",
+      "roomId": "998877",
+      "roomPassword": "test-room-password"
+    },
+    {
+      "id": "3",
+      "type": "match_joined",
+      "title": "Match Joined: Battle Royale [SOLO]",
+      "message": "You successfully joined match BW-MCH-4. Match starts at 11:30 pm IST.",
+      "timestamp": "just now",
+      "createdAt": 1793473168819,
+      "actionUrl": "/matches/BW-MCH-4"
+    },
+    {
+      "id": "2",
+      "type": "room_open",
+      "title": "Room Open: BW-MCH-1",
+      "message": "Room credentials are ready! Room ID: 123456 | Password: roomSecret123. Enter custom room now!",
+      "timestamp": "just now",
+      "createdAt": 1793473168797,
+      "actionUrl": "/matches/BW-MCH-1",
+      "roomId": "123456",
+      "roomPassword": "test-room-password"
+    },
+    {
+      "id": "match-joined-BW-MCH-3",
+      "type": "match_joined",
+      "title": "Match Joined: Clash Squad [SQUAD]",
+      "message": "You joined Clash Squad [SQUAD]. Match starts at 10:30 pm IST.",
+      "timestamp": "just now",
+      "createdAt": 1793473168791,
+      "actionUrl": "/matches/BW-MCH-3"
+    },
+    {
+      "id": "match-joined-BW-MCH-2",
+      "type": "match_joined",
+      "title": "Match Joined: Battle Royale [DUO]",
+      "message": "You joined Battle Royale [DUO]. Match starts at 09:30 pm IST.",
+      "timestamp": "just now",
+      "createdAt": 1793473168779,
+      "actionUrl": "/matches/BW-MCH-2"
+    }
+  ]
+}

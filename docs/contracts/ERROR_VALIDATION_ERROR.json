@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "VALIDATION_ERROR",
+    "message": "startTime must be a valid ISO 8601 string with a timezone offset (e.g. 2026-10-10T15:00:00Z)",
+    "details": {}
+  }
+}

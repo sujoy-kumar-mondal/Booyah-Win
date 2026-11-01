@@ -1,0 +1,55 @@
+{
+  "data": {
+    "match": {
+      "id": "BW-MCH-3",
+      "tierId": "2",
+      "gameMode": "clash_squad",
+      "teamMode": "squad",
+      "entryFee": "25.00",
+      "killPrice": "0.00",
+      "minKillsForReward": 0,
+      "positionPrizes": {
+        "1": "200.00"
+      },
+      "maxPlayers": 8,
+      "minPlayers": 8,
+      "startTime": "2026-12-01T17:00:00.000Z",
+      "status": "upcoming",
+      "cancelReason": null,
+      "mapName": "Bermuda",
+      "map": "Bermuda",
+      "createdBy": "BW-STF-2",
+      "createdAt": "2026-10-31T18:59:28.786Z",
+      "joinedCount": 1,
+      "players": [
+        {
+          "userId": "BW-USR-1",
+          "name": "Player One",
+          "username": "player_one",
+          "ffId": "12345678",
+          "ffName": "ProPlayer1",
+          "teamId": "2",
+          "paidAddMoney": "25.00",
+          "paidCashback": "0.00",
+          "paidWinning": "0.00",
+          "refundedAt": null,
+          "joinedAt": "2026-10-31T18:59:28.791Z",
+          "kills": null,
+          "reward": null
+        }
+      ],
+      "teams": [
+        {
+          "id": "2",
+          "name": "Blue Squad",
+          "size": 4,
+          "status": "confirmed",
+          "leaderId": "BW-USR-1",
+          "memberUserIds": [
+            "BW-USR-1"
+          ]
+        }
+      ]
+    }
+  }
+}

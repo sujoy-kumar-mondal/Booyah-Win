@@ -1,0 +1,34 @@
+{
+  "data": {
+    "match": {
+      "id": "BW-MCH-8",
+      "gameMode": "battle_royale",
+      "teamMode": "solo",
+      "entryFee": "20.00",
+      "prizes": {
+        "positions": {
+          "1": "300.00",
+          "2": "150.00",
+          "3": "50.00"
+        },
+        "killPrice": "10.00",
+        "minKillsForReward": 1
+      },
+      "joinedPlayers": 1,
+      "seatsTaken": 1,
+      "maxPlayers": 48,
+      "minPlayers": 2,
+      "startTime": "2026-12-08T12:00:00.000Z",
+      "status": "room_open",
+      "mapName": "Bermuda",
+      "map": "Bermuda",
+      "hasJoined": true,
+      "isInTeam": false,
+      "isTeamLeader": false,
+      "canReplaceTeammate": false,
+      "hasReplacedTeammate": false,
+      "roomId": "776655",
+      "roomPassword": "test-room-password"
+    }
+  }
+}

@@ -1,0 +1,33 @@
+{
+  "data": {
+    "entries": [
+      {
+        "userId": "2",
+        "kills": 0,
+        "position": 2,
+        "killReward": "0.00",
+        "positionPrize": "150.00",
+        "payout": "150.00",
+        "payoutPaise": 15000,
+        "isDeleted": false
+      },
+      {
+        "userId": "1",
+        "kills": 1,
+        "position": 1,
+        "killReward": "10.00",
+        "positionPrize": "300.00",
+        "payout": "310.00",
+        "payoutPaise": 31000,
+        "isDeleted": false
+      }
+    ],
+    "totalCollected": "40.00",
+    "totalCollectedPaise": 4000,
+    "totalPayout": "460.00",
+    "totalPayoutPaise": 46000,
+    "difference": "-420.00",
+    "differencePaise": -42000,
+    "warning": "Payout exceeds total entry fees collected"
+  }
+}

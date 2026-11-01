@@ -1,0 +1,13 @@
+{
+  "data": {
+    "configured": false,
+    "message": "Payment information not configured yet",
+    "paymentUpiId": null,
+    "paymentQrUrl": null,
+    "qrUrl": null,
+    "minDeposit": "10.00",
+    "maxDeposit": "5000.00",
+    "minWithdrawal": "50.00",
+    "maxWithdrawal": "10000.00"
+  }
+}

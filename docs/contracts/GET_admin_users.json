@@ -1,0 +1,60 @@
+{
+  "data": {
+    "items": [
+      {
+        "id": "BW-USR-5",
+        "username": "new_player",
+        "name": "New Player",
+        "email": "user@example.com",
+        "mobile": "9999999999",
+        "ffId": "99887766",
+        "ffName": "ProPlayerUpdated",
+        "upiId": "user@upi",
+        "isDeleted": false,
+        "deletedAt": null,
+        "createdAt": "2026-10-31T18:59:29.024Z"
+      },
+      {
+        "id": "BW-USR-3",
+        "username": "player3",
+        "name": "Player Three",
+        "email": "user@example.com",
+        "mobile": "9999999999",
+        "ffId": "55667788",
+        "ffName": "ProPlayer3",
+        "upiId": "user@upi",
+        "isDeleted": false,
+        "deletedAt": null,
+        "createdAt": "2026-10-31T18:59:28.699Z"
+      },
+      {
+        "id": "BW-USR-2",
+        "username": "player_two",
+        "name": "Player Two",
+        "email": "user@example.com",
+        "mobile": "9999999999",
+        "ffId": "87654321",
+        "ffName": "ProPlayer2",
+        "upiId": "user@upi",
+        "isDeleted": false,
+        "deletedAt": null,
+        "createdAt": "2026-10-31T18:59:28.693Z"
+      },
+      {
+        "id": "BW-USR-1",
+        "username": "player_one",
+        "name": "Player One",
+        "email": "user@example.com",
+        "mobile": "9999999999",
+        "ffId": "12345678",
+        "ffName": "ProPlayer1",
+        "upiId": "user@upi",
+        "isDeleted": false,
+        "deletedAt": null,
+        "createdAt": "2026-10-31T18:59:28.668Z"
+      }
+    ],
+    "nextCursor": null,
+    "hasMore": false
+  }
+}

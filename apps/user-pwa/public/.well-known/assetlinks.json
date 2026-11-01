@@ -1,0 +1,13 @@
+[
+  {
+    "relation": ["delegate_permission/common.handle_all_urls"],
+    "target": {
+      "namespace": "android_app",
+      "package_name": "com.booyahwin.app",
+      "sha256_cert_fingerprints": [
+        "36:84:F3:F0:8F:63:17:FA:05:CC:37:8D:FC:A2:1B:EC:A6:50:1D:9C:9A:9B:34:A2:56:E7:3E:2B:CF:BA:6B:60"
+      ]
+    }
+  }
+]
+

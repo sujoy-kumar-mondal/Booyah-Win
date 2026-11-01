@@ -1,0 +1,33 @@
+{
+  "data": {
+    "team": {
+      "id": "3",
+      "matchId": "BW-MCH-13",
+      "leaderId": "BW-USR-1",
+      "name": "Bravo Team",
+      "size": 2,
+      "status": "confirmed",
+      "createdAt": "2026-10-31T18:59:29.689Z",
+      "members": [
+        {
+          "userId": "BW-USR-1",
+          "username": "player_one",
+          "freeFireId": "12345678",
+          "ffName": "ProPlayer1",
+          "name": "Player One",
+          "role": "leader",
+          "status": "confirmed"
+        },
+        {
+          "userId": "BW-USR-2",
+          "username": "player_two",
+          "freeFireId": "87654321",
+          "ffName": "ProPlayer2",
+          "name": "Player Two",
+          "role": "member",
+          "status": "confirmed"
+        }
+      ]
+    }
+  }
+}

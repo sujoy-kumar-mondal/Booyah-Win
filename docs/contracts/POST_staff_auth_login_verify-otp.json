@@ -1,0 +1,13 @@
+{
+  "data": {
+    "token": "test-token-placeholder",
+    "staff": {
+      "id": "BW-STF-2",
+      "role": "employee",
+      "name": "Employee User",
+      "email": "staff@booyah.win",
+      "mobile": "9999999999",
+      "createdAt": "2026-10-31T18:59:28.574Z"
+    }
+  }
+}

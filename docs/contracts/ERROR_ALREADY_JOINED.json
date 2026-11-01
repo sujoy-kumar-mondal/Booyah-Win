@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "ALREADY_JOINED",
+    "message": "You have already joined this match",
+    "details": {}
+  }
+}

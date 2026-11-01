@@ -1,0 +1,17 @@
+{
+  "data": {
+    "count": 1,
+    "players": [
+      {
+        "team": 1,
+        "position": "A",
+        "name": "ProPlayer1",
+        "teamName": "Team 1",
+        "kills": 0,
+        "matchPosition": null,
+        "payout": "0.00",
+        "teamPayout": "0.00"
+      }
+    ]
+  }
+}

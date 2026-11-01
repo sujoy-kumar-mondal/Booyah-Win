@@ -1,0 +1,15 @@
+{
+  "data": {
+    "banner": {
+      "id": "1",
+      "title": "Support Hub",
+      "imageUrl": "https://storage.example.com/placeholder.jpg",
+      "imageKey": "https://storage.example.com/placeholder.jpg",
+      "targetUrl": "/support",
+      "sortOrder": 2,
+      "isActive": true,
+      "createdAt": "2026-10-31T18:59:29.994Z",
+      "updatedAt": "2026-10-31T18:59:30.013Z"
+    }
+  }
+}

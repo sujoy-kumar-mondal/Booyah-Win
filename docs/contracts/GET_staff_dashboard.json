@@ -1,0 +1,40 @@
+{
+  "data": {
+    "pendingDepositsCount": 1,
+    "oldestPendingDepositAgeMinutes": 0,
+    "isOldestDepositOver30Min": false,
+    "employeeApprovedDepositsCount": 0,
+    "oldestEmployeeApprovedDepositAgeMinutes": null,
+    "isOldestEmployeeApprovedDepositOver30Min": false,
+    "pendingWithdrawalsCount": 1,
+    "oldestPendingWithdrawalAgeMinutes": 0,
+    "employeeApprovedWithdrawalsCount": 0,
+    "oldestEmployeeApprovedWithdrawalAgeMinutes": null,
+    "isOldestEmployeeApprovedWithdrawalOver24Hours": false,
+    "liveMatchesCount": 2,
+    "upcomingMatchesCount": 2,
+    "roomOpenMatchesCount": 1,
+    "completedMatchesCount": 0,
+    "resultsWaitingApprovalCount": 1,
+    "totalDepositsToday": 0,
+    "totalDepositsMonth": 0,
+    "totalWithdrawalsToday": 0,
+    "totalWithdrawalsMonth": 0,
+    "monthlyFinancials": [
+      {
+        "month": "Nov",
+        "deposits": 0,
+        "withdrawals": 0
+      }
+    ],
+    "scheduledMatchDays": [],
+    "recentActivityTrends": [
+      {
+        "date": "03 Nov",
+        "day": 3,
+        "matches": 0,
+        "deposits": 0
+      }
+    ]
+  }
+}

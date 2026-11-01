@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "TEAM_INVALID",
+    "message": "Match does not support teams",
+    "details": {}
+  }
+}

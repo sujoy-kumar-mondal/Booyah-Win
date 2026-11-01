@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "INVALID_TRANSITION",
+    "message": "Cannot cancel match with status cancelled",
+    "details": {}
+  }
+}

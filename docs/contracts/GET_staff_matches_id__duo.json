@@ -1,0 +1,55 @@
+{
+  "data": {
+    "match": {
+      "id": "BW-MCH-2",
+      "tierId": "3",
+      "gameMode": "battle_royale",
+      "teamMode": "duo",
+      "entryFee": "20.00",
+      "killPrice": "10.00",
+      "minKillsForReward": 1,
+      "positionPrizes": {
+        "1": "300.00"
+      },
+      "maxPlayers": 48,
+      "minPlayers": 2,
+      "startTime": "2026-12-01T16:00:00.000Z",
+      "status": "upcoming",
+      "cancelReason": null,
+      "mapName": "Bermuda",
+      "map": "Bermuda",
+      "createdBy": "BW-STF-2",
+      "createdAt": "2026-10-31T18:59:28.771Z",
+      "joinedCount": 1,
+      "players": [
+        {
+          "userId": "BW-USR-1",
+          "name": "Player One",
+          "username": "player_one",
+          "ffId": "12345678",
+          "ffName": "ProPlayer1",
+          "teamId": "1",
+          "paidAddMoney": "20.00",
+          "paidCashback": "0.00",
+          "paidWinning": "0.00",
+          "refundedAt": null,
+          "joinedAt": "2026-10-31T18:59:28.779Z",
+          "kills": null,
+          "reward": null
+        }
+      ],
+      "teams": [
+        {
+          "id": "1",
+          "name": "Alpha Team",
+          "size": 2,
+          "status": "confirmed",
+          "leaderId": "BW-USR-1",
+          "memberUserIds": [
+            "BW-USR-1"
+          ]
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,147 @@
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import nodemailer from 'nodemailer';
+import { sendOtpEmail, testOtpStore, resetTransporterForTests, generateOtpEmailHtml } from '../src/utils/email.js';
+import { config } from '../src/config/index.js';
+
+describe('OTP Email Delivery Rules', () => {
+  let origBrevoKey: string | undefined;
+
+  beforeEach(() => {
+    testOtpStore.clear();
+    resetTransporterForTests();
+    vi.restoreAllMocks();
+    origBrevoKey = process.env.BREVO_API_KEY;
+    delete process.env.BREVO_API_KEY;
+  });
+
+  afterEach(() => {
+    if (origBrevoKey !== undefined) {
+      process.env.BREVO_API_KEY = origBrevoKey;
+    } else {
+      delete process.env.BREVO_API_KEY;
+    }
+    process.env.NODE_ENV = 'test';
+  });
+
+  it('prints OTP to console in development and test mode, without calling nodemailer', async () => {
+    const sendMailMock = vi.fn();
+    vi.spyOn(nodemailer, 'createTransport').mockReturnValue({
+      sendMail: sendMailMock,
+    } as any);
+
+    const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+    // In test environment
+    process.env.NODE_ENV = 'test';
+    await sendOtpEmail('test_console@booyah.win', '123456');
+
+    expect(consoleSpy).toHaveBeenCalledWith(
+      expect.stringContaining('[OTP CONSOLE] To: test_console@booyah.win | Code: 123456')
+    );
+    expect(testOtpStore.get('test_console@booyah.win')).toBe('123456');
+    expect(sendMailMock).not.toHaveBeenCalled();
+
+    consoleSpy.mockRestore();
+  });
+
+  it('attempts real email send via Gmail SMTP when NODE_ENV is production', async () => {
+    const sendMailMock = vi.fn().mockResolvedValue({ messageId: 'test-id' });
+    vi.spyOn(nodemailer, 'createTransport').mockReturnValue({
+      sendMail: sendMailMock,
+    } as any);
+
+    process.env.NODE_ENV = 'production';
+    process.env.GMAIL_USER = 'service@booyah.win';
+    process.env.GMAIL_APP_PASSWORD = 'secret-app-password';
+
+    await sendOtpEmail('player@example.com', '654321');
+
+    expect(sendMailMock).toHaveBeenCalledWith(
+      expect.objectContaining({
+        from: '"Booyah Win" <service@booyah.win>',
+        to: 'player@example.com',
+        subject: 'Your Booyah Win login code',
+        text: 'Your Booyah Win login code is 654321. It will expire in 10 minutes.',
+        html: expect.stringContaining('654321'),
+      })
+    );
+
+    // Reset back to test
+    process.env.NODE_ENV = 'test';
+  });
+
+  it('attempts real email send when NODE_ENV is missing, misspelled, or capitalized "Production"', async () => {
+    const invalidEnvs = [undefined, 'developmnt', 'Production', 'staging'];
+
+    for (const testEnv of invalidEnvs) {
+      resetTransporterForTests();
+      const sendMailMock = vi.fn().mockResolvedValue({ messageId: 'test-id' });
+      vi.spyOn(nodemailer, 'createTransport').mockReturnValue({
+        sendMail: sendMailMock,
+      } as any);
+      const consoleSpy = vi.spyOn(console, 'log').mockImplementation(() => {});
+
+      if (testEnv === undefined) {
+        delete process.env.NODE_ENV;
+      } else {
+        process.env.NODE_ENV = testEnv;
+      }
+
+      await sendOtpEmail('player_strict@example.com', '999888');
+
+      // Must never print OTP to console
+      expect(consoleSpy).not.toHaveBeenCalled();
+      // Must attempt real email delivery via nodemailer
+      expect(sendMailMock).toHaveBeenCalledWith(
+        expect.objectContaining({
+          to: 'player_strict@example.com',
+          text: expect.stringContaining('999888'),
+        })
+      );
+
+      consoleSpy.mockRestore();
+    }
+
+    process.env.NODE_ENV = 'test';
+  });
+
+  it('sends email via Brevo HTTPS API when BREVO_API_KEY is provided in production', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch').mockResolvedValue({
+      ok: true,
+      status: 201,
+      json: async () => ({ messageId: '<test-message-id>' }),
+      text: async () => JSON.stringify({ messageId: '<test-message-id>' }),
+    } as any);
+
+    process.env.NODE_ENV = 'production';
+    process.env.GMAIL_USER = 'sujoy721642@gmail.com';
+    process.env.GMAIL_APP_PASSWORD = 'dummy_app_password';
+    process.env.BREVO_API_KEY = 'test_brevo_api_key_123';
+
+    await sendOtpEmail('recipient@example.com', '777888');
+
+    expect(fetchSpy).toHaveBeenCalledWith(
+      'https://api.brevo.com/v3/smtp/email',
+      expect.objectContaining({
+        method: 'POST',
+        headers: expect.objectContaining({
+          'api-key': 'test_brevo_api_key_123',
+          'Content-Type': 'application/json',
+        }),
+        body: expect.stringContaining('777888'),
+      })
+    );
+
+    fetchSpy.mockRestore();
+    delete process.env.BREVO_API_KEY;
+    process.env.NODE_ENV = 'test';
+  });
+
+  it('generates HTML email with a compact resized OTP box', () => {
+    const html = generateOtpEmailHtml('964144');
+    expect(html).toContain('964144');
+    expect(html).toContain('max-width: 480px');
+    expect(html).toContain('border: 2px dashed #10b981');
+    expect(html).toContain('padding: 10px 24px');
+  });
+});

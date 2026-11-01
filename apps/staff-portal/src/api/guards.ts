@@ -1,0 +1,706 @@
+/**
+ * Runtime Response Guards for Booyah Win Staff Portal
+ *
+ * Requirements 4, 5, 6:
+ * - Money fields must be strings matching ^\d+\.\d{2}$ (signed ^[+-]?\d+\.\d{2}$ for difference/balance).
+ *   A number in a money field FAILS the guard.
+ * - Guards require documented keys and types, but tolerate extra keys in production.
+ * - In development, extra keys or missing keys without values log a warning naming the endpoint and keys.
+ * - In production, a guard failure throws ApiError with message "unexpected response, please refresh".
+ * - A failure on a money field never renders a number, undefined, or NaN.
+ */
+
+import { z } from 'zod';
+import { ApiError } from './client.js';
+
+// ─── Money Schemas ────────────────────────────────────────────────────────────
+export const moneyStringSchema = z
+  .string({
+    required_error: 'Money string is required',
+    invalid_type_error: 'Money field must be a string, numbers are strictly prohibited',
+  })
+  .regex(/^\d+\.\d{2}$/, 'Money field must be a 2-decimal formatted string matching ^\\d+\\.\\d{2}$');
+
+export const signedMoneyStringSchema = z
+  .string({
+    required_error: 'Signed money string is required',
+    invalid_type_error: 'Signed money field must be a string, numbers are strictly prohibited',
+  })
+  .regex(/^[+-]?\d+\.\d{2}$/, 'Signed money field must match ^[+-]?\\d+\\.\\d{2}$');
+
+// ─── Dev Warning Key Inspector ────────────────────────────────────────────────
+function inspectKeys(schema: z.ZodTypeAny, data: any, endpointName: string) {
+  if (typeof data !== 'object' || data === null) return;
+  if (Array.isArray(data)) {
+    data.forEach((item) => inspectKeys(schema, item, endpointName));
+    return;
+  }
+
+  if (schema instanceof z.ZodObject) {
+    const shape = schema.shape;
+    const expectedKeys = new Set(Object.keys(shape));
+    const actualKeys = Object.keys(data);
+
+    const extraKeys = actualKeys.filter((k) => !expectedKeys.has(k));
+    if (extraKeys.length > 0) {
+      console.warn(
+        `[API Guard DEV Warning] Endpoint ${endpointName} contains extra undocumented keys: ${extraKeys.join(', ')}`
+      );
+    }
+
+    for (const key of expectedKeys) {
+      if (data[key] === undefined && !shape[key].isOptional()) {
+        console.warn(
+          `[API Guard DEV Warning] Endpoint ${endpointName} missing required key without value: ${key}`
+        );
+      }
+    }
+  }
+}
+
+// ─── Guard Validation Runner ──────────────────────────────────────────────────
+export function runGuard<T>(schema: z.ZodType<T>, rawData: unknown, endpointName: string): T {
+  const isProd =
+    typeof process !== 'undefined'
+      ? process.env.NODE_ENV === 'production'
+      : (import.meta as any)?.env?.PROD ?? false;
+
+  if (!isProd) {
+    inspectKeys(schema, rawData, endpointName);
+  }
+
+  const parseResult = schema.safeParse(rawData);
+  if (!parseResult.success) {
+    if (!isProd) {
+      console.warn(
+        `[API Guard DEV Warning] Validation failed for ${endpointName}:`,
+        parseResult.error.issues
+      );
+    }
+    throw new ApiError(
+      'UNEXPECTED_RESPONSE',
+      'unexpected response, please refresh',
+      { issues: isProd ? undefined : parseResult.error.issues },
+      500
+    );
+  }
+
+  return parseResult.data;
+}
+
+// ─── 1. Staff Profile & Auth Schemas ──────────────────────────────────────────
+export const staffDtoGuard = z.object({
+  id: z.string(),
+  role: z.enum(['employee', 'admin']),
+  name: z.string(),
+  email: z.string(),
+  mobile: z.string(),
+  createdAt: z.string().optional(),
+}).passthrough();
+
+export const staffMeGuard = z.object({
+  profile: staffDtoGuard,
+}).passthrough();
+
+export const staffLoginResponseGuard = z.object({
+  token: z.string(),
+  staff: staffDtoGuard,
+}).passthrough();
+
+export const dashboardMetricsGuard = z.object({
+  pendingDepositsCount: z.number().int(),
+  oldestPendingDepositAgeMinutes: z.number().nullable(),
+  isOldestDepositOver30Min: z.boolean(),
+  employeeApprovedDepositsCount: z.number().int(),
+  oldestEmployeeApprovedDepositAgeMinutes: z.number().nullable(),
+  isOldestEmployeeApprovedDepositOver30Min: z.boolean(),
+  pendingWithdrawalsCount: z.number().int(),
+  oldestPendingWithdrawalAgeMinutes: z.number().nullable(),
+  employeeApprovedWithdrawalsCount: z.number().int(),
+  oldestEmployeeApprovedWithdrawalAgeMinutes: z.number().nullable(),
+  isOldestEmployeeApprovedWithdrawalOver24Hours: z.boolean(),
+  liveMatchesCount: z.number().int(),
+  upcomingMatchesCount: z.number().int(),
+  roomOpenMatchesCount: z.number().int(),
+  completedMatchesCount: z.number().int(),
+  resultsWaitingApprovalCount: z.number().int(),
+  totalDepositsToday: z.number().optional(),
+  totalDepositsMonth: z.number().optional(),
+  totalWithdrawalsToday: z.number().optional(),
+  totalWithdrawalsMonth: z.number().optional(),
+  monthlyFinancials: z.array(z.object({
+    month: z.string(),
+    deposits: z.number(),
+    withdrawals: z.number(),
+  })).optional(),
+  scheduledMatchDays: z.array(z.number()).optional(),
+  recentActivityTrends: z.array(z.object({
+    date: z.string(),
+    day: z.number(),
+    matches: z.number(),
+    deposits: z.number(),
+  })).optional(),
+}).passthrough();
+
+// ─── 2. Entry Tiers Guard ─────────────────────────────────────────────────────
+export const tierPositionGuard = z.object({
+  position: z.number(),
+  prize: moneyStringSchema,
+}).passthrough();
+
+export const entryTierGuard = z.object({
+  id: z.string(),
+  gameMode: z.enum(['battle_royale', 'clash_squad', 'lone_wolf']),
+  teamMode: z.enum(['solo', 'duo', 'squad']),
+  entryFee: moneyStringSchema,
+  killPrice: moneyStringSchema,
+  minKillsForReward: z.number(),
+  maxPlayers: z.number(),
+  minPlayers: z.number(),
+  positions: z.array(tierPositionGuard),
+  createdAt: z.string(),
+}).passthrough();
+
+export const entryTiersResponseGuard = z.object({
+  tiers: z.array(entryTierGuard),
+}).passthrough();
+
+// ─── 3. Match List & Match Detail Guards ──────────────────────────────────────
+export const matchStaffDtoGuard = z.object({
+  id: z.string(),
+  tierId: z.string(),
+  gameMode: z.enum(['battle_royale', 'clash_squad', 'lone_wolf']),
+  teamMode: z.enum(['solo', 'duo', 'squad']),
+  entryFee: moneyStringSchema,
+  killPrice: moneyStringSchema,
+  minKillsForReward: z.number(),
+  positionPrizes: z.record(z.string(), moneyStringSchema),
+  maxPlayers: z.number(),
+  minPlayers: z.number(),
+  startTime: z.string(),
+  roomId: z.string().nullable().optional(),
+  roomPassword: z.string().nullable().optional(),
+  status: z.enum(['upcoming', 'room_open', 'live', 'completed', 'cancelled']),
+  cancelReason: z.string().nullable().optional(),
+  mapName: z.string().optional().nullable(),
+  map: z.string().optional().nullable(),
+  createdBy: z.string(),
+  createdAt: z.string(),
+  joinedCount: z.number(),
+  seatsTaken: z.number().optional(),
+}).passthrough();
+
+export const matchListResponseGuard = z.object({
+  matches: z.array(matchStaffDtoGuard),
+  nextCursor: z.string().nullable().optional(),
+}).passthrough();
+
+export const joinedPlayerGuard = z.object({
+  userId: z.string(),
+  name: z.string(),
+  username: z.string().optional(),
+  ffId: z.string(),
+  ffName: z.string(),
+  teamId: z.string().nullable(),
+  paidAddMoney: moneyStringSchema,
+  paidCashback: moneyStringSchema,
+  paidWinning: moneyStringSchema,
+  refundedAt: z.string().nullable(),
+  joinedAt: z.string(),
+  kills: z.number().nullable().optional(),
+  reward: moneyStringSchema.nullable().optional(),
+}).passthrough();
+
+export const matchTeamStaffGuard = z.object({
+  id: z.string(),
+  name: z.string().nullable(),
+  size: z.number(),
+  status: z.enum(['forming', 'confirmed', 'disbanded']),
+  leaderId: z.string(),
+  memberUserIds: z.array(z.string()),
+}).passthrough();
+
+export const matchDetailResponseGuard = z.object({
+  match: matchStaffDtoGuard.extend({
+    players: z.array(joinedPlayerGuard),
+    teams: z.array(matchTeamStaffGuard),
+  }).passthrough(),
+}).passthrough();
+
+// ─── 4. Results & Payout Preview Guards ───────────────────────────────────────
+export const resultEntryGuard = z.object({
+  userId: z.string(),
+  kills: z.number(),
+  position: z.number().nullable(),
+}).passthrough();
+
+export const matchResultStaffGuard = z.object({
+  id: z.string(),
+  matchId: z.string(),
+  entries: z.array(resultEntryGuard),
+  screenshotUrl: z.string(),
+  signedScreenshotUrl: z.string().optional(),
+  status: z.enum(['pending_approval', 'approved', 'rejected']),
+  rejectReason: z.string().nullable().optional(),
+  submittedBy: z.string(),
+  approvedBy: z.string().nullable().optional(),
+  createdAt: z.string(),
+  approvedAt: z.string().nullable().optional(),
+}).passthrough();
+
+export const adminQueueItemGuard = z.object({
+  id: z.string(),
+  matchId: z.string(),
+  status: z.string(),
+  submittedBy: z.string(),
+  createdAt: z.string(),
+  screenshotUrl: z.string(),
+  gameMode: z.string(),
+  teamMode: z.string(),
+  matchStatus: z.string(),
+}).passthrough();
+
+export const adminQueueResponseGuard = z.object({
+  results: z.array(adminQueueItemGuard),
+  count: z.number(),
+}).passthrough();
+
+export const payoutPreviewEntryGuard = z.object({
+  userId: z.string(),
+  kills: z.number(),
+  position: z.number().nullable(),
+  killReward: moneyStringSchema,
+  positionPrize: moneyStringSchema,
+  payout: moneyStringSchema,
+  payoutPaise: z.number(),
+  isDeleted: z.boolean(),
+}).passthrough();
+
+export const resultPayoutPreviewGuard = z.object({
+  entries: z.array(payoutPreviewEntryGuard),
+  totalCollected: moneyStringSchema,
+  totalCollectedPaise: z.number(),
+  totalPayout: moneyStringSchema,
+  totalPayoutPaise: z.number(),
+  difference: signedMoneyStringSchema,
+  differencePaise: z.number(),
+  warning: z.string().nullable(),
+}).passthrough();
+
+// ─── 5. Deposits & Withdrawals Guards ─────────────────────────────────────────
+export const staffDepositDtoGuard = z.object({
+  id: z.string(),
+  userId: z.string(),
+  userName: z.string().optional(),
+  userEmail: z.string(),
+  amount: moneyStringSchema,
+  utr: z.string(),
+  screenshotUrl: z.string(),
+  signedScreenshotUrl: z.string().optional(),
+  status: z.enum(['pending', 'employee_approved', 'approved', 'rejected']),
+  rejectReason: z.string().nullable().optional(),
+  needsAdmin: z.boolean(),
+  pendingMinutes: z.number().nullable().optional(),
+  createdAt: z.string(),
+  reviewedAt: z.string().nullable().optional(),
+  reviewedBy: z.string().nullable().optional(),
+  employeeReviewedAt: z.string().nullable().optional(),
+  employeeReviewedBy: z.string().nullable().optional(),
+}).passthrough();
+
+export const depositListResponseGuard = z.object({
+  items: z.array(staffDepositDtoGuard),
+  nextCursor: z.string().nullable().optional(),
+}).passthrough();
+
+export const staffWithdrawalDtoGuard = z.object({
+  id: z.string(),
+  userId: z.string(),
+  userName: z.string().optional(),
+  userEmail: z.string(),
+  amount: moneyStringSchema,
+  upiId: z.string(),
+  status: z.enum(['pending', 'employee_approved', 'paid', 'rejected']),
+  rejectReason: z.string().nullable().optional(),
+  payoutRef: z.string().nullable().optional(),
+  createdAt: z.string(),
+  processedAt: z.string().nullable().optional(),
+  processedBy: z.string().nullable().optional(),
+  employeeReviewedAt: z.string().nullable().optional(),
+  employeeReviewedBy: z.string().nullable().optional(),
+}).passthrough();
+
+export const withdrawalListResponseGuard = z.object({
+  items: z.array(staffWithdrawalDtoGuard),
+  nextCursor: z.string().nullable().optional(),
+}).passthrough();
+
+// ─── Transactions Guards ──────────────────────────────────────────────────────
+
+export const staffTransactionListItemDtoGuard = z.object({
+  transactionId: z.string(),
+  id: z.number(),
+  userId: z.string(),
+  userName: z.string(),
+  userEmail: z.string(),
+  userUsername: z.string().nullable().optional(),
+  wallet: z.string(),
+  walletName: z.string(),
+  type: z.string(),
+  amount: signedMoneyStringSchema,
+  balanceAfter: moneyStringSchema,
+  totalAfter: moneyStringSchema,
+  refType: z.string().nullable().optional(),
+  refId: z.string().nullable().optional(),
+  createdAt: z.string(),
+}).passthrough();
+
+export const staffTransactionListResponseGuard = z.object({
+  items: z.array(staffTransactionListItemDtoGuard),
+  nextCursor: z.string().nullable().optional(),
+}).passthrough();
+
+export const staffTransactionMatchDetailGuard = z.object({
+  id: z.number(),
+  matchId: z.string(),
+  title: z.string(),
+  gameMode: z.string(),
+  teamMode: z.string(),
+  mapName: z.string().nullable().optional(),
+  entryFee: moneyStringSchema,
+  killPrice: moneyStringSchema,
+  startTime: z.string(),
+  status: z.string(),
+  cancelReason: z.string().nullable().optional(),
+  kills: z.number().nullable().optional(),
+  rank: z.number().nullable().optional(),
+  prizeAmount: moneyStringSchema.nullable().optional(),
+}).passthrough();
+
+export const staffTransactionDepositDetailGuard = z.object({
+  id: z.string(),
+  amount: moneyStringSchema,
+  utr: z.string(),
+  screenshotUrl: z.string(),
+  status: z.string(),
+  rejectReason: z.string().nullable().optional(),
+  createdAt: z.string(),
+  reviewedAt: z.string().nullable().optional(),
+  reviewedBy: z.string().nullable().optional(),
+}).passthrough();
+
+export const staffTransactionWithdrawalDetailGuard = z.object({
+  id: z.string(),
+  amount: moneyStringSchema,
+  upiId: z.string(),
+  status: z.string(),
+  rejectReason: z.string().nullable().optional(),
+  payoutRef: z.string().nullable().optional(),
+  createdAt: z.string(),
+  processedAt: z.string().nullable().optional(),
+  processedBy: z.string().nullable().optional(),
+}).passthrough();
+
+export const staffTransactionReferralDetailGuard = z.object({
+  id: z.string().optional(),
+  referredUserId: z.string().optional(),
+  referredUsername: z.string(),
+  referredName: z.string().nullable().optional(),
+}).passthrough();
+
+export const staffTransactionAdjustmentDetailGuard = z.object({
+  reason: z.string().nullable().optional(),
+  adjustedBy: z.string().nullable().optional(),
+}).passthrough();
+
+export const staffTransactionDetailResponseGuard = z.object({
+  transactionId: z.string(),
+  id: z.number(),
+  userId: z.string(),
+  userName: z.string(),
+  userEmail: z.string(),
+  userMobile: z.string().nullable().optional(),
+  userUsername: z.string().nullable().optional(),
+  userFfId: z.string().nullable().optional(),
+  userFfName: z.string().nullable().optional(),
+  type: z.string(),
+  createdAt: z.string(),
+  amount: signedMoneyStringSchema,
+  balanceAfter: moneyStringSchema,
+  remainingAmount: moneyStringSchema,
+  wallet: z.string(),
+  walletName: z.string(),
+  status: z.enum(['successful', 'cancelled', 'rejected', 'pending']),
+  statusReason: z.string().nullable().optional(),
+  refType: z.string().nullable().optional(),
+  refId: z.string().nullable().optional(),
+  breakdown: z
+    .object({
+      deposited: moneyStringSchema.optional(),
+      cashback: moneyStringSchema.optional(),
+      winning: moneyStringSchema.optional(),
+    })
+    .nullable()
+    .optional(),
+  match: staffTransactionMatchDetailGuard.nullable().optional(),
+  deposit: staffTransactionDepositDetailGuard.nullable().optional(),
+  withdrawal: staffTransactionWithdrawalDetailGuard.nullable().optional(),
+  referral: staffTransactionReferralDetailGuard.nullable().optional(),
+  adjustment: staffTransactionAdjustmentDetailGuard.nullable().optional(),
+}).passthrough();
+
+export const staffActionResponseGuard = z.object({
+  message: z.string(),
+}).passthrough();
+
+// ─── 6. Admin Management Response Guards ──────────────────────────────────────
+
+// Employees
+export const employeeDtoGuard = z.object({
+  id: z.string(),
+  role: z.enum(['employee', 'admin']),
+  name: z.string(),
+  email: z.string(),
+  mobile: z.string(),
+  pan: z.string().nullable(),
+  aadhaar: z.string().nullable(),
+  createdBy: z.string().nullable(),
+  createdAt: z.string(),
+}).passthrough();
+
+export const employeeListResponseGuard = z.object({
+  items: z.array(employeeDtoGuard),
+  nextCursor: z.string().nullable(),
+}).passthrough();
+
+export const employeeSingleResponseGuard = z.object({
+  employee: employeeDtoGuard,
+}).passthrough();
+
+export const employeeDeleteResponseGuard = z.object({
+  message: z.string(),
+}).passthrough();
+
+// Tiers
+export const createTierResponseGuard = z.object({
+  tier: entryTierGuard,
+  warning: z.string().nullable().optional(),
+}).passthrough();
+
+export const updateTierResponseGuard = z.object({
+  tier: entryTierGuard,
+  warning: z.string().nullable().optional(),
+}).passthrough();
+
+export const deleteTierResponseGuard = z.object({
+  message: z.string(),
+}).passthrough();
+
+// Users
+export const adminUserListItemGuard = z.object({
+  id: z.string(),
+  username: z.string().optional(),
+  name: z.string(),
+  email: z.string(),
+  mobile: z.string(),
+  ffId: z.string(),
+  ffName: z.string(),
+  upiId: z.string(),
+  isDeleted: z.boolean(),
+  deletedAt: z.string().nullable(),
+  createdAt: z.string(),
+}).passthrough();
+
+export const adminUserListResponseGuard = z.object({
+  items: z.array(adminUserListItemGuard),
+  nextCursor: z.string().nullable(),
+  hasMore: z.boolean(),
+}).passthrough();
+
+export const adminUserDetailProfileGuard = z.object({
+  id: z.string(),
+  username: z.string().optional(),
+  name: z.string(),
+  email: z.string(),
+  mobile: z.string(),
+  ffId: z.string(),
+  ffName: z.string(),
+  upiId: z.string(),
+  dateOfBirth: z.string(),
+  referralCode: z.string(),
+  referredBy: z.string().nullable(),
+  isDeleted: z.boolean(),
+  deletedAt: z.string().nullable(),
+  deletedReason: z.string().nullable(),
+  deletedBy: z.string().nullable(),
+  createdAt: z.string(),
+}).passthrough();
+
+export const adminUserLedgerItemGuard = z.object({
+  id: z.union([z.number(), z.string()]),
+  wallet: z.string(),
+  type: z.string(),
+  amount: signedMoneyStringSchema,
+  balanceAfter: moneyStringSchema,
+  totalAfter: moneyStringSchema,
+  refType: z.string().nullable(),
+  refId: z.string().nullable(),
+  createdAt: z.string(),
+}).passthrough();
+
+export const adminUserMatchHistoryItemGuard = z.object({
+  matchId: z.string(),
+  gameMode: z.string(),
+  teamMode: z.string(),
+  entryFee: moneyStringSchema,
+  startTime: z.string(),
+  matchStatus: z.string(),
+  kills: z.number(),
+  position: z.number().nullable(),
+  payout: moneyStringSchema,
+  displayStatus: z.string(),
+  joinedAt: z.string(),
+}).passthrough();
+
+export const adminUserDetailResponseGuard = z.object({
+  profile: adminUserDetailProfileGuard,
+  wallets: z.object({
+    addMoney: moneyStringSchema,
+    cashback: moneyStringSchema,
+    winning: moneyStringSchema,
+    total: moneyStringSchema,
+  }).passthrough(),
+  recentLedger: z.array(adminUserLedgerItemGuard),
+  matchHistory: z.array(adminUserMatchHistoryItemGuard),
+}).passthrough();
+
+export const adminUserDeleteResponseGuard = z.object({
+  id: z.string(),
+  message: z.string(),
+}).passthrough();
+
+export const adminUserAdjustResponseGuard = z.object({
+  userId: z.string(),
+  wallet: z.enum(['add_money', 'cashback', 'winning']),
+  amount: signedMoneyStringSchema,
+  balances: z.object({
+    addMoney: moneyStringSchema,
+    cashback: moneyStringSchema,
+    winning: moneyStringSchema,
+    total: moneyStringSchema,
+  }).passthrough(),
+}).passthrough();
+
+// Settings
+export const adminSettingsResponseGuard = z.object({
+  settings: z.record(z.string(), z.string()),
+}).passthrough();
+
+export const adminUploadPaymentQrResponseGuard = z.object({
+  paymentQrKey: z.string(),
+  qrUrl: z.string(),
+}).passthrough();
+
+// Audit Logs
+export const adminAuditLogItemGuard = z.object({
+  id: z.string(),
+  staffId: z.string().nullable(),
+  staffName: z.string().nullable().optional(),
+  action: z.string(),
+  targetType: z.string(),
+  targetId: z.string().nullable(),
+  details: z.any().nullable().optional(),
+  createdAt: z.string(),
+}).passthrough();
+
+export const adminAuditLogsResponseGuard = z.object({
+  items: z.array(adminAuditLogItemGuard),
+  nextCursor: z.string().nullable(),
+}).passthrough();
+
+export const adminAuditLogDetailGuard = z.object({
+  id: z.string(),
+  staffId: z.string().nullable(),
+  staffName: z.string().nullable().optional(),
+  staffRole: z.string().nullable().optional(),
+  staffEmail: z.string().nullable().optional(),
+  action: z.string(),
+  targetType: z.string(),
+  targetId: z.string().nullable(),
+  details: z.any().nullable().optional(),
+  createdAt: z.string(),
+}).passthrough();
+
+export const adminAuditLogDetailResponseGuard = z.object({
+  log: adminAuditLogDetailGuard,
+}).passthrough();
+
+// Status & Maintenance Schema
+export const statusResponseGuard = z.object({
+  maintenance: z.object({
+    enabled: z.boolean(),
+    message: z.string(),
+    until: z.string().nullable(),
+    unknown: z.boolean().optional(),
+  }).passthrough(),
+}).passthrough();
+
+// Staff Users Schemas (Employee read-only user access)
+export const staffUserListItemGuard = z.object({
+  id: z.string(),
+  username: z.string().optional(),
+  name: z.string(),
+  email: z.string(),
+  mobile: z.string(),
+  ffId: z.string(),
+  ffName: z.string(),
+  upiId: z.string(),
+  isDeleted: z.boolean(),
+  deletedAt: z.string().nullable(),
+  createdAt: z.string(),
+}).passthrough();
+
+export const staffUserListResponseGuard = z.object({
+  items: z.array(staffUserListItemGuard),
+  nextCursor: z.string().nullable(),
+  hasMore: z.boolean(),
+}).passthrough();
+
+export const staffUserDepositItemGuard = z.object({
+  id: z.string(),
+  amount: moneyStringSchema,
+  utr: z.string(),
+  status: z.string(),
+  rejectReason: z.string().nullable(),
+  createdAt: z.string(),
+  reviewedAt: z.string().nullable().optional(),
+  employeeReviewedAt: z.string().nullable().optional(),
+}).passthrough();
+
+export const staffUserWithdrawalItemGuard = z.object({
+  id: z.string(),
+  amount: moneyStringSchema,
+  upiId: z.string(),
+  status: z.string(),
+  rejectReason: z.string().nullable(),
+  payoutRef: z.string().nullable(),
+  createdAt: z.string(),
+  processedAt: z.string().nullable().optional(),
+  employeeReviewedAt: z.string().nullable().optional(),
+}).passthrough();
+
+export const staffUserDetailResponseGuard = z.object({
+  profile: staffUserListItemGuard,
+  wallets: z.object({
+    addMoney: moneyStringSchema,
+    cashback: moneyStringSchema,
+    winning: moneyStringSchema,
+    total: moneyStringSchema,
+  }).passthrough(),
+  recentLedger: z.array(adminUserLedgerItemGuard),
+  matchHistory: z.array(adminUserMatchHistoryItemGuard),
+  depositHistory: z.array(staffUserDepositItemGuard).optional(),
+  withdrawalHistory: z.array(staffUserWithdrawalItemGuard).optional(),
+}).passthrough();
+
+

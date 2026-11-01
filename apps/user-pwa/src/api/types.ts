@@ -1,0 +1,259 @@
+/**
+ * API Data Models matching docs/API.md exactly
+ */
+
+export interface UserProfile {
+  id: string;
+  username: string;
+  email: string;
+  name: string;
+  mobile: string;
+  ffId: string;
+  ffName: string;
+  upiId: string;
+  dateOfBirth: string;
+  referralCode: string;
+  referredBy?: string | null;
+  avatarUrl?: string | null;
+  language?: 'en' | 'bn';
+  createdAt: string;
+}
+
+export interface Wallets {
+  addMoney: string;
+  cashback: string;
+  winning: string;
+  total: string;
+}
+
+export interface Cooldowns {
+  nameAvailableAt?: string | null;
+  mobileAvailableAt?: string | null;
+  ffIdAvailableAt?: string | null;
+  ffNameAvailableAt?: string | null;
+  upiIdAvailableAt?: string | null;
+}
+
+export interface GetMeData {
+  profile: UserProfile;
+  wallets: Wallets;
+  cooldowns: Cooldowns;
+}
+
+export interface LoginVerifyResponse {
+  token: string;
+  user: {
+    id: string;
+    username: string;
+    email: string;
+    name: string;
+    mobile: string;
+    ffId: string;
+    ffName: string;
+    upiId: string;
+    referralCode: string;
+    dateOfBirth: string;
+    avatarUrl?: string | null;
+  };
+}
+
+export interface RegisterVerifyResponse {
+  registrationToken: string;
+}
+
+export interface RegisterCompleteResponse {
+  token: string;
+  user: UserProfile;
+}
+
+export interface RegisterCompletePayload {
+  registrationToken: string;
+  username: string;
+  name: string;
+  mobile: string;
+  ffId: string;
+  ffName: string;
+  upiId: string;
+  dateOfBirth: string;
+  confirm18Plus: boolean;
+  referralCode?: string;
+  language?: 'en' | 'bn';
+}
+
+export interface UpdateProfilePayload {
+  name?: string;
+  mobile?: string;
+  ffId?: string;
+  ffName?: string;
+  upiId?: string;
+}
+
+export interface PaymentInfoDto {
+  configured: boolean;
+  message?: string;
+  paymentUpiId?: string | null;
+  paymentQrUrl?: string | null;
+  qrUrl?: string | null;
+  minDeposit: string;
+  maxDeposit: string;
+  minWithdrawal?: string;
+  maxWithdrawal?: string;
+}
+
+export interface DepositDto {
+  id: string;
+  amount: string;
+  utr: string;
+  screenshotUrl: string;
+  status: 'pending' | 'employee_approved' | 'approved' | 'rejected';
+  rejectReason?: string | null;
+  needsAdmin: boolean;
+  createdAt: string;
+  reviewedAt?: string | null;
+}
+
+export interface DepositListResponse {
+  items: DepositDto[];
+  nextCursor?: string | null;
+}
+
+export interface WithdrawalDto {
+  id: string;
+  amount: string;
+  upiId: string;
+  status: 'pending' | 'employee_approved' | 'paid' | 'rejected';
+  rejectReason?: string | null;
+  payoutRef?: string | null;
+  createdAt: string;
+  processedAt?: string | null;
+}
+
+export interface WithdrawalListResponse {
+  items: WithdrawalDto[];
+  nextCursor?: string | null;
+}
+
+export interface TransactionDto {
+  transactionId: string;
+  type: string;
+  createdAt: string;
+  amount: string;
+  remainingAmount: string;
+  wallet: string;
+  refType?: string | null;
+  refId?: string | null;
+  status?: 'successful' | 'cancelled' | 'rejected' | 'pending';
+  statusReason?: string | null;
+}
+
+export interface TransactionListResponse {
+  items: TransactionDto[];
+  nextCursor?: string | null;
+}
+
+export interface TransactionMatchDetail {
+  id: number;
+  title: string;
+  gameMode: string;
+  teamMode: string;
+  mapName?: string | null;
+  entryFee: string;
+  killPrice: string;
+  startTime: string;
+  status: string;
+  cancelReason?: string | null;
+  kills?: number | null;
+  rank?: number | null;
+  prizeAmount?: string | null;
+}
+
+export interface TransactionDepositDetail {
+  id: string;
+  amount: string;
+  utr: string;
+  screenshotUrl: string;
+  status: string;
+  rejectReason?: string | null;
+  createdAt: string;
+  reviewedAt?: string | null;
+}
+
+export interface TransactionWithdrawalDetail {
+  id: string;
+  amount: string;
+  upiId: string;
+  status: string;
+  rejectReason?: string | null;
+  payoutRef?: string | null;
+  createdAt: string;
+  processedAt?: string | null;
+}
+
+export interface TransactionReferralDetail {
+  id?: string;
+  referredUserId?: string;
+  referredUsername: string;
+  referredName?: string | null;
+}
+
+export interface TransactionAdjustmentDetail {
+  reason?: string | null;
+}
+
+export interface TransactionDetailDto {
+  transactionId: string;
+  id: number;
+  type: string;
+  createdAt: string;
+  amount: string;
+  remainingAmount: string;
+  wallet: string;
+  walletName: string;
+  status: 'successful' | 'cancelled' | 'rejected' | 'pending';
+  statusReason?: string | null;
+  breakdown?: {
+    deposited?: string;
+    cashback?: string;
+    winning?: string;
+  } | null;
+  match?: TransactionMatchDetail | null;
+  deposit?: TransactionDepositDetail | null;
+  withdrawal?: TransactionWithdrawalDetail | null;
+  referral?: TransactionReferralDetail | null;
+  adjustment?: TransactionAdjustmentDetail | null;
+}
+
+export interface LeaderboardEntry {
+  rank: number;
+  name: string;
+  avatarUrl?: string | null;
+  winnings: string;
+}
+
+export interface LeaderboardResponse {
+  weekStart: string;
+  weekEnd: string;
+  generatedAt: string;
+  entries: LeaderboardEntry[];
+}
+
+export type LeaderboardRankResponse = {
+  rank: number;
+  avatarUrl?: string | null;
+  winnings: string;
+} | null;
+
+export interface RulesResponse {
+  referralReward: string;
+  maxCashbackUsagePercent: number;
+  minWithdrawal: string;
+  invitationText?: string;
+}
+
+export interface ReferralSummaryResponse {
+  referralCode: string;
+  referredCount: number;
+  bonusEarnedCount: number;
+  totalBonusEarned: string;
+}
+

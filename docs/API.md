@@ -1,0 +1,3198 @@
+# Booyah Win API Reference
+
+This reference is generated from the real codebase, Zod validation schemas, Express routers, and integration tests.
+
+---
+
+## 1. Global Conventions
+
+### 1.1 Response Envelope
+All API responses follow a standard envelope:
+- **Success (HTTP 200/201)**:
+  ```json
+  {
+    "data": { ... }
+  }
+  ```
+- **Error (HTTP 4xx/5xx)**:
+  ```json
+  {
+    "error": {
+      "code": "ERROR_CODE_STRING",
+      "message": "Human readable message",
+      "details": { ... }
+    }
+  }
+  ```
+
+### 1.2 Money Representation
+- Database storage: `NUMERIC(12,2)`.
+- Internal logic: Strict integer paise (no JavaScript floating-point numbers).
+- JSON representation: Decimal strings with exactly two decimal places (e.g. `"10.00"`, `"25.50"`, `"0.00"`).
+
+### 1.3 Identifiers & Display IDs
+- Primary keys: Integer strings (e.g. `"123"`).
+- Display identifiers: Human-readable prefixed IDs:
+  - Transactions: `BW-TXN-<id>`
+  - Deposits: `BW-DEP-<id>`
+  - Withdrawals: `BW-WTH-<id>`
+  - Matches: `BW-MAT-<id>`
+
+### 1.4 Cursor Pagination
+List endpoints with pagination return cursor parameters:
+```json
+{
+  "data": {
+    "items": [ ... ],
+    "nextCursor": "42",
+    "hasMore": true
+  }
+}
+```
+
+### 1.5 Master Error Codes
+`UNAUTHENTICATED`, `SESSION_REPLACED`, `FORBIDDEN`, `ADMIN_APPROVAL_REQUIRED`, `ADMINS_APPROVE_DIRECTLY`, `VALIDATION_ERROR`, `INVALID_OTP`, `OTP_RATE_LIMITED`, `EMAIL_EXISTS`, `MOBILE_EXISTS`, `FF_ID_EXISTS`, `UPI_EXISTS`, `INVALID_REFERRAL`, `FIELD_COOLDOWN`, `IN_ACTIVE_MATCH`, `LOW_BALANCE`, `UTR_EXISTS`, `DEPOSIT_LIMIT`, `WITHDRAWAL_PENDING`, `UPI_RECENTLY_CHANGED`, `MATCH_FULL`, `ALREADY_JOINED`, `MATCH_NOT_JOINABLE`, `TEAM_INVALID`, `INVITE_EXPIRED`, `RESULT_INVALID`, `RESULT_LOCKED`, `NOT_FOUND`, `RATE_LIMITED`, `INTERNAL_ERROR`, `INVALID_TRANSITION`, `DATABASE_BUSY`, `MAINTENANCE_MODE`, `REAUTH_REQUIRED`.
+
+---
+
+## 2. Deviations & Clarifications vs `BOOYAH_WIN_SPEC.md`
+1. **Setting Key `payment_qr_key`**: Added to manage the storage key for the payment QR image. `PATCH /admin/settings` rejects modification of `payment_qr_key`; it is updated exclusively through `POST /admin/settings/payment-qr`.
+2. **Error Code `INVALID_TRANSITION`**: Used for invalid state transitions on matches (e.g. cancelling an already live or completed match).
+3. **Error Code `DATABASE_BUSY`**: Used for retryable database locks (PostgreSQL `55P03`) and statement query timeouts (`57014`), returning HTTP 503.
+4. **Position Ordinal Formatting**: Positions beyond 3rd use English ordinals (`4th`, `11th`, `12th`, `13th`, `21st`, `22nd`, etc.) rather than generic numbers.
+5. **Session Pooler Port**: Production strictly requires Supabase session pooler on port 5432 and rejects transaction pooler on port 6543.
+6. **Language Preference**: Users have a `language` column (`'en'` or `'bn'`, defaulting to `'en'`) persisted in `users`, editable via `PATCH /api/v1/me/language` (allowlisted during maintenance mode).
+7. **Profile Avatar Uploads**: Players can upload profile pictures via `POST /api/v1/me/avatar` (`multipart/form-data`, max 2 MB, JPEG/PNG/WebP) and remove them via `DELETE /api/v1/me/avatar`.
+8. **Customer Support Endpoint**: `GET /api/v1/support` provides public contact information (`supportName`, `supportPhone`, `supportEmail`, `supportHours`) configured in platform settings.
+9. **Email Delivery**: Dual-mode email infrastructure supporting Brevo HTTPS REST API (`BREVO_API_KEY`) to bypass cloud hosting outbound SMTP port restrictions, alongside standard Gmail SMTP (`GMAIL_USER`, `GMAIL_APP_PASSWORD`).
+10. **Device Gate Policy & Native Android Enforcement**: To reduce security risks and ensure fair anti-cheat play, Android users must participate via the official native APK (`com.booyahwin.app`). iPhone users may access the website directly. Disallowed web browsers receive HTTP 403 `FORBIDDEN` with `details: { code: 'DEVICE_NOT_ALLOWED' }`. Staff and admin portals are strictly exempt.
+11. **Fullscreen Unclosable System Maintenance**: When maintenance is active, all user-facing routes in the PWA and APK render a fixed fullscreen unclosable modal with IST finish time and brand assets. User APIs are blocked with 503 `MAINTENANCE_MODE`, while `/api/v1/status` and `/health` remain unblocked.
+
+---
+
+## 3. Endpoints Catalog
+
+### Group 1: Public & System Endpoints
+> **Verified against**: `apps/api/tests/deployment_readiness.test.ts`, `apps/api/tests/settings_and_public.test.ts`, `apps/api/tests/security.test.ts`
+> Untested endpoints: **None**
+
+#### `GET /health`
+- **Auth**: None
+- **Rate Limit**: Dedicated health check rate limit (120 req/min)
+- **Description**: Verifies API availability and database connectivity via `SELECT 1`. Returns zero secrets or connection strings.
+- **Success Response (200)**:
+  ```json
+  {
+    "status": "ok",
+    "database": "connected",
+    "timestamp": "2026-10-10T12:00:00.000Z"
+  }
+  ```
+- **Error Responses**:
+  - `503`: `{ "status": "error", "database": "disconnected", "timestamp": "..." }`
+  - `429 RATE_LIMITED`: Exceeded dedicated health rate limit.
+
+#### `GET /api/v1/status`
+- **Auth**: None
+- **Rate Limit**: Dedicated status rate limit (60 req/min)
+- **Description**: Public endpoint returning maintenance mode status and server timestamp. Includes cache prevention headers (`Cache-Control: no-store, no-cache, must-revalidate, proxy-revalidate`, `Pragma: no-cache`, `Expires: 0`). When database is disconnected, safely returns HTTP 200 with `maintenance_enabled: false`, `unknown: true`.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "maintenance_enabled": false,
+      "maintenance_message": "",
+      "maintenance_until": null,
+      "unknown": false,
+      "server_time": "2026-10-13T10:19:39.466Z"
+    }
+  }
+  ```
+- **Error Responses**:
+  - `429 RATE_LIMITED`: Exceeded dedicated status rate limit.
+
+#### `GET /api/v1/support`
+- **Auth**: None
+- **Rate Limit**: Global (100 req/min)
+- **Description**: Retrieves public customer support contact details (configured by admin in platform settings).
+- **Success Response (200)**:
+  - When configured:
+    ```json
+    {
+      "data": {
+        "supportName": "Booyah Win Support",
+        "supportPhone": "+91 9999999999",
+        "supportEmail": "support@booyahwin.com",
+        "supportHours": "10:00 AM - 10:00 PM IST"
+      }
+    }
+    ```
+  - When not configured / fallback:
+    ```json
+    {
+      "data": {
+        "supportName": "Booyah Win Support",
+        "supportPhone": "",
+        "supportEmail": "",
+        "supportHours": "10:00 AM - 10:00 PM IST"
+      }
+    }
+    ```
+
+#### `GET /api/v1/community`
+- **Auth**: None
+- **Rate Limit**: Global (100 req/min)
+- **Description**: Retrieves official social media community links (WhatsApp, Instagram, Telegram) configured by admin in platform settings.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "whatsapp": "https://chat.whatsapp.com/demo",
+      "instagram": "https://instagram.com/demo",
+      "telegram": "https://t.me/demo"
+    }
+  }
+  ```
+
+#### `GET /api/v1/payment-info`
+- **Auth**: None
+- **Rate Limit**: Global (100 req/min)
+- **Description**: Returns UPI ID, payment QR signed URL, and deposit limits for manual deposits.
+- **Success Response (200)**:
+  - When configured:
+    ```json
+    {
+      "data": {
+        "configured": true,
+        "paymentUpiId": "merchant@okhdfcbank",
+        "paymentQrUrl": "https://storage.../payment_qr.png?token=...",
+        "qrUrl": "https://storage.../payment_qr.png?token=...",
+        "minDeposit": "10.00",
+        "maxDeposit": "5000.00"
+      }
+    }
+    ```
+  - When not configured:
+    ```json
+    {
+      "data": {
+        "configured": false,
+        "message": "Payment information not configured yet",
+        "paymentUpiId": null,
+        "paymentQrUrl": null,
+        "qrUrl": null,
+        "minDeposit": "10.00",
+        "maxDeposit": "5000.00"
+      }
+    }
+    ```
+
+#### `GET /api/v1/rules/match-rules`
+- **Auth**: None (Public)
+- **Rate Limit**: Global (100 req/min)
+- **Description**: Returns tournament rules and policies banner image URL and bilingual text instructions (English and Bangla) configured in system settings.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "imageUrl": "https://storage.../banner.png",
+      "rulesEn": "...",
+      "rulesBn": "..."
+    }
+  }
+  ```
+
+#### `GET /api/v1/leaderboard`
+- **Auth**: None (Public)
+- **Rate Limit**: 60 req/min
+- **Description**: Returns top 50 match winners for the current IST week window (Monday 00:00:00 to Sunday 23:59:59 IST). Single-flight 60s server cache invalidated on match result approval, reversal, and user deletion. Only public in-game name (`name`) is exposed; zero private information.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "weekStart": "2026-10-11T18:30:00.000Z",
+      "weekEnd": "2026-10-18T18:29:59.000Z",
+      "generatedAt": "2026-10-13T13:39:20.037Z",
+      "entries": [
+        {
+          "rank": 1,
+          "name": "ProPlayer1",
+          "winnings": "250.00"
+        }
+      ]
+    }
+  }
+  ```
+
+#### `GET /api/v1/rules`
+- **Auth**: None (Public)
+- **Rate Limit**: 60 req/min
+- **Description**: Returns operational game and economy rules (referral bonus amount, cashback entry fee cap percentage, minimum withdrawal amount) read directly from single-source server configuration.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "referralReward": "5.00",
+      "maxCashbackUsagePercent": 5,
+      "minWithdrawal": "50.00"
+    }
+  }
+  ```
+
+#### `GET /api/v1/files/:key`
+- **Auth**: HMAC signed URL (`token` and `expires` query parameters)
+- **Rate Limit**: Global (100 req/min)
+- **Description**: Serves local files in development/test modes.
+- **Query Parameters**:
+  - `token`: Hex-encoded HMAC-SHA256 signature
+  - `expires`: Unix epoch millisecond timestamp
+- **Error Responses**:
+  - `403 FORBIDDEN`: Missing, invalid, or expired signature.
+  - `404 NOT_FOUND`: File key does not exist or invalid format.
+
+#### `GET /api/v1/status`
+- **Auth**: None
+- **Rate Limit**: Dedicated status rate limit (60 req/min per IP)
+- **Headers**:
+  - `Cache-Control`: `no-store`
+- **Description**: Returns current maintenance status. Always responds with 200 even if database connection fails (`unknown: true`). Polling clients should respect `Retry-After` on 429.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "maintenance": {
+        "enabled": false,
+        "message": "Under scheduled maintenance. Please check back shortly.",
+        "until": null
+      }
+    }
+  }
+  ```
+- **Fallback Response when DB unreachable (200)**:
+  ```json
+  {
+    "data": {
+      "maintenance": {
+        "enabled": false,
+        "message": "Status temporarily unavailable",
+        "until": null,
+        "unknown": true
+      }
+    }
+  }
+  ```
+- **Error Responses**:
+  - `429 RATE_LIMITED`: Exceeded 60 req/min status limit. Returns `Retry-After` header.
+
+#### `GET /api/v1/banners`
+- **Auth**: None (Public)
+- **Rate Limit**: 60 req/min
+- **Description**: Returns all currently active promotional banners for the Player PWA home screen carousel, sorted by `sortOrder`.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "banners": [
+        {
+          "id": "1",
+          "imageUrl": "https://storage.example.com/banner1.jpg",
+          "targetUrl": "https://t.me/booyahwin",
+          "title": "Welcome Tournament Banner",
+          "sortOrder": 0,
+          "isActive": true,
+          "createdAt": "2026-10-25T12:00:00.000Z"
+        }
+      ]
+    }
+  }
+  ```
+
+#### `GET /api/v1/updates`
+- **Auth**: None (Public)
+- **Rate Limit**: 60 req/min
+- **Description**: Returns active platform announcements and important rules updates (e.g. sniper bans, tournament rules) for the User PWA.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "updates": [
+        {
+          "id": "1",
+          "title": "Notification About Snipers Ban in Squad & CS",
+          "category": "RULES",
+          "dateDisplay": "25 Oct 2026",
+          "heading": "Official Weapon Restrictions",
+          "summary": "M82B and AWM are strictly banned from all Squad and Clash Squad matches.",
+          "content": "Due to competitive integrity concerns, sniper rifles are prohibited. Read details at https://booyahwin.com/rules",
+          "linkUrl": "https://booyahwin.com/rules",
+          "linkText": "View Full Tournament Rules",
+          "priority": 1,
+          "isActive": true,
+          "createdAt": "2026-10-25T12:00:00.000Z"
+        }
+      ]
+    }
+  }
+  ```
+
+#### `GET /api/v1/me/statistics` (and `GET /api/v1/users/me/statistics`)
+- **Auth**: `requireUser`
+- **Rate Limit**: 60 req/min
+- **Description**: Returns authenticated player statistics aggregated from completed, non-refunded tournament matches: total matches played, total confirmed kills, and total winnings in rupees (converted from paise).
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "played": 6,
+      "kills": 0,
+      "totalWinnings": "0.00"
+    }
+  }
+  ```
+
+#### `GET /api/v1/notifications/push-key`
+- **Auth**: Public / none
+- **Description**: Returns the VAPID public key needed to subscribe the browser via Service Worker pushManager.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "publicKey": "BIbB...xyz"
+    }
+  }
+  ```
+
+#### `POST /api/v1/notifications/push-subscribe`
+- **Auth**: Optional user token (links subscription to player account if authenticated)
+- **Request Body**:
+  ```json
+  {
+    "endpoint": "https://fcm.googleapis.com/fcm/send/...",
+    "keys": {
+      "p256dh": "...",
+      "auth": "..."
+    }
+  }
+  ```
+- **Success Response (201)**:
+  ```json
+  {
+    "message": "Push subscription registered successfully"
+  }
+  ```
+
+#### `POST /api/v1/notifications/push-unsubscribe`
+- **Auth**: Public / none
+- **Request Body**:
+  ```json
+  {
+    "endpoint": "https://fcm.googleapis.com/fcm/send/..."
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "message": "Push subscription removed successfully"
+  }
+  ```
+
+#### `POST /api/v1/notifications/push-debug`
+- **Auth**: Public / none
+- **Description**: Diagnostic telemetry endpoint to record push capability and permission status.
+- **Success Response (200)**:
+  ```json
+  {
+    "ok": true
+  }
+  ```
+
+#### `POST /api/v1/notifications/push-test`
+- **Auth**: `requireUser`
+- **Description**: Triggers an immediate test push notification to the authenticated user's registered device.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "sentCount": 1
+    },
+    "message": "Test push notification dispatched"
+  }
+  ```
+
+#### `POST /api/v1/notifications/device-token`
+- **Auth**: `requireUser`
+- **Description**: Registers or updates an Android Firebase Cloud Messaging (FCM) device token for native push notifications.
+- **Request Body**:
+  ```json
+  {
+    "fcmToken": "c_dTokenSample...",
+    "platform": "android"
+  }
+  ```
+- **Success Response (201)**:
+  ```json
+  {
+    "message": "Device token registered successfully"
+  }
+  ```
+- **Error Responses**:
+  - `400 VALIDATION_ERROR`: `fcmToken` is missing or invalid.
+  - `401 UNAUTHENTICATED`: Not authenticated.
+
+#### `DELETE /api/v1/notifications/device-token`
+- **Auth**: Public / none
+- **Description**: Removes an Android FCM device token upon app uninstallation or logout.
+- **Request Body**:
+  ```json
+  {
+    "fcmToken": "c_dTokenSample..."
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "message": "Device token removed successfully"
+  }
+  ```
+
+
+---
+
+### Group 2: User Authentication
+> **Verified against**: `apps/api/tests/auth.test.ts`
+> Untested endpoints: **None**
+
+#### `POST /api/v1/auth/register/request-otp`
+- **Auth**: None
+- **Rate Limit**: 20 req/hour per IP (Section 5.1)
+- **Request Body**:
+  ```json
+  {
+    "email": "player@example.com"
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "OTP sent successfully"
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `OTP_RATE_LIMITED`
+
+#### `POST /api/v1/auth/register/verify-otp`
+- **Auth**: None
+- **Rate Limit**: Maximum 5 attempts per OTP code
+- **Request Body**:
+  ```json
+  {
+    "email": "player@example.com",
+    "otp": "123456"
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "registrationToken": "eyJhbGciOi..."
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `INVALID_OTP`
+
+#### `POST /api/v1/auth/register/complete`
+- **Auth**: None (Requires `registrationToken` in body)
+- **Rate Limit**: 10 req/min per IP (SEC-02)
+- **Request Body**:
+  ```json
+  {
+    "registrationToken": "eyJhbGciOi...",
+    "name": "Player One",
+    "mobile": "9876543210",
+    "ffId": "11223344",
+    "ffName": "ProKiller",
+    "upiId": "player@upi",
+    "dateOfBirth": "2000-01-01",
+    "referralCode": "REF456",
+    "confirm18Plus": true
+  }
+  ```
+- **Validation**: Age must be 18+; mobile 10 digits; valid UPI ID format; valid Free Fire ID.
+- **Success Response (201)**:
+  ```json
+  {
+    "data": {
+      "token": "eyJhbGciOi...",
+      "user": {
+        "id": "1",
+        "email": "player@example.com",
+        "name": "Player One",
+        "mobile": "9876543210",
+        "ffId": "11223344",
+        "ffName": "ProKiller",
+        "upiId": "player@upi",
+        "dateOfBirth": "2000-01-01",
+        "referralCode": "BOOYAH123",
+        "referredBy": "REF456",
+        "language": "en",
+        "createdAt": "2026-10-01T00:00:00.000Z"
+      }
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `MOBILE_EXISTS`, `FF_ID_EXISTS`, `UPI_EXISTS`, `INVALID_REFERRAL`, `RATE_LIMITED`
+
+#### `POST /api/v1/auth/login/request-otp`
+- **Auth**: None
+- **Rate Limit**: 20 req/hour per IP (Section 5.1)
+- **Request Body**:
+  ```json
+  {
+    "email": "player@example.com"
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "OTP sent successfully"
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `OTP_RATE_LIMITED`
+
+#### `POST /api/v1/auth/login/verify-otp`
+- **Auth**: None
+- **Rate Limit**: Maximum 5 attempts per OTP code
+- **Request Body**:
+  ```json
+  {
+    "email": "player@example.com",
+    "otp": "123456"
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "token": "eyJhbGciOi...",
+      "user": {
+        "id": "1",
+        "email": "player@example.com",
+        "name": "Player One",
+        "mobile": "9876543210",
+        "ffId": "11223344",
+        "ffName": "ProKiller",
+        "upiId": "player@upi",
+        "referralCode": "BOOYAH123",
+        "referredBy": null,
+        "language": "en",
+        "createdAt": "2026-10-01T00:00:00.000Z"
+      }
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `INVALID_OTP`
+
+#### `POST /api/v1/auth/logout`
+- **Auth**: `requireUser`
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Logged out successfully"
+    }
+  }
+  ```
+- **Error Codes**: `UNAUTHENTICATED`, `SESSION_REPLACED`
+
+---
+
+### Group 3: Staff Authentication
+> **Verified against**: `apps/api/tests/auth.test.ts`
+> Untested endpoints: **None**
+
+#### `POST /api/v1/staff/auth/login/request-otp`
+- **Auth**: None
+- **Rate Limit**: 20 req/hour per IP (Section 5.1)
+- **Request Body**:
+  ```json
+  {
+    "email": "employee@booyahwin.com"
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "If this email is registered, an OTP has been sent"
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `OTP_RATE_LIMITED`
+
+#### `POST /api/v1/staff/auth/login/verify-otp`
+- **Auth**: None
+- **Request Body**:
+  ```json
+  {
+    "email": "employee@booyahwin.com",
+    "otp": "654321"
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "token": "eyJhbGciOi...",
+      "staff": {
+        "id": "1",
+        "role": "employee",
+        "name": "Jane Employee",
+        "email": "employee@booyahwin.com",
+        "mobile": "9998887776"
+      }
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `INVALID_OTP`
+
+#### `POST /api/v1/staff/auth/logout`
+- **Auth**: `requireStaff`
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Logged out successfully"
+    }
+  }
+  ```
+- **Error Codes**: `UNAUTHENTICATED`, `SESSION_REPLACED`
+
+#### `POST /api/v1/staff/auth/step-up/request-otp`
+- **Auth**: `requireStaff`
+- **Rate Limit**: 20 req/hour per IP
+- **Description**: Requests a step-up OTP for sensitive staff/admin actions.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Step-up OTP has been sent to your email address"
+    }
+  }
+  ```
+- **Error Codes**: `UNAUTHENTICATED`, `SESSION_REPLACED`, `OTP_RATE_LIMITED`
+
+#### `POST /api/v1/staff/auth/step-up/verify-otp`
+- **Auth**: `requireStaff`
+- **Rate Limit**: Maximum 5 attempts per OTP code
+- **Request Body**:
+  ```json
+  {
+    "otp": "123456"
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Session elevated successfully",
+      "elevatedUntil": "2026-10-16T21:00:00.000Z"
+    }
+  }
+  ```
+- **Error Codes**: `UNAUTHENTICATED`, `SESSION_REPLACED`, `INVALID_OTP`
+
+---
+
+### Group 4: Player Profile & Match History
+> **Verified against**: `apps/api/tests/profile_and_admin_management.test.ts`, `apps/api/tests/teams_and_scheduler.test.ts`
+> Untested endpoints: **None**
+
+#### `GET /api/v1/me` (and `GET /api/v1/users/me`)
+- **Auth**: `requireUser`
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "profile": {
+        "id": "1",
+        "email": "player@example.com",
+        "name": "Player One",
+        "mobile": "9876543210",
+        "ffId": "11223344",
+        "ffName": "ProKiller",
+        "upiId": "player@upi",
+        "dateOfBirth": "2000-01-01",
+        "referralCode": "BOOYAH123",
+        "referredBy": null,
+        "avatarUrl": null,
+        "language": "en",
+        "createdAt": "2026-10-01T00:00:00.000Z"
+      },
+      "wallets": {
+        "addMoney": "150.00",
+        "cashback": "20.00",
+        "winning": "300.00",
+        "total": "470.00"
+      },
+      "cooldowns": {
+        "nameAvailableAt": null,
+        "mobileAvailableAt": null,
+        "ffIdAvailableAt": null,
+        "ffNameAvailableAt": null,
+        "upiIdAvailableAt": null
+      }
+    }
+  }
+  ```
+- **Error Codes**: `UNAUTHENTICATED`, `SESSION_REPLACED`
+
+#### `PATCH /api/v1/me/profile` (and `PATCH /api/v1/users/me/profile`, `PATCH /api/v1/profile`, `PATCH /api/v1/users/profile`)
+- **Auth**: `requireUser`
+- **Rate Limit**: 10 req/min per user
+- **Request Body** (at least one field required):
+  ```json
+  {
+    "name": "New Name",
+    "mobile": "9876543211",
+    "ffId": "99887766",
+    "ffName": "NewFFName",
+    "upiId": "newupi@upi"
+  }
+  ```
+- **Validation**: 30-day cooldown enforced per field (name, mobile, ffId, ffName, upiId). UPI change blocks withdrawals for 48 hours. `email` and `dateOfBirth` are non-editable.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "profile": { ... },
+      "wallets": { ... },
+      "cooldowns": { ... }
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `FIELD_COOLDOWN`, `MOBILE_EXISTS`, `FF_ID_EXISTS`, `UPI_EXISTS`
+
+#### `PATCH /api/v1/me/language` (and `PATCH /api/v1/users/me/language`, `PATCH /api/v1/language`, `PATCH /api/v1/users/language`)
+- **Auth**: `requireUser`
+- **Maintenance Allowlisted**: Yes (accessible during active maintenance mode)
+- **Rate Limit**: Global (100 req/min)
+- **Request Body**:
+  ```json
+  {
+    "language": "bn"
+  }
+  ```
+- **Validation**: `language` must be `'en'` or `'bn'`.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "success": true,
+      "language": "bn"
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `UNAUTHENTICATED`
+
+#### `POST /api/v1/me/avatar` (and `POST /api/v1/users/me/avatar`)
+- **Auth**: `requireUser`
+- **Rate Limit**: 10 req/min per user
+- **Request Format**: `multipart/form-data` with field `avatar` (JPEG, PNG, WebP; max 2 MB)
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "avatarUrl": "https://storage.example.com/placeholder.jpg"
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `UNAUTHENTICATED`
+
+#### `DELETE /api/v1/me/avatar` (and `DELETE /api/v1/users/me/avatar`)
+- **Auth**: `requireUser`
+- **Rate Limit**: 10 req/min per user
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "success": true
+    }
+  }
+  ```
+- **Error Codes**: `UNAUTHENTICATED`
+
+#### `GET /api/v1/me/match-history` (and `GET /api/v1/users/me/match-history`, `GET /api/v1/match-history`, `GET /api/v1/users/match-history`)
+- **Auth**: `requireUser`
+- **Query Parameters**:
+  - `cursor`: string (optional)
+  - `limit`: number between 1 and 50 (default: 20)
+  - `gameMode`: `'battle_royale' | 'clash_squad'` (optional)
+  - `teamMode`: `'solo' | 'duo' | 'squad'` (optional)
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "items": [
+        {
+          "matchId": "20",
+          "gameMode": "battle_royale",
+          "teamMode": "solo",
+          "entryFee": "20.00",
+          "startTime": "2026-11-05T12:00:00.000Z",
+          "matchStatus": "completed",
+          "joinedAt": "2026-10-11T17:12:34.863Z",
+          "refundedAt": null,
+          "kills": 0,
+          "position": null,
+          "payout": "0.00",
+          "displayStatus": "Lost",
+          "positionLabel": "Lost"
+        }
+      ],
+      "nextCursor": null,
+      "hasMore": false
+    }
+  }
+  ```
+
+#### `GET /api/v1/me/team-invites` (and `GET /api/v1/users/me/team-invites`)
+- **Auth**: `requireUser`
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "invites": [
+        {
+          "id": "1",
+          "teamId": "3",
+          "teamName": "Bravo Team",
+          "teamSize": 2,
+          "leaderId": "1",
+          "leaderName": "Player One",
+          "leaderFfId": "12345678",
+          "matchId": "13",
+          "gameMode": "battle_royale",
+          "teamMode": "duo",
+          "entryFee": "20.00",
+          "startTime": "2026-12-11T12:00:00.000Z",
+          "matchStatus": "upcoming",
+          "invitedUserId": "2",
+          "status": "pending",
+          "createdAt": "2026-10-11T17:12:34.779Z",
+          "respondedAt": null
+        }
+      ]
+    }
+  }
+  ```
+
+#### `GET /api/v1/me/leaderboard-rank` (and `GET /api/v1/users/me/leaderboard-rank`)
+- **Auth**: `requireUser`
+- **Rate Limit**: 60 req/min
+- **Description**: Returns the authenticated user's own rank and match winnings for the current IST week window (also when outside top 50), or `null` if the user has no match winnings in the current week window.
+- **Success Response (200)**:
+  - When user has winnings:
+    ```json
+    {
+      "data": {
+        "rank": 1,
+        "winnings": "250.00"
+      }
+    }
+    ```
+  - When user has no winnings:
+    ```json
+    {
+      "data": null
+    }
+    ```
+
+#### `GET /api/v1/me/referral-summary` (and `GET /api/v1/users/me/referral-summary`)
+- **Auth**: `requireUser`
+- **Rate Limit**: 60 req/min
+- **Description**: Returns summary counts of the authenticated user's referral performance: `referredCount` (number of registered referrals), `bonusEarnedCount` (number of referrals credited), and `totalBonusEarned` (sum from wallet ledger). Strictly preserves privacy: zero personal details (names, emails, mobiles) of referred users are exposed.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "referralCode": "BOOYAH123",
+      "referredCount": 5,
+      "bonusEarnedCount": 2,
+      "totalBonusEarned": "10.00"
+#### `GET /api/v1/me/notifications` (and `GET /api/v1/users/me/notifications`)
+- **Auth**: `requireUser`
+- **Rate Limit**: 60 req/min
+- **Description**: Synthesizes and returns real-time player notifications aggregated from match registrations, room credentials disclosure, live match events, deposit status updates, withdrawal status updates, and active system announcements.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "notifications": [
+        {
+          "id": "match-joined-1",
+          "type": "match_joined",
+          "title": "Match Joined",
+          "message": "You joined Battle Royale [DUO]. Starts at 04:30 PM.",
+          "timeAgo": "just now",
+          "timestamp": 1730000000000,
+          "matchId": "1",
+          "actionUrl": "/matches"
+        },
+        {
+          "id": "room-open-1",
+          "type": "room_open",
+          "title": "Room ID & Password Open",
+          "message": "Room details are ready for Battle Royale [DUO]! ID: 887766, Pass: 1234",
+          "timeAgo": "15m",
+          "timestamp": 1730000900000,
+          "matchId": "1",
+          "roomId": "887766",
+          "roomPassword": "1234",
+          "actionUrl": "/matches"
+        },
+        {
+          "id": "update-1",
+          "type": "update",
+          "title": "Notification About Snipers Ban in Squad & CS...",
+          "message": "Official Weapon Restrictions: M82B and AWM are strictly banned.",
+          "timeAgo": "1h",
+          "timestamp": 1730003600000,
+          "actionUrl": "/important-updates"
+        }
+      ]
+    }
+  }
+  ```
+
+#### `GET /api/v1/me/statistics` (and `GET /api/v1/users/me/statistics`)
+- **Auth**: `requireUser`
+- **Rate Limit**: 60 req/min
+- **Description**: Returns authenticated player statistics aggregated from completed, non-refunded tournament matches: total matches played, total confirmed kills, and total winnings in rupees (converted from paise).
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "played": 6,
+      "kills": 0,
+      "totalWinnings": "0.00"
+    }
+  }
+  ```
+
+#### `GET /api/v1/notifications/push-key`
+- **Auth**: Public / none
+- **Description**: Returns the VAPID public key needed to subscribe the browser via Service Worker pushManager.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "publicKey": "BIbB...xyz"
+    }
+  }
+  ```
+
+#### `POST /api/v1/notifications/push-subscribe`
+- **Auth**: Optional user token (links subscription to player account if authenticated)
+- **Request Body**:
+  ```json
+  {
+    "endpoint": "https://fcm.googleapis.com/fcm/send/...",
+    "keys": {
+      "p256dh": "...",
+      "auth": "..."
+    }
+  }
+  ```
+- **Success Response (201)**:
+  ```json
+  {
+    "message": "Push subscription registered successfully"
+  }
+  ```
+
+#### `POST /api/v1/notifications/push-unsubscribe`
+- **Auth**: Public / none
+- **Request Body**:
+  ```json
+  {
+    "endpoint": "https://fcm.googleapis.com/fcm/send/..."
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "message": "Push subscription removed successfully"
+  }
+  ```
+
+#### `POST /api/v1/notifications/push-debug`
+- **Auth**: Public / none
+- **Description**: Diagnostic telemetry endpoint to record push capability and permission status.
+- **Success Response (200)**:
+  ```json
+  {
+    "ok": true
+  }
+  ```
+
+#### `POST /api/v1/notifications/push-test`
+- **Auth**: `requireUser`
+- **Description**: Triggers an immediate test push notification to the authenticated user's registered device.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "sentCount": 1
+    },
+    "message": "Test push notification dispatched"
+  }
+  ```
+
+#### `POST /api/v1/notifications/device-token`
+- **Auth**: `requireUser`
+- **Description**: Registers or updates an Android Firebase Cloud Messaging (FCM) device token for native push notifications.
+- **Request Body**:
+  ```json
+  {
+    "fcmToken": "c_dTokenSample...",
+    "platform": "android"
+  }
+  ```
+- **Success Response (201)**:
+  ```json
+  {
+    "message": "Device token registered successfully"
+  }
+  ```
+- **Error Responses**:
+  - `400 VALIDATION_ERROR`: `fcmToken` is missing or invalid.
+  - `401 UNAUTHENTICATED`: Not authenticated.
+
+#### `DELETE /api/v1/notifications/device-token`
+- **Auth**: Public / none
+- **Description**: Removes an Android FCM device token upon app uninstallation or logout.
+- **Request Body**:
+  ```json
+  {
+    "fcmToken": "c_dTokenSample..."
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "message": "Device token removed successfully"
+  }
+  ```
+
+
+---
+
+### Group 5: Wallet & Transactions
+> **Verified against**: `apps/api/tests/wallet.test.ts`
+> Untested endpoints: **None**
+
+#### `POST /api/v1/wallet/deposits`
+- **Auth**: `requireUser`
+- **Content-Type**: `multipart/form-data`
+- **Rate Limit**: 10 req/min per user
+- **Form Fields**:
+  - `amount`: string (e.g. `"100.00"`)
+  - `utr`: string (10-25 alphanumeric characters, Section 4.5)
+  - `screenshot`: file (image/jpeg, image/png, image/webp; max 2 MB)
+- **Success Response (201)**:
+  ```json
+  {
+    "data": {
+      "id": "1",
+      "amount": "100.00",
+      "utr": "123456789012",
+      "screenshotUrl": "/api/v1/files/...",
+      "status": "pending",
+      "rejectReason": null,
+      "needsAdmin": false,
+      "createdAt": "2026-10-10T12:00:00.000Z",
+      "reviewedAt": null
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `UTR_EXISTS`, `DEPOSIT_LIMIT`, `RATE_LIMITED`
+
+#### `POST /api/v1/wallet/withdrawals`
+- **Auth**: `requireUser`
+- **Rate Limit**: 10 req/min per user
+- **Request Body**:
+  ```json
+  {
+    "amount": "150.00",
+    "upiId": "player@upi",
+    "confirm": true
+  }
+  ```
+- **Validation**: Minimum ₹50.00; must not exceed `winning` balance; user cannot have another pending withdrawal; blocked for 48 hours after UPI change.
+- **Success Response (201)**:
+  ```json
+  {
+    "data": {
+      "id": "1",
+      "amount": "150.00",
+      "upiId": "player@upi",
+      "status": "pending",
+      "rejectReason": null,
+      "payoutRef": null,
+      "createdAt": "2026-10-10T12:00:00.000Z",
+      "processedAt": null
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `LOW_BALANCE`, `WITHDRAWAL_PENDING`, `UPI_RECENTLY_CHANGED`, `RATE_LIMITED`
+
+#### `GET /api/v1/wallet/transactions`
+- **Auth**: `requireUser`
+- **Query Parameters**:
+  - `cursor`: string (optional, ledger ID)
+  - `limit`: number between 1 and 100 (default: 20)
+  - `type`: filter key (`add_money`, `referral`, `withdrawal`, `join_fee`, `winning`, `refund`)
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "items": [
+        {
+          "transactionId": "BW-0000010",
+          "type": "winning",
+          "createdAt": "2026-10-10T15:30:00.000Z",
+          "amount": "150.00",
+          "remainingAmount": "450.00",
+          "wallet": "winning",
+          "refType": "match",
+          "refId": "1"
+        }
+      ],
+      "nextCursor": null
+    }
+  }
+  ```
+
+#### `GET /api/v1/wallet/transactions/:id`
+- **Auth**: `requireUser`
+- **Description**: Returns detailed breakdown and metadata for a specific wallet transaction by display ID (e.g. `BW-0000154`) or numeric ID.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "transactionId": "BW-0000154",
+      "type": "join_fee",
+      "title": "Match Entry Fee",
+      "status": "success",
+      "amount": "10.00",
+      "balanceAfter": "0.00",
+      "timestamp": "2026-10-30T14:01:00.000Z",
+      "targetWallet": "Deposited, Cashback & Winning",
+      "moneySplit": {
+        "deposited": "5.00",
+        "cashback": "0.00",
+        "winning": "5.00"
+      },
+      "refType": "Match",
+      "refId": "1"
+    }
+  }
+  ```
+
+---
+
+### Group 6: Matches & Teams
+> **Verified against**: `apps/api/tests/matches.test.ts`, `apps/api/tests/teams_and_scheduler.test.ts`
+> Untested endpoints: **None**
+
+#### `GET /api/v1/matches/lookup-teammate`
+- **Auth**: `requireUser`
+- **Query Params**:
+  - `ffId`: string (Free Fire UID to validate)
+  - `matchId`: string (optional, check if user is already joined)
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "exists": true,
+      "ffId": "1457625118",
+      "ffName": "kingrohitt",
+      "name": "Sujoy Kumar Mondal"
+    }
+  }
+  ```
+
+#### `GET /api/v1/matches`
+- **Auth**: `requireUser`
+- **Query Params**:
+  - `status`: string (optional: `"upcoming"`, `"live"`, `"completed"`). When omitted, returns all non-completed matches (`upcoming`, `room_open`, `live`).
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "matches": [
+        {
+          "id": "2",
+          "gameMode": "battle_royale",
+          "teamMode": "duo",
+          "entryFee": "20.00",
+          "prizes": {
+            "positions": {
+              "1": "300.00"
+            },
+            "killPrice": "10.00",
+            "minKillsForReward": 1
+          },
+          "joinedPlayers": 1,
+          "seatsTaken": 2,
+          "maxPlayers": 48,
+          "minPlayers": 2,
+          "startTime": "2026-12-01T16:00:00.000Z",
+          "status": "live",
+          "hasJoined": true,
+          "isInTeam": true,
+          "roomId": "887766",
+          "roomPassword": "test-room-password"
+        }
+      ]
+    }
+  }
+  ```
+
+#### `GET /api/v1/matches/:id`
+- **Auth**: `requireUser`
+- **Description**: Returns match details. If joined and status is `room_open` or `live`, reveals `roomId` and `roomPassword`.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "match": {
+        "id": "2",
+        "gameMode": "battle_royale",
+        "teamMode": "duo",
+        "entryFee": "20.00",
+        "prizes": {
+          "positions": {
+            "1": "300.00"
+          },
+          "killPrice": "10.00",
+          "minKillsForReward": 1
+        },
+        "joinedPlayers": 1,
+        "seatsTaken": 2,
+        "maxPlayers": 48,
+        "minPlayers": 2,
+        "startTime": "2026-12-01T16:00:00.000Z",
+        "status": "live",
+        "hasJoined": true,
+        "isInTeam": true,
+        "roomId": "887766",
+        "roomPassword": "test-room-password"
+      }
+    }
+  }
+  ```
+- **Error Codes**: `NOT_FOUND`
+
+#### `GET /api/v1/matches/:id/players` (Match Roster)
+- **Auth**: None (Optional User)
+- **Rate Limit**: Global (100 req/min)
+- **Description**: Returns the list of joined players for a match (for tournament room slotting and player roster view). Opponent private user IDs, emails, and phone numbers are strictly omitted; only public Free Fire gaming names with slot assignments are returned.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "count": 6,
+      "players": [
+        { "team": 1, "position": "A", "name": "ImHeARTLESS" },
+        { "team": 30, "position": "A", "name": "SIGN STAR" }
+      ]
+    }
+  }
+  ```
+- **Error Codes**: `NOT_FOUND`
+
+#### `POST /api/v1/matches/:id/join` (Solo join)
+- **Auth**: `requireUser`
+- **Rate Limit**: 10 req/min per user
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Successfully joined match",
+      "matchId": "8",
+      "joinedAt": "2026-10-11T16:26:06.254Z"
+    }
+  }
+  ```
+- **Error Codes**: `MATCH_NOT_JOINABLE`, `MATCH_FULL`, `ALREADY_JOINED`, `LOW_BALANCE`, `IN_ACTIVE_MATCH`
+
+#### `POST /api/v1/matches/:id/teams` (Create team)
+- **Auth**: `requireUser`
+- **Rate Limit**: 10 req/min per user
+- **Request Body**:
+  ```json
+  {
+    "teamName": "Bravo Team",
+    "memberFfIds": ["87654321"]
+  }
+  ```
+- **Success Response (201)**:
+  ```json
+  {
+    "data": {
+      "team": {
+        "id": "3",
+        "matchId": "9",
+        "leaderId": "1",
+        "name": "Bravo Team",
+        "size": 2,
+        "status": "forming",
+        "createdAt": "2026-10-11T16:26:06.275Z",
+        "members": [
+          {
+            "userId": "1",
+            "freeFireId": "12345678",
+            "name": "",
+            "role": "leader",
+            "status": "confirmed"
+          },
+          {
+            "userId": "2",
+            "freeFireId": "87654321",
+            "name": "Player Two",
+            "role": "member",
+            "status": "pending"
+          }
+        ]
+      }
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `MATCH_NOT_JOINABLE`, `MATCH_FULL`, `TEAM_INVALID`, `LOW_BALANCE`, `ALREADY_JOINED`
+
+#### `GET /api/v1/matches/:id/teams/mine`
+- **Auth**: `requireUser`
+- **Description**: Returns the authenticated user's team and teammate members for the specified match.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "team": {
+        "id": "3",
+        "name": "Bravo Team",
+        "size": 2,
+        "status": "confirmed",
+        "isLeader": true,
+        "replaceCount": 0,
+        "members": [
+          {
+            "userId": "1",
+            "name": "Player One",
+            "ffName": "ProPlayer1",
+            "ffId": "12345678",
+            "isLeader": true,
+            "status": "confirmed"
+          },
+          {
+            "userId": "2",
+            "name": "Player Two",
+            "ffName": "ProPlayer2",
+            "ffId": "87654321",
+            "isLeader": false,
+            "status": "confirmed"
+          }
+        ]
+      }
+    }
+  }
+  ```
+- **Error Codes**: `NOT_FOUND`, `UNAUTHENTICATED`
+
+#### `POST /api/v1/matches/:id/teams/mine/replace`
+- **Auth**: `requireUser` (Team Leader)
+- **Rate Limit**: 10 req/min per user (SEC-04)
+- **Request Body**:
+  Supports either a single replacement:
+  ```json
+  {
+    "oldFfId": "87654321",
+    "newFfId": "55667788"
+  }
+  ```
+  or multiple simultaneous replacements:
+  ```json
+  {
+    "replacements": [
+      { "oldFfId": "87654321", "newFfId": "55667788" },
+      { "oldFfId": "12345678", "newFfId": "99887766" }
+    ]
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Invite replaced successfully"
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `MATCH_NOT_JOINABLE`, `TEAM_INVALID`, `NOT_FOUND`
+
+#### `DELETE /api/v1/matches/:id/teams/mine`
+- **Auth**: `requireUser` (Team Leader)
+- **Rate Limit**: 10 req/min per user (SEC-04)
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Team disbanded and members refunded"
+    }
+  }
+  ```
+- **Error Codes**: `MATCH_NOT_JOINABLE`, `NOT_FOUND`
+
+#### `POST /api/v1/team-invites/:id/accept`
+- **Auth**: `requireUser`
+- **Rate Limit**: 10 req/min per user (SEC-04)
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Team invite accepted successfully"
+    }
+  }
+  ```
+- **Error Codes**: `NOT_FOUND` (identical 404 for non-existent invite or another user's invite), `INVITE_EXPIRED`, `MATCH_NOT_JOINABLE`, `LOW_BALANCE`, `ALREADY_JOINED`
+
+#### `POST /api/v1/team-invites/:id/decline`
+- **Auth**: `requireUser`
+- **Rate Limit**: 10 req/min per user (SEC-04)
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Team invite declined"
+    }
+  }
+#### `GET /api/v1/support`
+- **Auth**: None (Public)
+- **Description**: Returns shared support contact details from system settings.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "supportName": "Booyah Win Support",
+      "supportPhone": "+91 9999999999",
+      "supportEmail": "support@booyahwin.com",
+      "supportHours": "10:00 AM - 10:00 PM IST"
+    }
+  }
+  ```
+
+---
+
+### Group 7: Internal Jobs (Cron)
+> **Verified against**: `apps/api/tests/teams_and_scheduler.test.ts`
+> Untested endpoints: **None**
+
+#### `POST /internal/jobs/tick` (and `POST /api/v1/internal/jobs/tick`)
+- **Auth**: Header `x-cron-secret` matching `CRON_SECRET` (timing-safe)
+- **Description**: Idempotent background scheduler executed every 5 minutes.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "deletedOtpsCount": 5,
+      "disbandedTeamsCount": 1,
+      "cancelledMatchesCount": 0,
+      "expiredInvitesCount": 3,
+      "timestamp": "2026-10-10T12:05:00.000Z"
+    }
+  }
+  ```
+- **Error Codes**: `UNAUTHENTICATED` (401)
+
+#### `POST /internal/leaderboard/refresh` (and `POST /api/v1/internal/leaderboard/refresh`)
+- **Auth**: Header `x-cron-secret` matching `CRON_SECRET` (timing-safe)
+- **Description**: Refreshes leaderboard rankings on scheduled intervals (weekly, monthly, overall).
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "refreshed": true,
+      "windows": ["weekly", "monthly", "overall"]
+    }
+  }
+  ```
+- **Error Codes**: `UNAUTHENTICATED` (401)
+
+---
+
+### Group 8: Staff Management
+> **Verified against**: `apps/api/tests/auth.test.ts`, `apps/api/tests/matches.test.ts`, `apps/api/tests/results_and_payouts.test.ts`, `apps/api/tests/wallet.test.ts`, `apps/api/tests/profile_and_admin_management.test.ts`
+> Untested endpoints: **None**
+
+#### `GET /api/v1/staff/me`
+- **Auth**: `requireStaff`
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "profile": {
+        "id": "1",
+        "role": "employee",
+        "name": "Jane Employee",
+        "email": "employee@booyahwin.com",
+        "mobile": "9998887776"
+      }
+    }
+  }
+  ```
+
+#### `GET /api/v1/staff/dashboard`
+- **Auth**: `requireStaff`
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "pendingDepositsCount": 3,
+      "oldestPendingDepositAgeMinutes": 35.5,
+      "isOldestDepositOver30Min": true,
+      "employeeApprovedDepositsCount": 1,
+      "oldestEmployeeApprovedDepositAgeMinutes": 10.0,
+      "isOldestEmployeeApprovedDepositOver30Min": false,
+      "pendingWithdrawalsCount": 1,
+      "oldestPendingWithdrawalAgeMinutes": 1500.0,
+      "employeeApprovedWithdrawalsCount": 0,
+      "oldestEmployeeApprovedWithdrawalAgeMinutes": null,
+      "liveMatchesCount": 1,
+      "upcomingMatchesCount": 5,
+      "roomOpenMatchesCount": 0,
+      "completedMatchesCount": 12,
+      "resultsWaitingApprovalCount": 2
+    }
+  }
+  ```
+
+#### `GET /api/v1/staff/entry-tiers`
+- **Auth**: `requireStaff`
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "tiers": [
+        {
+          "id": "1",
+          "gameMode": "battle_royale",
+          "teamMode": "solo",
+          "entryFee": "10.00",
+          "killPrice": "5.00",
+          "minKillsForReward": 2,
+          "maxPlayers": 48,
+          "minPlayers": 24,
+          "positions": [
+            { "position": 1, "prize": "100.00" },
+            { "position": 2, "prize": "60.00" },
+            { "position": 3, "prize": "40.00" }
+          ],
+          "createdAt": "2026-10-10T12:00:00.000Z"
+        }
+      ]
+    }
+  }
+  ```
+
+#### `POST /api/v1/staff/matches`
+- **Auth**: `requireStaff`
+- **Rate Limit**: 30 req/min per staff user (Requirement 4)
+- **Request Body**:
+  ```json
+  {
+    "tierId": "1",
+    "gameMode": "battle_royale",
+    "teamMode": "solo",
+    "startTime": "2026-10-11T18:00:00.000Z"
+  }
+  ```
+- **Success Response (201)**:
+  ```json
+  {
+    "data": {
+      "id": "2",
+      "displayId": "BW-MAT-2",
+      "status": "upcoming"
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `NOT_FOUND`
+
+#### `GET /api/v1/staff/matches`
+- **Auth**: `requireStaff`
+- **Query Parameters**:
+  - `status`: string (optional - `'not_completed'` / `'not-completed'` (excludes both completed and cancelled matches), `'upcoming'`, `'room_open'`, `'live'`, `'completed'`, `'cancelled'`, or `'all'`)
+  - `gameMode`: string (optional - `'battle_royale'`, `'clash_squad'`)
+  - `teamMode`: string (optional - `'solo'`, `'duo'`, `'squad'`)
+  - `cursor`: string
+  - `limit`: number
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "items": [ ... ],
+      "nextCursor": null,
+      "hasMore": false
+    }
+  }
+  ```
+
+#### `GET /api/v1/staff/matches/:id`
+- **Auth**: `requireStaff`
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "match": {
+        "id": "2",
+        "tierId": "1",
+        "gameMode": "battle_royale",
+        "teamMode": "duo",
+        "entryFee": "10.00",
+        "killPrice": "5.00",
+        "minKillsForReward": 2,
+        "positionPrizes": {
+          "1": "50.00",
+          "2": "40.00"
+        },
+        "maxPlayers": 48,
+        "minPlayers": 24,
+        "startTime": "2026-10-15T16:00:00.000Z",
+        "roomId": "ROOM-12345",
+        "roomPassword": "secretpassword",
+        "status": "upcoming",
+        "cancelReason": null,
+        "createdBy": "1",
+        "createdAt": "2026-10-10T12:00:00.000Z",
+        "joinedCount": 2,
+        "players": [
+          {
+            "userId": "10",
+            "name": "Player One",
+            "username": "playerone",
+            "ffId": "111222333",
+            "ffName": "BooyahKing",
+            "teamId": "5",
+            "paidAddMoney": "10.00",
+            "paidCashback": "0.00",
+            "paidWinning": "0.00",
+            "refundedAt": null,
+            "joinedAt": "2026-10-10T12:30:00.000Z",
+            "kills": 2,
+            "reward": null
+          },
+          {
+            "userId": "11",
+            "name": "Player Two",
+            "username": "playertwo",
+            "ffId": "444555666",
+            "ffName": "ProShooter",
+            "teamId": "5",
+            "paidAddMoney": "10.00",
+            "paidCashback": "0.00",
+            "paidWinning": "0.00",
+            "refundedAt": null,
+            "joinedAt": "2026-10-10T12:35:00.000Z",
+            "kills": 0,
+            "reward": null
+          }
+        ],
+        "teams": [
+          {
+            "id": "5",
+            "name": "Alpha Squad",
+            "size": 2,
+            "status": "confirmed",
+            "leaderId": "10",
+            "memberUserIds": ["10", "11"]
+          }
+        ]
+      }
+    }
+  }
+  ```
+- **Notes**:
+  - For solo matches (`teamMode: "solo"`), `teams` is an empty array (`[]`) and each player has `teamId: null`.
+  - For team modes (`duo`, `squad`, `clash_squad`), `teams` contains all teams for the match (including disbanded teams).
+  - `memberUserIds` contains only active (non-refunded) players in that team in joined order.
+  - Clients must compare `memberUserIds.length` to `size` to check the current active seat occupancy of the team (e.g. if a member was refunded or left, `memberUserIds.length` will be shorter than `size`).
+- **Error Codes**: `NOT_FOUND`, `VALIDATION_ERROR`
+
+#### `POST /api/v1/staff/matches/:id/open-room`
+- **Auth**: `requireStaff`
+- **Rate Limit**: 30 req/min per staff user (Requirement 4)
+- **Request Body**:
+  ```json
+  {
+    "roomId": "123456",
+    "roomPassword": "secretpass"
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "id": "2",
+      "status": "room_open"
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `INVALID_TRANSITION`, `NOT_FOUND`
+
+#### `POST /api/v1/staff/matches/:id/go-live`
+- **Auth**: `requireStaff`
+- **Rate Limit**: 30 req/min per staff user (Requirement 4)
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Match is now live"
+    }
+  }
+  ```
+- **Error Codes**: `INVALID_TRANSITION`, `NOT_FOUND`, `VALIDATION_ERROR`
+
+#### `POST /api/v1/staff/matches/:id/cancel`
+- **Auth**: `requireStaff`
+- **Rate Limit**: 30 req/min per staff user (Requirement 4)
+- **Request Body**:
+  ```json
+  {
+    "reason": "Technical issue with custom room"
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Match cancelled and players refunded"
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `INVALID_TRANSITION`, `NOT_FOUND`
+
+#### `POST /api/v1/staff/matches/:id/result`
+- **Auth**: `requireStaff`
+- **Rate Limit**: 30 req/min per staff user (Requirement 4)
+- **Content-Type**: `multipart/form-data`
+- **Form Fields**:
+  - `entries`: JSON string containing array of `{ userId, kills, position }`
+  - `screenshot`: file (max 2 MB)
+- **Validation**: Staff member cannot submit result if they participated in the match.
+- **Success Response (201)**:
+  ```json
+  {
+    "data": {
+      "result": {
+        "id": "1",
+        "matchId": "2",
+        "status": "pending_approval"
+      }
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `RESULT_INVALID`, `FORBIDDEN`, `INVALID_TRANSITION`, `NOT_FOUND`
+
+#### `GET /api/v1/staff/matches/:id/result`
+- **Auth**: `requireStaff`
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "id": "1",
+      "matchId": "2",
+      "entries": [
+        {
+          "userId": "10",
+          "kills": 3,
+          "position": 1
+        }
+      ],
+      "screenshotUrl": "match-results/2/result_123.jpg",
+      "signedScreenshotUrl": "http://localhost:3000/api/v1/files/match-results/2/result_123.jpg?token=...",
+      "status": "pending_approval",
+      "rejectReason": null,
+      "submittedBy": "1",
+      "approvedBy": null,
+      "createdAt": "2026-10-10T16:00:00.000Z",
+      "approvedAt": null
+    }
+  }
+  ```
+- **Error Codes**: `NOT_FOUND`, `VALIDATION_ERROR`
+
+#### `GET /api/v1/staff/deposits`
+- **Auth**: `requireStaff`
+- **Query Parameters**:
+  - `status`: `'pending' | 'employee_approved' | 'approved' | 'rejected'`
+  - `cursor`: string
+  - `limit`: number
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "items": [
+        {
+          "id": "1",
+          "userId": "10",
+          "userEmail": "player@example.com",
+          "amount": "100.00",
+          "utr": "123456789012",
+          "screenshotUrl": "https://storage.booyah.win/uploads/s.jpg?sig=...",
+          "status": "pending",
+          "rejectReason": null,
+          "needsAdmin": false,
+          "pendingMinutes": 15,
+          "createdAt": "2026-10-10T10:00:00.000Z",
+          "reviewedAt": null,
+          "reviewedBy": null,
+          "employeeReviewedAt": null,
+          "employeeReviewedBy": null
+        }
+      ],
+      "nextCursor": null
+    }
+  }
+  ```
+
+#### `POST /api/v1/staff/deposits/:id/verify`
+- **Auth**: `requireStaff` (Employees only; admin calling this gets 403 `ADMINS_APPROVE_DIRECTLY`)
+- **Rate Limit**: 30 req/min per staff user
+- **Validation**: Only pending deposits can be verified. Staff cannot verify their own deposit (`FORBIDDEN`).
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Deposit verified"
+    }
+  }
+  ```
+- **Error Codes**: `ADMINS_APPROVE_DIRECTLY`, `FORBIDDEN`, `VALIDATION_ERROR`, `NOT_FOUND`
+
+#### `POST /api/v1/staff/deposits/:id/approve`
+- **Auth**: `requireStaff` (Admin only; employees get 403 `FORBIDDEN`)
+- **Rate Limit**: 30 req/min per staff user
+- **Validation**: Final approval moves money. Admin can approve deposits in `employee_approved` state or directly from `pending` state (audited as `deposit_approved_direct`). Staff cannot approve their own deposit (`FORBIDDEN`).
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Deposit approved"
+    }
+  }
+  ```
+- **Error Codes**: `FORBIDDEN`, `VALIDATION_ERROR`, `NOT_FOUND`
+
+#### `POST /api/v1/staff/deposits/:id/reject`
+- **Auth**: `requireStaff`
+- **Rate Limit**: 30 req/min per staff user
+- **Request Body**:
+  ```json
+  {
+    "reason": "Invalid transaction reference"
+  }
+  ```
+- **Validation**: Rejection reason must be at least 5 characters. Employees can reject only `pending` deposits; only administrators can reject `employee_approved` deposits (403 `FORBIDDEN`). Staff cannot reject their own deposit (`FORBIDDEN`).
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Deposit rejected"
+    }
+  }
+  ```
+- **Error Codes**: `FORBIDDEN`, `VALIDATION_ERROR`, `NOT_FOUND`
+
+#### `GET /api/v1/staff/withdrawals`
+- **Auth**: `requireStaff`
+- **Query Parameters**:
+  - `status`: `'pending' | 'employee_approved' | 'paid' | 'rejected'`
+  - `cursor`: string
+  - `limit`: number
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "items": [
+        {
+          "id": "1",
+          "userId": "10",
+          "userEmail": "player@example.com",
+          "amount": "50.00",
+          "upiId": "player@upi",
+          "status": "pending",
+          "rejectReason": null,
+          "payoutRef": null,
+          "createdAt": "2026-10-10T10:00:00.000Z",
+          "processedAt": null,
+          "processedBy": null,
+          "employeeReviewedAt": null,
+          "employeeReviewedBy": null
+        }
+      ],
+      "nextCursor": null
+    }
+  }
+  ```
+
+#### `POST /api/v1/staff/withdrawals/:id/verify`
+- **Auth**: `requireStaff` (Employees only; admin calling this gets 403 `ADMINS_APPROVE_DIRECTLY`)
+- **Rate Limit**: 30 req/min per staff user
+- **Validation**: Only pending withdrawals can be verified. Staff cannot verify their own withdrawal (`FORBIDDEN`).
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Withdrawal verified"
+    }
+  }
+  ```
+- **Error Codes**: `ADMINS_APPROVE_DIRECTLY`, `FORBIDDEN`, `VALIDATION_ERROR`, `NOT_FOUND`
+
+#### `POST /api/v1/staff/withdrawals/:id/mark-paid`
+- **Auth**: `requireStaff` (Admin only; employees get 403 `FORBIDDEN`)
+- **Rate Limit**: 30 req/min per staff user
+- **Request Body**:
+  ```json
+  {
+    "payoutRef": "BANK-REF-9988"
+  }
+  ```
+- **Validation**: `payoutRef` is required. Admin can mark paid withdrawals in `employee_approved` state or directly from `pending` state (audited as `withdrawal_paid_direct`). Staff cannot process their own withdrawal (`FORBIDDEN`).
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Withdrawal marked as paid"
+    }
+  }
+  ```
+- **Error Codes**: `FORBIDDEN`, `VALIDATION_ERROR`, `NOT_FOUND`
+
+#### `POST /api/v1/staff/withdrawals/:id/reject`
+- **Auth**: `requireStaff`
+- **Rate Limit**: 30 req/min per staff user
+- **Request Body**:
+  ```json
+  {
+    "reason": "Invalid UPI VPA"
+  }
+  ```
+- **Validation**: Rejection reason must be at least 5 characters. Refunds held amount back to winning wallet. Employees can reject only `pending` withdrawals; only administrators can reject `employee_approved` withdrawals (403 `FORBIDDEN`). Staff cannot reject their own withdrawal (`FORBIDDEN`).
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Withdrawal rejected"
+    }
+  }
+  ```
+- **Error Codes**: `FORBIDDEN`, `VALIDATION_ERROR`, `NOT_FOUND`
+
+#### `GET /api/v1/staff/transactions`
+- **Auth**: `requireStaff` (Both employees and administrators)
+- **Rate Limit**: Global (100 req/min)
+- **Description**: Search and list platform transactions across all wallets with cursor pagination.
+- **Query Parameters**:
+  - `q`: string (search by transaction ID, user ID, name, username, email, UTR, UPI, or payout ref)
+  - `wallet`: `'all' | 'add_money' | 'winning' | 'cashback'`
+  - `type`: `'all' | 'add_money' | 'join_fee' | 'winning' | 'refund' | 'withdrawal' | 'referral' | 'admin_adjustment'`
+  - `cursor`: string
+  - `limit`: number
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "items": [
+        {
+          "transactionId": "BW-TRX-1",
+          "id": 1,
+          "userId": "BW-USR-1",
+          "userName": "Player One",
+          "userEmail": "player@example.com",
+          "userUsername": "player1",
+          "wallet": "add_money",
+          "walletName": "Deposited",
+          "type": "add_money",
+          "amount": "+100.00",
+          "balanceAfter": "100.00",
+          "totalAfter": "100.00",
+          "refType": "deposit",
+          "refId": "BW-DPT-1",
+          "createdAt": "2026-10-31T05:00:00.000Z"
+        }
+      ],
+      "nextCursor": null
+    }
+  }
+  ```
+
+#### `GET /api/v1/staff/transactions/:id`
+- **Auth**: `requireStaff` (Both employees and administrators)
+- **Rate Limit**: Global (100 req/min)
+- **Description**: Retrieve detailed transaction breakdown including user profile, wallet ledger state, and linked contextual entities (matches, deposits, withdrawals, referrals, or adjustments).
+- **Parameters**:
+  - `:id`: string (BW-TRX-XXXXXXX or raw numeric ID)
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "transactionId": "BW-TRX-1",
+      "id": 1,
+      "userId": "BW-USR-1",
+      "userName": "Player One",
+      "userEmail": "player@example.com",
+      "userMobile": "9876543210",
+      "userUsername": "player1",
+      "userFfId": "12345678",
+      "userFfName": "PlayerFF",
+      "type": "add_money",
+      "createdAt": "2026-10-31T05:00:00.000Z",
+      "amount": "+100.00",
+      "balanceAfter": "100.00",
+      "remainingAmount": "100.00",
+      "wallet": "add_money",
+      "walletName": "Deposited",
+      "status": "successful",
+      "statusReason": null,
+      "refType": "deposit",
+      "refId": "BW-DPT-1",
+      "breakdown": null,
+      "deposit": {
+        "id": "BW-DPT-1",
+        "amount": "100.00",
+        "utr": "UTR1234567890",
+        "screenshotUrl": "http://localhost:3000/api/v1/files/screenshot.png",
+        "status": "approved",
+        "rejectReason": null,
+        "createdAt": "2026-10-31T04:55:00.000Z",
+        "reviewedAt": "2026-10-31T05:00:00.000Z",
+        "reviewedBy": "admin@booyah.win"
+      },
+      "match": null,
+      "withdrawal": null,
+      "referral": null,
+      "adjustment": null
+    }
+  }
+  ```
+
+#### `GET /api/v1/staff/users`
+- **Auth**: `requireStaff` (Both employees and administrators)
+- **Rate Limit**: Global (100 req/min)
+- **Description**: Search and list users with cursor pagination. Sensitive fields are masked: `mobile` (`******7890`), `upiId` (`****1234@upi`). Restricted strictly by explicit allowlist (omits `dateOfBirth`, `pan`, `aadhaar`, and referral chain `referredBy`).
+- **Query Parameters**:
+  - `q`: string (search by name, email, mobile, or Free Fire ID)
+  - `cursor`: string
+  - `limit`: number
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "items": [
+        {
+          "id": "5",
+          "name": "New Player",
+          "email": "user@example.com",
+          "mobile": "******3299",
+          "ffId": "99887766",
+          "ffName": "NewPlayerPro",
+          "upiId": "user@upi",
+          "isDeleted": false,
+          "deletedAt": null,
+          "createdAt": "2026-10-13T10:19:39.709Z"
+        }
+      ],
+      "nextCursor": null,
+      "hasMore": false
+    }
+  }
+  ```
+- **Error Codes**: `UNAUTHENTICATED`, `FORBIDDEN`
+
+#### `GET /api/v1/staff/users/:id`
+- **Auth**: `requireStaff` (Both employees and administrators)
+- **Rate Limit**: 60 req/min per staff user. Additionally, employees have a daily distinct user view cap (default 300 per day). Exceeding this cap returns 429 `RATE_LIMITED` and logs an audit entry `user_view_limit_exceeded`.
+- **Description**: Retrieves user detail (profile, wallets, recent ledger, recent matches, and pending requests). Masked fields (`mobile`, `upiId`) and explicit profile allowlist apply. Every staff view (employee and admin) is audited as `user_viewed`.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "profile": {
+        "id": "1",
+        "name": "Player One",
+        "email": "user@example.com",
+        "mobile": "******3210",
+        "ffId": "12345678",
+        "ffName": "ProPlayer1",
+        "upiId": "user@upi",
+        "isDeleted": false,
+        "deletedAt": null,
+        "createdAt": "2026-10-13T10:19:39.466Z"
+      },
+      "wallets": {
+        "addMoney": "210.00",
+        "cashback": "0.00",
+        "winning": "150.00",
+        "total": "360.00"
+      },
+      "recentLedger": [
+        {
+          "id": 14,
+          "wallet": "winning",
+          "type": "withdrawal_refund",
+          "amount": "50.00",
+          "balanceAfter": "150.00",
+          "totalAfter": "360.00",
+          "refType": "withdrawal",
+          "refId": "2",
+          "createdAt": "2026-10-13T10:19:39.967Z"
+        }
+      ],
+      "recentMatches": [],
+      "pendingRequests": {
+        "deposits": [],
+        "withdrawals": []
+      }
+    }
+  }
+  ```
+- **Error Codes**: `UNAUTHENTICATED`, `FORBIDDEN`, `NOT_FOUND`, `RATE_LIMITED`
+
+#### `GET /api/v1/staff/notifications/push-key`
+- **Auth**: `requireStaff`
+- **Description**: Returns VAPID public key for browser push notification registration.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "publicKey": "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QT9t044Yjs6by0vU1guePG6VE18xLv1gX..."
+    },
+    "publicKey": "BNcRdreALRFXTkOOUHK1EtK2wtaz5Ry4YfYCA_0QT9t044Yjs6by0vU1guePG6VE18xLv1gX..."
+  }
+  ```
+
+#### `POST /api/v1/staff/notifications/push-subscribe`
+- **Auth**: `requireStaff`
+- **Description**: Subscribes the current staff browser session to push notifications.
+- **Request Body**:
+  ```json
+  {
+    "endpoint": "https://fcm.googleapis.com/fcm/send/...",
+    "keys": {
+      "p256dh": "...",
+      "auth": "..."
+    }
+  }
+  ```
+- **Success Response (201)**:
+  ```json
+  {
+    "message": "Staff push subscription registered successfully"
+  }
+  ```
+
+#### `POST /api/v1/staff/notifications/push-unsubscribe`
+- **Auth**: `requireStaff`
+- **Description**: Removes a staff push subscription.
+- **Request Body**:
+  ```json
+  {
+    "endpoint": "https://fcm.googleapis.com/fcm/send/..."
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "message": "Push subscription removed successfully"
+  }
+  ```
+
+#### `GET /api/v1/staff/notifications`
+- **Auth**: `requireStaff`
+- **Description**: Returns list of internal operational staff notifications (deposits, withdrawals, match events) and unread count.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "items": [
+        {
+          "id": "1",
+          "targetRole": "all",
+          "staffId": null,
+          "type": "deposit_submitted",
+          "title": "New Deposit Request: ₹500",
+          "message": "Player submitted deposit with UTR 123456789012.",
+          "actionUrl": "/deposits",
+          "metadata": {},
+          "isRead": false,
+          "createdAt": "2026-10-30T10:00:00.000Z"
+        }
+      ],
+      "unreadCount": 1
+    }
+  }
+  ```
+
+#### `PATCH /api/v1/staff/notifications/:id/read`
+- **Auth**: `requireStaff`
+- **Description**: Marks a staff notification as read.
+- **Success Response (200)**:
+  ```json
+  {
+    "message": "Notification marked as read"
+  }
+  ```
+
+#### `POST /api/v1/staff/notifications/mark-all-read`
+- **Auth**: `requireStaff`
+- **Description**: Marks all notifications visible to this staff role as read.
+- **Success Response (200)**:
+  ```json
+  {
+    "message": "All notifications marked as read"
+  }
+  ```
+
+---
+
+### Group 9: Admin Management
+> **Verified against**: `apps/api/tests/admin_employees.test.ts`, `apps/api/tests/entry_tiers.test.ts`, `apps/api/tests/profile_and_admin_management.test.ts`, `apps/api/tests/results_and_payouts.test.ts`, `apps/api/tests/settings_and_public.test.ts`
+> Untested endpoints: **None**
+
+#### `GET /api/v1/admin/employees`
+- **Auth**: `requireAdmin`
+- **Query Parameters**:
+  - `q`: string (optional, search by name or email)
+  - `cursor`: string (optional)
+  - `limit`: number (optional, 1..100, default 20)
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "items": [
+        {
+          "id": "4",
+          "role": "employee",
+          "name": "Contract Staff",
+          "email": "staff@booyah.win",
+          "mobile": "9999999999",
+          "pan": "XXXXXX234F",
+          "aadhaar": "XXXX XXXX 9012",
+          "createdBy": "1",
+          "createdAt": "2026-10-11T16:21:25.150Z"
+        }
+      ],
+      "nextCursor": null
+    }
+  }
+  ```
+
+#### `POST /api/v1/admin/employees`
+- **Auth**: `requireAdmin`
+- **Request Body**:
+  ```json
+  {
+    "name": "Jane Employee",
+    "email": "jane@example.com",
+    "mobile": "9998887776",
+    "pan": "ABCDE1234F",
+    "aadhaar": "123412341234"
+  }
+  ```
+- **Success Response (201)**:
+  ```json
+  {
+    "data": {
+      "employee": {
+        "id": "4",
+        "role": "employee",
+        "name": "Contract Staff",
+        "email": "staff@booyah.win",
+        "mobile": "9999999999",
+        "pan": "XXXXXX234F",
+        "aadhaar": "XXXX XXXX 9012",
+        "createdBy": "1",
+        "createdAt": "2026-10-11T16:21:25.150Z"
+      }
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `EMAIL_EXISTS`
+
+#### `PATCH /api/v1/admin/employees/:id`
+- **Auth**: `requireAdmin`
+- **Request Body**:
+  ```json
+  {
+    "name": "Jane Updated",
+    "mobile": "9998887770"
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "employee": {
+        "id": "4",
+        "role": "employee",
+        "name": "Contract Staff",
+        "email": "staff@booyah.win",
+        "mobile": "9999999999",
+        "pan": "XXXXXX234F",
+        "aadhaar": "XXXX XXXX 9012",
+        "createdBy": "1",
+        "createdAt": "2026-10-11T16:21:25.150Z"
+      }
+    }
+  }
+  ```
+- **Error Codes**: `NOT_FOUND`, `EMAIL_EXISTS`, `VALIDATION_ERROR`
+
+#### `DELETE /api/v1/admin/employees/:id`
+- **Auth**: `requireAdmin`
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Employee deleted successfully"
+    }
+  }
+  ```
+- **Error Codes**: `NOT_FOUND`, `FORBIDDEN` (cannot delete self)
+
+#### `GET /api/v1/admin/tiers`
+- **Auth**: `requireAdmin`
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "tiers": [
+        {
+          "id": "1",
+          "gameMode": "battle_royale",
+          "teamMode": "solo",
+          "entryFee": "10.00",
+          "killPrice": "5.00",
+          "minKillsForReward": 2,
+          "maxPlayers": 48,
+          "minPlayers": 24,
+          "positions": [
+            { "position": 1, "prize": "50.00" },
+            { "position": 2, "prize": "40.00" },
+            { "position": 3, "prize": "30.00" }
+          ],
+          "createdAt": "2026-10-11T16:21:24.492Z"
+        }
+      ]
+    }
+  }
+  ```
+
+#### `POST /api/v1/admin/tiers`
+- **Auth**: `requireAdmin`
+- **Rate Limit**: 30 req/min per staff user (Requirement 4)
+- **Request Body**:
+  ```json
+  {
+    "gameMode": "battle_royale",
+    "teamMode": "squad",
+    "entryFee": "25.00",
+    "killPrice": "10.00",
+    "minKillsForReward": 2,
+    "maxPlayers": 48,
+    "minPlayers": 24,
+    "positions": [
+      { "position": 1, "prize": "100.00" },
+      { "position": 2, "prize": "50.00" }
+    ]
+  }
+  ```
+- **Success Response (201)**:
+  ```json
+  {
+    "data": {
+      "tier": {
+        "id": "5",
+        "gameMode": "battle_royale",
+        "teamMode": "squad",
+        "entryFee": "25.00",
+        "killPrice": "10.00",
+        "minKillsForReward": 2,
+        "maxPlayers": 48,
+        "minPlayers": 24,
+        "positions": [
+          { "position": 1, "prize": "100.00" },
+          { "position": 2, "prize": "50.00" }
+        ],
+        "createdAt": "2026-10-11T16:21:25.174Z"
+      },
+      "warning": "Profit guard warning: Max possible payout (₹620.00) exceeds minimum collected fees (₹600.00)."
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `409 VALIDATION_ERROR` (active tier duplicate)
+
+#### `GET /api/v1/admin/tiers/:id`
+- **Auth**: `requireAdmin`
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "tier": {
+        "id": "5",
+        "gameMode": "battle_royale",
+        "teamMode": "squad",
+        "entryFee": "25.00",
+        "killPrice": "10.00",
+        "minKillsForReward": 2,
+        "maxPlayers": 48,
+        "minPlayers": 24,
+        "positions": [
+          { "position": 1, "prize": "100.00" },
+          { "position": 2, "prize": "50.00" }
+        ],
+        "createdAt": "2026-10-11T16:21:25.174Z"
+      }
+    }
+  }
+  ```
+- **Error Codes**: `NOT_FOUND`
+
+#### `PATCH /api/v1/admin/tiers/:id`
+- **Auth**: `requireAdmin`
+- **Request Body**: Partial tier fields
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "tier": {
+        "id": "5",
+        "gameMode": "battle_royale",
+        "teamMode": "squad",
+        "entryFee": "25.00",
+        "killPrice": "12.00",
+        "minKillsForReward": 2,
+        "maxPlayers": 48,
+        "minPlayers": 24,
+        "positions": [
+          { "position": 1, "prize": "100.00" },
+          { "position": 2, "prize": "50.00" }
+        ],
+        "createdAt": "2026-10-11T16:21:25.174Z"
+      },
+      "warning": "Profit guard warning: Max possible payout (₹714.00) exceeds minimum collected fees (₹600.00)."
+    }
+  }
+  ```
+- **Error Codes**: `NOT_FOUND`, `VALIDATION_ERROR`
+
+#### `DELETE /api/v1/admin/tiers/:id`
+- **Auth**: `requireAdmin`
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "message": "Entry tier deleted successfully"
+    }
+  }
+  ```
+- **Error Codes**: `NOT_FOUND`
+
+#### `GET /api/v1/admin/users`
+- **Auth**: `requireAdmin`
+- **Query Parameters**:
+  - `q`: string (search by name, email, mobile, or Free Fire ID)
+  - `cursor`: string
+  - `limit`: number
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "items": [
+        {
+          "id": "4",
+          "name": "New Player",
+          "email": "user@example.com",
+          "mobile": "9999999999",
+          "ffId": "99887766",
+          "ffName": "ProPlayerUpdated",
+          "upiId": "user@upi",
+          "isDeleted": false,
+          "deletedAt": null,
+          "createdAt": "2026-10-11T16:21:24.738Z"
+        }
+      ],
+      "nextCursor": null,
+      "hasMore": false
+    }
+  }
+  ```
+
+#### `GET /api/v1/admin/users/:id`
+- **Auth**: `requireAdmin`
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "profile": {
+        "id": "1",
+        "name": "Player One",
+        "email": "user@example.com",
+        "mobile": "9999999999",
+        "ffId": "12345678",
+        "ffName": "ProPlayer1",
+        "upiId": "user@upi",
+        "dateOfBirth": "2000-01-01",
+        "referralCode": "L32BS9MW",
+        "referredBy": null,
+        "isDeleted": false,
+        "deletedAt": null,
+        "deletedReason": null,
+        "deletedBy": null,
+        "createdAt": "2026-10-11T16:21:24.504Z"
+      },
+      "wallets": {
+        "addMoney": "130.00",
+        "cashback": "0.00",
+        "winning": "0.00",
+        "total": "130.00"
+      },
+      "recentLedger": [
+        {
+          "id": 22,
+          "wallet": "winning",
+          "type": "winning",
+          "amount": "310.00",
+          "balanceAfter": "410.00",
+          "totalAfter": "540.00",
+          "refType": null,
+          "refId": "11",
+          "createdAt": "2026-10-11T16:21:25.135Z"
+        }
+      ],
+      "matchHistory": [
+        {
+          "matchId": "11",
+          "gameMode": "battle_royale",
+          "teamMode": "solo",
+          "entryFee": "20.00",
+          "startTime": "2026-12-03T10:00:00.000Z",
+          "matchStatus": "completed",
+          "kills": 1,
+          "position": 1,
+          "payout": "310.00",
+          "displayStatus": "Booyah",
+          "joinedAt": "2026-10-11T16:21:25.105Z"
+        }
+      ]
+    }
+  }
+  ```
+- **Error Codes**: `NOT_FOUND`
+
+#### `DELETE /api/v1/admin/users/:id`
+- **Auth**: `requireAdmin`
+- **Request Body**:
+  ```json
+  {
+    "reason": "Fraudulent activity"
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "id": "5",
+      "message": "User deleted successfully"
+    }
+  }
+  ```
+- **Error Codes**: `NOT_FOUND`, `VALIDATION_ERROR` (reason < 5 chars), `409 INVALID_TRANSITION` (already deleted)
+
+#### `POST /api/v1/admin/users/:id/adjust`
+- **Auth**: `requireAdmin`
+- **Rate Limit**: 30 req/min per staff user (Requirement 4)
+- **Request Body**:
+  ```json
+  {
+    "wallet": "winning",
+    "amount": "20.00",
+    "reason": "Tournament bonus reward"
+  }
+  ```
+- **Validation**: `wallet` must be `'add_money' | 'cashback' | 'winning'`. Reason $\ge 5$ characters; signed 2-decimal amount string (e.g. `"-20.00"` for debit); zero amount rejected; debit cannot make balance negative.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "userId": "1",
+      "wallet": "winning",
+      "amount": "20.00",
+      "balances": {
+        "addMoney": "130.00",
+        "cashback": "0.00",
+        "winning": "20.00",
+        "total": "150.00"
+      }
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `LOW_BALANCE`, `NOT_FOUND`
+
+#### `GET /api/v1/admin/results` (and `GET /api/v1/admin/results/queue`)
+- **Auth**: `requireAdmin`
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "results": [
+        {
+          "id": "1",
+          "matchId": "2",
+          "status": "pending_approval",
+          "submittedBy": "1",
+          "createdAt": "2026-10-10T16:00:00.000Z",
+          "screenshotUrl": "match-results/2/result_123.jpg",
+          "gameMode": "battle_royale",
+          "teamMode": "duo",
+          "matchStatus": "live"
+        }
+      ],
+      "count": 1
+    }
+  }
+  ```
+
+#### `GET /api/v1/admin/results/:matchId/preview`
+- **Auth**: `requireAdmin`
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "entries": [
+        {
+          "userId": "10",
+          "kills": 3,
+          "position": 1,
+          "killReward": "15.00",
+          "positionPrize": "50.00",
+          "payout": "65.00",
+          "payoutPaise": 6500,
+          "isDeleted": false
+        }
+      ],
+      "totalCollected": "40.00",
+      "totalCollectedPaise": 4000,
+      "totalPayout": "135.00",
+      "totalPayoutPaise": 13500,
+      "difference": "-95.00",
+      "differencePaise": -9500,
+      "warning": "Payout exceeds total entry fees collected"
+    }
+  }
+  ```
+- **Error Codes**: `NOT_FOUND`, `RESULT_INVALID`, `VALIDATION_ERROR`
+
+#### `POST /api/v1/admin/results/:matchId/approve`
+- **Auth**: `requireAdmin`
+- **Rate Limit**: 30 req/min per staff user (Requirement 4)
+- **Description**: Recomputes payouts, verifies current roster, credits winners' `winning` wallets, and marks match `completed`.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "matchId": "2",
+      "status": "approved",
+      "message": "Result approved and payouts credited"
+    }
+  }
+  ```
+- **Error Codes**: `RESULT_LOCKED`, `RESULT_INVALID`, `INVALID_TRANSITION`, `VALIDATION_ERROR`
+
+#### `POST /api/v1/admin/results/:matchId/reject`
+- **Auth**: `requireAdmin`
+- **Rate Limit**: 30 req/min per staff user (Requirement 4)
+- **Request Body**:
+  ```json
+  {
+    "reason": "Scoreboard screenshot does not match entered kills"
+  }
+  ```
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "matchId": "2",
+      "status": "rejected",
+      "rejectionReason": "Scoreboard screenshot does not match entered kills"
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `RESULT_LOCKED`, `INVALID_TRANSITION`
+
+#### `POST /api/v1/admin/results/:matchId/reverse`
+- **Auth**: `requireAdmin`
+- **Rate Limit**: 30 req/min per staff user (Requirement 4)
+- **Request Body**:
+  ```json
+  {
+    "reason": "Dispute resolved in favor of runner up"
+  }
+  ```
+- **Description**: Atomically debits winning balances credited during approval, records `reversal` ledger entries and audit log. Resets match back to `live` and result back to `rejected`.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "matchId": "2",
+      "status": "reversed",
+      "message": "Result reversed and payouts debited"
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `INVALID_TRANSITION`, `LOW_BALANCE`
+  - `400 LOW_BALANCE`:
+    ```json
+    {
+      "error": {
+        "code": "LOW_BALANCE",
+        "message": "Cannot reverse result: one or more players have insufficient winning balance",
+        "details": {
+          "affectedUsers": [
+            {
+              "userId": "10",
+              "requiredWinningPaise": 5000,
+              "currentWinningPaise": 1000,
+              "deficitPaise": 4000
+            }
+          ]
+        }
+      }
+    }
+    ```
+
+#### `GET /api/v1/admin/settings`
+- **Auth**: `requireAdmin`
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "settings": {
+        "min_deposit": "10.00",
+        "max_deposit": "5000.00",
+        "admin_approval_threshold": "2000.00",
+        "support_name": "",
+        "support_phone": "",
+        "support_email": "",
+        "support_hours": "10:00 AM - 10:00 PM IST",
+        "payment_upi_id": "",
+        "payment_qr_url": "",
+        "payment_qr_key": ""
+      }
+    }
+  }
+  ```
+
+#### `PATCH /api/v1/admin/settings`
+- **Auth**: `requireAdmin`
+- **Request Body**: Key-value settings map (rejects `payment_qr_key` and rejects writes to unused `admin_approval_threshold`)
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "settings": {
+        "min_deposit": "15.00",
+        "max_deposit": "6000.00",
+        "support_name": "Booyah Support Team"
+      }
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`
+
+#### `POST /api/v1/admin/settings/payment-qr`
+- **Auth**: `requireAdmin`
+- **Content-Type**: `multipart/form-data`
+- **Form Fields**:
+  - `file`: image file (max 2 MB, JPEG/PNG/WebP)
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "paymentQrKey": "https://storage.example.com/placeholder.jpg",
+      "qrUrl": "https://storage.example.com/placeholder.jpg"
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`
+
+#### `POST /api/v1/admin/settings/match-banner`
+- **Auth**: `requireAdmin`
+- **Content-Type**: `multipart/form-data`
+- **Form Fields**:
+  - `file`: image file (max 2 MB, JPEG/PNG/WebP)
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "matchRulesImageKey": "https://storage.example.com/placeholder.jpg",
+      "matchRulesImageUrl": "https://storage.example.com/placeholder.jpg"
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`
+
+#### `DELETE /api/v1/admin/settings/match-banner`
+- **Auth**: `requireAdmin`
+- **Description**: Removes the uploaded tournament banner image and reverts to default match graphic.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "matchRulesImageUrl": ""
+    }
+  }
+  ```
+- **Error Codes**: None
+
+
+#### `GET /api/v1/admin/audit-logs`
+- **Auth**: `requireAdmin`
+- **Query Parameters**:
+  - `staffId`: string (optional)
+  - `action`: string (optional)
+  - `from`: string (optional, ISO date)
+  - `to`: string (optional, ISO date)
+  - `cursor`: string (optional)
+  - `limit`: number (optional, default 20)
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "items": [
+        {
+          "id": "43",
+          "staffId": "1",
+          "staffName": "Admin User",
+          "action": "settings_payment_qr_updated",
+          "targetType": "app_settings",
+          "targetId": null,
+          "details": {
+            "newKey": "https://storage.example.com/placeholder.jpg",
+            "oldKey": null
+          },
+          "createdAt": "2026-10-11T16:21:25.279Z"
+        }
+      ],
+      "nextCursor": "34"
+    }
+  }
+  ```
+- **Error Codes**: `UNAUTHENTICATED`, `FORBIDDEN`
+
+#### `GET /api/v1/admin/audit-logs/:id`
+- **Auth**: `requireAdmin`
+- **Description**: Returns detailed single audit log trace by ID.
+- **Path Parameters**:
+  - `id`: string (numeric ID)
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "log": {
+        "id": "43",
+        "staffId": "BW-STF-1",
+        "staffName": "Admin User",
+        "staffRole": "admin",
+        "staffEmail": "admin@booyahwin.com",
+        "action": "settings_updated",
+        "targetType": "app_settings",
+        "targetId": null,
+        "details": {
+          "updatedKeys": ["cashback_max_percent"],
+          "changes": {
+            "cashback_max_percent": {
+              "old": "5",
+              "new": "10"
+            }
+          }
+        },
+        "createdAt": "2026-10-11T16:21:25.279Z"
+      }
+    }
+  }
+  ```
+- **Error Codes**: `VALIDATION_ERROR`, `NOT_FOUND`, `UNAUTHENTICATED`, `FORBIDDEN`
+#### `GET /api/v1/admin/banners`
+- **Auth**: `requireAdmin`
+- **Description**: Returns all configured promotional banners (including inactive) sorted by `sortOrder`.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "banners": [
+        {
+          "id": "1",
+          "imageUrl": "https://storage.example.com/banner1.jpg",
+          "targetUrl": "https://t.me/booyahwin",
+          "title": "Welcome Tournament Banner",
+          "sortOrder": 0,
+          "isActive": true,
+          "createdAt": "2026-10-25T12:00:00.000Z"
+        }
+      ]
+    }
+  }
+  ```
+
+#### `POST /api/v1/admin/banners`
+- **Auth**: `requireAdmin`
+- **Content-Type**: `multipart/form-data`
+- **Form Fields**:
+  - `file`: image file (max 2 MB, JPEG/PNG/WebP)
+  - `targetUrl`: optional external/internal link
+  - `title`: optional banner title
+  - `sortOrder`: number (default: 0)
+  - `isActive`: boolean (default: true)
+- **Success Response (201)**:
+  ```json
+  {
+    "data": {
+      "banner": {
+        "id": "2",
+        "imageUrl": "https://storage.example.com/banner2.jpg",
+        "targetUrl": "https://t.me/booyahwin",
+        "title": "New Season",
+        "sortOrder": 1,
+        "isActive": true,
+        "createdAt": "2026-10-25T12:00:00.000Z"
+      }
+    }
+  }
+  ```
+
+#### `PATCH /api/v1/admin/banners/:id`
+- **Auth**: `requireAdmin`
+- **Description**: Updates an existing promotional banner. Accepts JSON or multipart/form-data (with optional new image file).
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "banner": {
+        "id": "2",
+        "imageUrl": "https://storage.example.com/banner2.jpg",
+        "targetUrl": "https://t.me/booyahwin",
+        "title": "Updated Title",
+        "sortOrder": 2,
+        "isActive": true,
+        "createdAt": "2026-10-25T12:00:00.000Z"
+      }
+    }
+  }
+  ```
+
+#### `DELETE /api/v1/admin/banners/:id`
+- **Auth**: `requireAdmin`
+- **Description**: Permanently removes a promotional banner.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "success": true
+    }
+  }
+  ```
+
+#### `GET /api/v1/admin/updates`
+- **Auth**: `requireAdmin`
+- **Description**: Returns all configured Important Updates (both active and inactive) sorted by `priority` descending and `createdAt` descending.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "updates": [
+        {
+          "id": "1",
+          "title": "Notification About Snipers Ban in Squad & CS",
+          "category": "RULES",
+          "dateDisplay": "25 Oct 2026",
+          "heading": "Official Weapon Restrictions",
+          "summary": "M82B and AWM are strictly banned from all Squad and Clash Squad matches.",
+          "content": "Due to competitive integrity concerns, sniper rifles are prohibited. Read details at https://booyahwin.com/rules",
+          "linkUrl": "https://booyahwin.com/rules",
+          "linkText": "View Full Tournament Rules",
+          "priority": 1,
+          "isActive": true,
+          "createdAt": "2026-10-25T12:00:00.000Z"
+        }
+      ]
+    }
+  }
+  ```
+
+#### `POST /api/v1/admin/updates`
+- **Auth**: `requireAdmin`
+- **Request Body**:
+  ```json
+  {
+    "title": "Notification About Snipers Ban in Squad & CS",
+    "category": "RULES",
+    "dateDisplay": "25 Oct 2026",
+    "heading": "Official Weapon Restrictions",
+    "summary": "M82B and AWM are strictly banned.",
+    "content": "Full announcement text with links...",
+    "linkUrl": "https://booyahwin.com/rules",
+    "linkText": "View Rules",
+    "priority": 1,
+    "isActive": true
+  }
+  ```
+- **Success Response (201)**:
+  ```json
+  {
+    "data": {
+      "update": {
+        "id": "2",
+        "title": "Notification About Snipers Ban in Squad & CS",
+        "category": "RULES",
+        "dateDisplay": "25 Oct 2026",
+        "heading": "Official Weapon Restrictions",
+        "summary": "M82B and AWM are strictly banned.",
+        "content": "Full announcement text with links...",
+        "linkUrl": "https://booyahwin.com/rules",
+        "linkText": "View Rules",
+        "priority": 1,
+        "isActive": true,
+        "createdAt": "2026-10-25T12:00:00.000Z"
+      }
+    }
+  }
+  ```
+
+#### `PATCH /api/v1/admin/updates/:id`
+- **Auth**: `requireAdmin`
+- **Request Body**: Partial update object with fields to change.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "update": {
+        "id": "2",
+        "title": "Updated Title",
+        "category": "RULES",
+        "dateDisplay": "25 Oct 2026",
+        "heading": "Official Weapon Restrictions",
+        "summary": "M82B and AWM are strictly banned.",
+        "content": "Full announcement text with links...",
+        "linkUrl": "https://booyahwin.com/rules",
+        "linkText": "View Rules",
+        "priority": 1,
+        "isActive": true,
+        "createdAt": "2026-10-25T12:00:00.000Z"
+      }
+    }
+  }
+  ```
+
+#### `DELETE /api/v1/admin/updates/:id`
+- **Auth**: `requireAdmin`
+- **Description**: Deletes an Important Update.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "success": true
+    }
+  }
+  ```
+
+#### `GET /api/v1/admin/notifications`
+- **Auth**: `requireAdmin`
+- **Description**: Returns notification broadcast history and targeted notifications.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "items": [
+        {
+          "id": "1",
+          "userId": null,
+          "type": "announcement",
+          "title": "Tournaments Are Back!",
+          "message": "Daily Battle Royale & Clash Squad verified rooms now live.",
+          "actionUrl": "/matches",
+          "createdAt": "2026-10-30T10:00:00.000Z"
+        }
+      ]
+    }
+  }
+  ```
+
+#### `POST /api/v1/admin/notifications`
+- **Auth**: `requireAdmin`
+- **Request Body**:
+  ```json
+  {
+    "target": "all",
+    "type": "announcement",
+    "title": "Tournaments Are Back!",
+    "message": "Daily Battle Royale & Clash Squad verified rooms now live.",
+    "actionUrl": "/matches"
+  }
+  ```
+- **Success Response (201)**:
+  ```json
+  {
+    "data": {
+      "count": 1
+    }
+  }
+  ```
+
+#### `DELETE /api/v1/admin/notifications/:id`
+- **Auth**: `requireAdmin`
+- **Description**: Deletes a broadcast or targeted notification by ID.
+- **Success Response (200)**:
+  ```json
+  {
+    "data": {
+      "success": true
+    }
+  }
+  ```
+
+---
+
+### Group 13: Referral & OpenGraph Endpoints
+> **Verified against**: `apps/api/tests/referralOg.test.ts`
+> Untested endpoints: **None**
+
+#### `GET /api/v1/refer/:code`
+- **Auth**: None
+- **Description**: Public referral link landing page rendering OpenGraph dynamic meta tags.
+
+#### `GET /api/v1/refer/lookup/:code`
+- **Auth**: None
+- **Description**: Public API endpoint to lookup referrer details by referral code.
+
+#### `GET /refer/:code`
+- **Auth**: None
+- **Description**: Root-level public alias for referral link landing page.
+
+#### `GET /refer/lookup/:code`
+- **Auth**: None
+- **Description**: Root-level public alias for referral lookup endpoint.
+

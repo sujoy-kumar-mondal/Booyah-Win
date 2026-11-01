@@ -1,0 +1,26 @@
+{
+  "data": {
+    "id": "1",
+    "matchId": "BW-MCH-4",
+    "entries": [
+      {
+        "kills": 1,
+        "userId": "BW-USR-1",
+        "position": 1
+      },
+      {
+        "kills": 0,
+        "userId": "BW-USR-2",
+        "position": 2
+      }
+    ],
+    "screenshotUrl": "https://storage.example.com/placeholder.jpg",
+    "signedScreenshotUrl": "https://storage.example.com/placeholder.jpg",
+    "status": "pending_approval",
+    "rejectReason": null,
+    "submittedBy": "BW-STF-2",
+    "approvedBy": null,
+    "createdAt": "2026-10-31T18:59:28.908Z",
+    "approvedAt": null
+  }
+}

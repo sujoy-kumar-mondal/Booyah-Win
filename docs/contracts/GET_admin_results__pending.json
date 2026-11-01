@@ -1,0 +1,29 @@
+{
+  "data": {
+    "results": [
+      {
+        "id": "1",
+        "matchId": "BW-MCH-4",
+        "status": "pending_approval",
+        "submittedBy": "BW-STF-2",
+        "createdAt": "2026-10-31T18:59:28.908Z",
+        "screenshotUrl": "https://storage.example.com/placeholder.jpg",
+        "gameMode": "battle_royale",
+        "teamMode": "solo",
+        "matchStatus": "live"
+      },
+      {
+        "id": "2",
+        "matchId": "BW-MCH-6",
+        "status": "pending_approval",
+        "submittedBy": "BW-STF-2",
+        "createdAt": "2026-10-31T18:59:29.244Z",
+        "screenshotUrl": "https://storage.example.com/placeholder.jpg",
+        "gameMode": "battle_royale",
+        "teamMode": "solo",
+        "matchStatus": "live"
+      }
+    ],
+    "count": 2
+  }
+}

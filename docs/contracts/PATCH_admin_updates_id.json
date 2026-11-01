@@ -1,0 +1,25 @@
+{
+  "data": {
+    "update": {
+      "id": "1",
+      "title": "🔥🚨 Updated Notice",
+      "category": "Announcement",
+      "dateDisplay": "23 Jul",
+      "heading": "Headshot-Only Mode Rules & Fair Play",
+      "summary": "Headshot-only mode regulations, prohibited weapons, and strict disqualification rules.",
+      "points": [
+        {
+          "text": "Only kills registered via headshot are counted.",
+          "label": "Headshot Requirement"
+        }
+      ],
+      "notice": "Ensure your Free Fire game recording is enabled.",
+      "linkUrl": "/support",
+      "linkText": "Support Hub",
+      "sortOrder": 1,
+      "isActive": true,
+      "createdAt": "2026-10-31T18:59:30.026Z",
+      "updatedAt": "2026-10-31T18:59:30.043Z"
+    }
+  }
+}

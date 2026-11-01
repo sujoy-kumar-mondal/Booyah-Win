@@ -1,0 +1,13 @@
+{
+  "data": {
+    "userId": "BW-USR-1",
+    "wallet": "winning",
+    "amount": "20.00",
+    "balances": {
+      "addMoney": "50.00",
+      "cashback": "0.00",
+      "winning": "20.00",
+      "total": "70.00"
+    }
+  }
+}

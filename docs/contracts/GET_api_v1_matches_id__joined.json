@@ -1,0 +1,32 @@
+{
+  "data": {
+    "match": {
+      "id": "BW-MCH-2",
+      "gameMode": "battle_royale",
+      "teamMode": "duo",
+      "entryFee": "20.00",
+      "prizes": {
+        "positions": {
+          "1": "300.00"
+        },
+        "killPrice": "10.00",
+        "minKillsForReward": 1
+      },
+      "joinedPlayers": 2,
+      "seatsTaken": 2,
+      "maxPlayers": 48,
+      "minPlayers": 2,
+      "startTime": "2026-12-01T16:00:00.000Z",
+      "status": "live",
+      "mapName": "Bermuda",
+      "map": "Bermuda",
+      "hasJoined": true,
+      "isInTeam": true,
+      "isTeamLeader": true,
+      "canReplaceTeammate": false,
+      "hasReplacedTeammate": false,
+      "roomId": "887766",
+      "roomPassword": "test-room-password"
+    }
+  }
+}

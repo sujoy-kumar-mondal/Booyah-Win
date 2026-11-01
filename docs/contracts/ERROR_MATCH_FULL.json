@@ -1,0 +1,7 @@
+{
+  "error": {
+    "code": "MATCH_FULL",
+    "message": "Match is already full",
+    "details": {}
+  }
+}

@@ -1,0 +1,25 @@
+{
+  "data": {
+    "items": [
+      {
+        "id": "BW-TRX-6",
+        "userId": "BW-USR-1",
+        "userName": "Player One",
+        "userEmail": "user@example.com",
+        "amount": "50.00",
+        "utr": "123456789012",
+        "screenshotUrl": "https://storage.example.com/placeholder.jpg",
+        "status": "pending",
+        "rejectReason": null,
+        "needsAdmin": false,
+        "pendingMinutes": 0,
+        "createdAt": "2026-10-31T18:59:28.922Z",
+        "reviewedAt": null,
+        "reviewedBy": null,
+        "employeeReviewedAt": null,
+        "employeeReviewedBy": null
+      }
+    ],
+    "nextCursor": null
+  }
+}
